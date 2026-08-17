@@ -2542,4 +2542,108 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
   },
+
+  /* REACTIONS & THREADS STYLES */
+  reactionActive: {
+    backgroundColor: "rgba(232, 163, 61, 0.18)",
+    borderColor: colors.accent,
+    borderWidth: 1,
+  },
+
+  addReactionBtn: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  actionModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    justifyContent: "flex-end",
+  },
+
+  actionModalSheet: {
+    backgroundColor: "#12141D",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    padding: 18,
+    paddingBottom: 32,
+  },
+
+  actionModalTitle: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    marginBottom: 12,
+  },
+
+  emojiPickerRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: 8,
+  },
+
+  emojiPickerItem: {
+    padding: 6,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  },
+
+  emojiText: {
+    fontSize: 22,
+  },
+
+  actionDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    marginVertical: 14,
+  },
+
+  actionMenuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+  },
+
+  actionMenuText: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  composerWrapper: {
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    margin: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    overflow: "hidden",
+  },
+
+  replyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(232, 163, 61, 0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(232, 163, 61, 0.2)",
+  },
+
+  replyBannerText: {
+    flex: 1,
+    color: colors.textMuted,
+    fontSize: 11,
+  },
 });
