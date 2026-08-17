@@ -1,54 +1,872 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  FlatList,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
-  Alert,
+  FlatList,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as DocumentPicker from "expo-document-picker";
-import * as ImagePicker from "expo-image-picker";
-import { colors, radius, typography } from "../../../../theme/tokens";
-import { Avatar } from "../../../../components/ui/Avatar";
-import { Badge } from "../../../../components/ui/Badge";
-import { GlassCard } from "../../../../components/ui/GlassCard";
-import { AttachmentCard, parseMessageAttachments } from "../../../../components/chat/AttachmentCard";
+import { useRouter } from "expo-router";
+import { useAuthStore } from "../../../../stores/auth-store";
 import { useWorkspaceStore } from "../../../../stores/workspace-store";
 import { useChatStore } from "../../../../stores/chat-store";
-import { useAuthStore } from "../../../../stores/auth-store";
 import { api } from "../../../../lib/api";
-import {
-  Hash,
-  Volume2,
-  Radio,
-  FileText,
-  Kanban,
-  GitPullRequest,
-  AlertTriangle,
-  Send,
-  Menu,
-  Plus,
-  Users,
-  Bell,
-  Paperclip,
-  Image as ImageIcon,
-  Smile,
-} from "lucide-react-native";
+import { AttachmentCard, parseMessageAttachments } from "../../../../components/chat/AttachmentCard";
+
+/* =========================================================
+   TYPES
+   ========================================================= */
+
+export type Server = {
+  id: string;
+  name: string;
+  iconUrl?: string | null;
+  unreadCount?: number;
+};
+
+export type Channel = {
+  id: string;
+  serverId: string;
+  name: string;
+  type: "text" | "voice" | "project" | "board" | "docs" | "github" | "incident" | "stage";
+  category?: string;
+  unreadCount?: number;
+};
+
+export type Message = {
+  id: string;
+  content: string;
+  createdAt: string;
+  user: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+    roleColor?: string;
+  };
+  attachment?: {
+    url?: string;
+    name?: string;
+    mimeType?: string;
+    type?: string;
+  };
+  reactions?: Array<{
+    emoji: string;
+    count: number;
+    reacted: boolean;
+  }>;
+};
+
+/* =========================================================
+   ICON
+   ========================================================= */
+
+function Icon({
+  name,
+  size = 22,
+  color = "#A7A9B7",
+}: {
+  name: string;
+  size?: number;
+  color?: string;
+}) {
+  const symbols: Record<string, string> = {
+    dm: "▰",
+    search: "⌕",
+    add: "♙",
+    calendar: "▣",
+    notice: "!",
+    archive: "▤",
+    admin: "⚙",
+    hash: "#",
+    voice: "◖",
+    project: "▣",
+    bell: "♧",
+    chevron: "›",
+    plus: "+",
+    send: "➤",
+    back: "‹",
+  };
+
+  return (
+    <Text
+      style={{
+        color,
+        fontSize: size,
+        fontWeight: "700",
+      }}
+    >
+      {symbols[name] ?? "•"}
+    </Text>
+  );
+}
+
+/* =========================================================
+   LEFT RAIL
+   ========================================================= */
+
+function SpaceRail({
+  servers,
+  selectedServerId,
+  onSelectServer,
+  onDM,
+  currentSection,
+  isAdmin,
+  onNotice,
+  onArchive,
+  onAdmin,
+}: {
+  servers: Server[];
+  selectedServerId: string | null;
+  onSelectServer: (id: string) => void;
+  onDM: () => void;
+  currentSection: string;
+  isAdmin: boolean;
+  onNotice: () => void;
+  onArchive: () => void;
+  onAdmin: () => void;
+}) {
+  return (
+    <View style={styles.rail}>
+      {/* DM IS ALWAYS ABOVE SPACES */}
+      <Pressable
+        onPress={onDM}
+        style={[
+          styles.dmButton,
+          currentSection === "dm" && styles.activeDM,
+        ]}
+      >
+        <Icon
+          name="dm"
+          size={24}
+          color={
+            currentSection === "dm"
+              ? COLORS.white
+              : COLORS.muted
+          }
+        />
+      </Pressable>
+
+      <View style={styles.railDivider} />
+
+      {/* SPACE LIST */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.spaceList}
+      >
+        {servers.map((server) => {
+          const active = selectedServerId === server.id && currentSection === "space";
+
+          return (
+            <Pressable
+              key={server.id}
+              onPress={() => onSelectServer(server.id)}
+              style={[
+                styles.spaceButton,
+                active && styles.activeSpace,
+              ]}
+            >
+              {server.iconUrl ? (
+                <Image
+                  source={{ uri: server.iconUrl }}
+                  style={styles.spaceImage}
+                />
+              ) : (
+                <View style={styles.spaceFallback}>
+                  <Text style={styles.spaceLetter}>
+                    {server.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+
+              {!!server.unreadCount && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadText}>
+                    {server.unreadCount > 99
+                      ? "99+"
+                      : server.unreadCount}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {/* 3 UTILITY ITEMS */}
+      <View style={styles.utilityArea}>
+        <Pressable
+          onPress={onNotice}
+          style={[
+            styles.utilityButton,
+            currentSection === "notices" &&
+              styles.utilityActive,
+          ]}
+        >
+          <Icon name="notice" />
+        </Pressable>
+
+        <Pressable
+          onPress={onArchive}
+          style={[
+            styles.utilityButton,
+            currentSection === "archive" &&
+              styles.utilityActive,
+          ]}
+        >
+          <Icon name="archive" />
+        </Pressable>
+
+        {isAdmin && (
+          <Pressable
+            onPress={onAdmin}
+            style={[
+              styles.utilityButton,
+              currentSection === "admin" &&
+                styles.utilityActive,
+            ]}
+          >
+            <Icon name="admin" />
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
+/* =========================================================
+   SPACE HEADER
+   ========================================================= */
+
+function SpaceHeader({
+  server,
+  onSearch,
+  onAdd,
+  onEvents,
+}: {
+  server: Server;
+  onSearch: () => void;
+  onAdd: () => void;
+  onEvents: () => void;
+}) {
+  return (
+    <View style={styles.header}>
+      <View style={styles.serverTitleRow}>
+        <Text style={styles.serverName}>
+          {server.name}
+        </Text>
+
+        <Icon name="chevron" size={22} color={COLORS.muted} />
+      </View>
+
+      <View style={styles.headerActions}>
+        <Pressable
+          onPress={onSearch}
+          style={styles.searchButton}
+        >
+          <Icon name="search" size={24} color={COLORS.white} />
+          <Text style={styles.searchText}>Search</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={onAdd}
+          style={styles.squareButton}
+        >
+          <Icon name="add" color={COLORS.white} />
+        </Pressable>
+
+        <Pressable
+          onPress={onEvents}
+          style={styles.squareButton}
+        >
+          <Icon name="calendar" color={COLORS.white} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/* =========================================================
+   NOTICE BAR
+   ========================================================= */
+
+function NoticeBar({
+  notice,
+  onPress,
+}: {
+  notice?: any;
+  onPress: () => void;
+}) {
+  if (!notice) return null;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={styles.noticeBar}
+    >
+      <View>
+        <Text style={styles.noticeTitle}>
+          {notice.title || "Notice"}
+        </Text>
+
+        {!!(notice.message || notice.content) && (
+          <Text
+            style={styles.noticeMessage}
+            numberOfLines={1}
+          >
+            {notice.message || notice.content}
+          </Text>
+        )}
+      </View>
+
+      <Icon
+        name="chevron"
+        size={24}
+        color={COLORS.muted}
+      />
+    </Pressable>
+  );
+}
+
+/* =========================================================
+   CHANNEL LIST
+   ========================================================= */
+
+function ChannelList({
+  channels,
+  selectedChannelId,
+  onSelectChannel,
+}: {
+  channels: Channel[];
+  selectedChannelId: string | null;
+  onSelectChannel: (id: string) => void;
+}) {
+  const categories = useMemo(() => {
+    const result: Record<string, Channel[]> = {};
+
+    channels.forEach((channel) => {
+      const category =
+        channel.category ||
+        (channel.type === "voice"
+          ? "Voice Channels"
+          : channel.type === "project"
+            ? "Projects"
+            : "Text Channels");
+
+      if (!result[category]) {
+        result[category] = [];
+      }
+
+      result[category].push(channel);
+    });
+
+    return result;
+  }, [channels]);
+
+  return (
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      style={styles.channelsContainer}
+    >
+      {Object.entries(categories).map(
+        ([category, items]) => (
+          <View key={category}>
+            <Text style={styles.categoryTitle}>
+              {category.toUpperCase()}
+            </Text>
+
+            {items.map((channel) => {
+              const selected = channel.id === selectedChannelId;
+
+              return (
+                <Pressable
+                  key={channel.id}
+                  onPress={() =>
+                    onSelectChannel(channel.id)
+                  }
+                  style={[
+                    styles.channelRow,
+                    selected && styles.selectedChannel,
+                  ]}
+                >
+                  <Icon
+                    name={
+                      channel.type === "voice"
+                        ? "voice"
+                        : channel.type === "project"
+                          ? "project"
+                          : "hash"
+                    }
+                    size={22}
+                    color={
+                      selected
+                        ? COLORS.white
+                        : COLORS.muted
+                    }
+                  />
+
+                  <Text
+                    style={[
+                      styles.channelName,
+                      selected &&
+                        styles.selectedChannelText,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {channel.name}
+                  </Text>
+
+                  {!!channel.unreadCount && (
+                    <View style={styles.channelUnread}>
+                      <Text style={styles.unreadText}>
+                        {channel.unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        ),
+      )}
+    </ScrollView>
+  );
+}
+
+/* =========================================================
+   MESSAGE VIEW
+   ========================================================= */
+
+function isImageUrl(url: string, mimeType?: string) {
+  if (mimeType?.startsWith("image/")) return true;
+  return /\.(png|jpe?g|gif|webp|bmp|avif)(\?.*)?$/i.test(url);
+}
+
+function NativeMessageList({
+  messages,
+}: {
+  messages: Message[];
+}) {
+  return (
+    <FlatList
+      data={messages}
+      keyExtractor={(item) => item.id}
+      style={styles.messages}
+      contentContainerStyle={styles.messageContent}
+      showsVerticalScrollIndicator={false}
+      renderItem={({ item }) => {
+        const { cleanText, attachments } = parseMessageAttachments(item.content || "");
+        return (
+          <View style={styles.messageRow}>
+            {item.user?.avatarUrl ? (
+              <Image
+                source={{ uri: item.user.avatarUrl }}
+                style={styles.messageAvatar}
+              />
+            ) : (
+              <View style={styles.messageAvatarFallback}>
+                <Text style={styles.avatarLetter}>
+                  {(item.user?.displayName || "U")
+                    .charAt(0)
+                    .toUpperCase()}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.messageBody}>
+              <View style={styles.messageHeader}>
+                <Text
+                  style={[
+                    styles.displayName,
+                    {
+                      color:
+                        item.user?.roleColor ||
+                        COLORS.white,
+                    },
+                  ]}
+                >
+                  {item.user?.displayName || "Member"}
+                </Text>
+
+                <Text style={styles.timestamp}>
+                  {item.createdAt
+                    ? new Date(item.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : ""}
+                </Text>
+              </View>
+
+              {cleanText ? (
+                <Text style={styles.messageText}>
+                  {cleanText}
+                </Text>
+              ) : null}
+
+              {/* Rich Attachments */}
+              {attachments.map((att, idx) => (
+                <AttachmentCard key={idx} attachment={att} />
+              ))}
+
+              {/* DIRECT IMAGE URL */}
+              {item.attachment?.url &&
+                isImageUrl(
+                  item.attachment.url,
+                  item.attachment.mimeType,
+                ) && (
+                  <Image
+                    source={{
+                      uri: item.attachment.url,
+                    }}
+                    style={styles.attachmentImage}
+                    resizeMode="cover"
+                  />
+                )}
+
+              {/* FILE */}
+              {item.attachment?.url &&
+                !isImageUrl(
+                  item.attachment.url,
+                  item.attachment.mimeType,
+                ) && (
+                  <View style={styles.fileCard}>
+                    <Text style={styles.fileName}>
+                      {item.attachment.name ||
+                        "Attachment"}
+                    </Text>
+                  </View>
+                )}
+
+              {!!item.reactions?.length && (
+                <View style={styles.reactions}>
+                  {item.reactions.map((reaction) => (
+                    <View
+                      key={reaction.emoji}
+                      style={styles.reaction}
+                    >
+                      <Text style={{ color: COLORS.white }}>
+                        {reaction.emoji}{" "}
+                        {reaction.count}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        );
+      }}
+    />
+  );
+}
+
+/* =========================================================
+   MESSAGE COMPOSER
+   ========================================================= */
+
+function MessageComposer({
+  channelName,
+  onSend,
+}: {
+  channelName: string;
+  onSend: (content: string) => Promise<void>;
+}) {
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  async function send() {
+    const value = text.trim();
+    if (!value || sending) return;
+
+    setSending(true);
+    try {
+      await onSend(value);
+      setText("");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <View style={styles.composer}>
+      <Pressable style={styles.composerPlus}>
+        <Icon
+          name="plus"
+          size={25}
+          color={COLORS.white}
+        />
+      </Pressable>
+
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        placeholder={`Message #${channelName}`}
+        placeholderTextColor={COLORS.muted}
+        style={styles.composerInput}
+        multiline
+      />
+
+      <Pressable
+        onPress={send}
+        disabled={!text.trim() || sending}
+        style={[
+          styles.sendButton,
+          (!text.trim() || sending) &&
+            styles.sendDisabled,
+        ]}
+      >
+        {sending ? (
+          <ActivityIndicator
+            color={COLORS.white}
+            size="small"
+          />
+        ) : (
+          <Icon
+            name="send"
+            size={20}
+            color={COLORS.white}
+          />
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+/* =========================================================
+   SPACE CONTENT
+   ========================================================= */
+
+function SpaceContent({
+  server,
+  channels,
+  selectedChannelId,
+  messages,
+  notice,
+  onSelectChannel,
+  onNotice,
+  onSend,
+  onSearch,
+  onAdd,
+  onEvents,
+}: {
+  server: Server;
+  channels: Channel[];
+  selectedChannelId: string | null;
+  messages: Message[];
+  notice?: any;
+  onSelectChannel: (id: string) => void;
+  onNotice: () => void;
+  onSend: (content: string) => Promise<void>;
+  onSearch: () => void;
+  onAdd: () => void;
+  onEvents: () => void;
+}) {
+  const selectedChannel = channels.find(
+    (c) => c.id === selectedChannelId,
+  );
+
+  return (
+    <View style={styles.spaceContent}>
+      <SpaceHeader
+        server={server}
+        onSearch={onSearch}
+        onAdd={onAdd}
+        onEvents={onEvents}
+      />
+
+      <NoticeBar
+        notice={notice}
+        onPress={onNotice}
+      />
+
+      <View style={styles.workspace}>
+        {/* CHANNEL DRAWER */}
+        <View style={styles.channelDrawer}>
+          <ChannelList
+            channels={channels}
+            selectedChannelId={selectedChannelId}
+            onSelectChannel={onSelectChannel}
+          />
+        </View>
+
+        {/* ACTUAL CONTENT */}
+        <View style={styles.channelContent}>
+          {selectedChannel ? (
+            <>
+              <View style={styles.channelHeader}>
+                <Icon
+                  name={
+                    selectedChannel.type === "voice"
+                      ? "voice"
+                      : selectedChannel.type === "project"
+                        ? "project"
+                        : "hash"
+                  }
+                  color={COLORS.white}
+                />
+
+                <Text style={styles.channelHeaderName}>
+                  {selectedChannel.name}
+                </Text>
+              </View>
+
+              <NativeMessageList
+                messages={messages}
+              />
+
+              <MessageComposer
+                channelName={selectedChannel.name}
+                onSend={onSend}
+              />
+            </>
+          ) : (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>
+                Select a channel
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/* =========================================================
+   NOTICES
+   ========================================================= */
+
+function NoticePage({ notices }: { notices: any[] }) {
+  return (
+    <View style={styles.page}>
+      <Text style={styles.pageTitle}>Notices</Text>
+
+      <FlatList
+        data={notices}
+        keyExtractor={(item, index) => String(item.id || index)}
+        renderItem={({ item }) => (
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeCardTitle}>
+              {item.title}
+            </Text>
+            <Text style={styles.noticeCardText}>
+              {item.message || item.content || item.description || ""}
+            </Text>
+          </View>
+        )}
+      />
+    </View>
+  );
+}
+
+/* =========================================================
+   ARCHIVE
+   ========================================================= */
+
+function ArchivePage({ archive }: { archive: any[] }) {
+  return (
+    <View style={styles.page}>
+      <Text style={styles.pageTitle}>Archive</Text>
+
+      <FlatList
+        data={archive}
+        keyExtractor={(item, index) => String(item.id || item.archiveId || index)}
+        renderItem={({ item }) => (
+          <View style={styles.archiveRow}>
+            <Icon
+              name="archive"
+              color={COLORS.muted}
+            />
+
+            <View style={{ flex: 1 }}>
+              <Text style={styles.archiveTitle}>
+                {item.title || item.name || "Archive record"}
+              </Text>
+
+              {!!(item.description || item.summary) && (
+                <Text
+                  style={styles.archiveDescription}
+                  numberOfLines={2}
+                >
+                  {item.description || item.summary}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+      />
+    </View>
+  );
+}
+
+/* =========================================================
+   ADMIN
+   ========================================================= */
+
+function AdminPage({ data }: { data: any }) {
+  return (
+    <ScrollView style={styles.page}>
+      <Text style={styles.pageTitle}>
+        Admin Panel
+      </Text>
+
+      <View style={styles.adminGrid}>
+        <AdminStat
+          title="Total Members"
+          value={data?.stats?.totalUsers ?? data?.totalMembers}
+        />
+
+        <AdminStat
+          title="Active Spaces"
+          value={data?.stats?.activeSpaces ?? data?.activeSpaces}
+        />
+
+        <AdminStat
+          title="Pending Approvals"
+          value={data?.stats?.pendingApprovals ?? data?.pendingApprovals}
+        />
+
+        <AdminStat
+          title="Squad Teams"
+          value={data?.stats?.activeTeams ?? data?.squadTeams}
+        />
+      </View>
+    </ScrollView>
+  );
+}
+
+function AdminStat({
+  title,
+  value,
+}: {
+  title: string;
+  value: any;
+}) {
+  return (
+    <View style={styles.adminStat}>
+      <Text style={styles.adminStatTitle}>
+        {title}
+      </Text>
+
+      <Text style={styles.adminStatValue}>
+        {value ?? "—"}
+      </Text>
+    </View>
+  );
+}
+
+/* =========================================================
+   MAIN SHELL
+   ========================================================= */
 
 export default function SpaceChannelScreen() {
   const router = useRouter();
-  const { spaceId: routeSpaceId, channelId: routeChannelId } = useLocalSearchParams<{
-    spaceId: string;
-    channelId: string;
-  }>();
+  const { user } = useAuthStore();
 
   const {
     spaces,
@@ -59,738 +877,823 @@ export default function SpaceChannelScreen() {
     loadChannelsForSpace,
     setActiveSpace,
     setActiveChannel,
-    isLoadingSpaces,
   } = useWorkspaceStore();
 
-  const { user } = useAuthStore();
   const {
     messages,
     loadChannelMessages,
     sendChannelMessageAction,
-    toggleReaction,
     subscribeToChannel,
     unsubscribeFromChannel,
-    isLoadingMessages,
   } = useChatStore();
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [inputText, setInputText] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
+  const [currentSection, setCurrentSection] =
+    useState<"dm" | "space" | "notices" | "archive" | "admin">("space");
 
+  const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+
+  const [notices, setNotices] = useState<any[]>([]);
+  const [archive, setArchive] = useState<any[]>([]);
+  const [adminData, setAdminData] = useState<any>(null);
+
+  const isAdmin =
+    user?.role === "admin" ||
+    user?.role === "administrator" ||
+    user?.role === "super_admin" ||
+    user?.role === "president" ||
+    user?.role === "president_admin";
+
+  /* -------------------------------------------------------
+     LOAD SPACES
+     ------------------------------------------------------- */
   useEffect(() => {
     loadSpaces();
   }, []);
 
-  const currentSpaceId = (routeSpaceId as string) || activeSpaceId || spaces[0]?.id || "";
-  const currentSections = sections[currentSpaceId] || [];
-
-  const defaultChanId = currentSections[0]?.channels[0]?.id || "general";
-  const currentChannelId = (routeChannelId as string) || activeChannelId || defaultChanId;
-
-  const currentSpace = spaces.find((s) => s.id === currentSpaceId) || {
-    id: currentSpaceId,
-    name: "AIIC Space",
-  };
-
-  let currentChannel = currentSections
-    .flatMap((s) => s.channels)
-    .find((c) => c.id === currentChannelId);
-
-  if (!currentChannel) {
-    currentChannel = { id: currentChannelId, name: currentChannelId, type: "text" };
-  }
+  const servers: Server[] = useMemo(() => {
+    return spaces.map((s) => ({
+      id: s.id,
+      name: s.name,
+      iconUrl: s.icon ?? null,
+      unreadCount: s.unread ? 1 : 0,
+    }));
+  }, [spaces]);
 
   useEffect(() => {
-    if (currentSpaceId) {
-      setActiveSpace(currentSpaceId);
+    if (!selectedServerId && servers.length) {
+      setSelectedServerId(activeSpaceId || servers[0].id);
     }
-  }, [currentSpaceId]);
+  }, [servers, activeSpaceId]);
+
+  /* -------------------------------------------------------
+     LOAD CHANNELS
+     ------------------------------------------------------- */
+  useEffect(() => {
+    if (!selectedServerId) return;
+    loadChannelsForSpace(selectedServerId);
+  }, [selectedServerId]);
+
+  const channels: Channel[] = useMemo(() => {
+    if (!selectedServerId) return [];
+    const spaceSections = sections[selectedServerId] || [];
+    return spaceSections.flatMap((sec) =>
+      sec.channels.map((ch) => ({
+        id: ch.id,
+        serverId: selectedServerId,
+        name: ch.name,
+        type: ch.type as any,
+        category: sec.name,
+        unreadCount: ch.unread ? 1 : 0,
+      }))
+    );
+  }, [sections, selectedServerId]);
 
   useEffect(() => {
-    if (currentChannelId && currentChannelId !== "general") {
-      setActiveChannel(currentChannelId);
-      loadChannelMessages(currentChannelId);
-      subscribeToChannel(currentChannelId);
+    if (channels.length > 0) {
+      const firstText = channels.find((c) => c.type === "text") || channels[0];
+      setSelectedChannelId(activeChannelId || firstText.id);
     }
+  }, [channels, activeChannelId]);
+
+  /* -------------------------------------------------------
+     LOAD MESSAGES
+     ------------------------------------------------------- */
+  useEffect(() => {
+    if (!selectedChannelId) return;
+    loadChannelMessages(selectedChannelId);
+    subscribeToChannel(selectedChannelId);
+
     return () => {
       unsubscribeFromChannel();
     };
-  }, [currentChannelId]);
+  }, [selectedChannelId]);
 
-  const channelMessages = messages[currentChannelId] || [];
+  const channelMessages: Message[] = useMemo(() => {
+    if (!selectedChannelId) return [];
+    const list = messages[selectedChannelId] || [];
+    return list.map((m) => ({
+      id: m.id,
+      content: m.text,
+      createdAt: m.at,
+      user: {
+        id: m.author?.id || "unknown",
+        displayName: m.author?.name || "Member",
+        avatarUrl: m.author?.avatar,
+        roleColor: m.author?.roleColor,
+      },
+      attachment: m.attachments?.[0]
+        ? {
+            url: m.attachments[0].url,
+            name: m.attachments[0].name,
+            mimeType: m.attachments[0].kind === "image" ? "image/jpeg" : undefined,
+            type: m.attachments[0].kind,
+          }
+        : undefined,
+      reactions: m.reactions?.map((r) => ({
+        emoji: r.emoji,
+        count: r.count,
+        reacted: !!r.reacted,
+      })),
+    }));
+  }, [messages, selectedChannelId]);
 
-  const handleSendMessage = async () => {
-    if (!inputText.trim()) return;
-    const textToSend = inputText.trim();
-    setInputText("");
-    try {
-      await sendChannelMessageAction(currentChannelId, textToSend);
-    } catch (err) {
-      console.error("Failed to send channel message:", err);
+  /* -------------------------------------------------------
+     NOTICES
+     ------------------------------------------------------- */
+  useEffect(() => {
+    if (currentSection === "notices" || currentSection === "space") {
+      api<{ announcements: any[] }>("/announcements")
+        .then((res) => {
+          setNotices(res?.announcements || []);
+        })
+        .catch(console.error);
     }
-  };
+  }, [currentSection]);
 
-  const handlePickDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: "*/*",
-        copyToCacheDirectory: true,
-      });
+  /* -------------------------------------------------------
+     ARCHIVE
+     ------------------------------------------------------- */
+  useEffect(() => {
+    if (currentSection === "archive") {
+      api<{ records: any[] }>("/archive/records")
+        .then((res) => {
+          setArchive(res?.records || []);
+        })
+        .catch(console.error);
+    }
+  }, [currentSection]);
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const file = result.assets[0];
-        setIsUploading(true);
-
-        const formData = new FormData();
-        formData.append("file", {
-          uri: file.uri,
-          name: file.name,
-          type: file.mimeType || "application/octet-stream",
-        } as any);
-
-        const res = await api<{ attachment: any }>("/attachments", {
-          method: "POST",
-          body: formData,
-          headers: { "Content-Type": "multipart/form-data" },
+  /* -------------------------------------------------------
+     ADMIN
+     ------------------------------------------------------- */
+  useEffect(() => {
+    if (isAdmin && currentSection === "admin") {
+      api<any>("/admin/overview")
+        .then(setAdminData)
+        .catch((err) => {
+          if (!String(err).includes("403")) {
+            console.error(err);
+          }
         });
-
-        if (res?.attachment) {
-          const payload = `attachment:${JSON.stringify(res.attachment)}`;
-          await sendChannelMessageAction(currentChannelId, payload);
-        }
-      }
-    } catch (err: any) {
-      Alert.alert("Upload Failed", err.message || "Could not upload document.");
-    } finally {
-      setIsUploading(false);
     }
-  };
+  }, [currentSection, isAdmin]);
 
-  const handlePickImage = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 0.8,
-      });
+  /* -------------------------------------------------------
+     SEND MESSAGE
+     ------------------------------------------------------- */
+  async function sendMessage(content: string) {
+    if (!selectedChannelId) return;
+    await sendChannelMessageAction(selectedChannelId, content);
+  }
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        setIsUploading(true);
+  const selectedServer =
+    servers.find((server) => server.id === selectedServerId) || servers[0] || null;
 
-        const formData = new FormData();
-        const filename = asset.uri.split("/").pop() || `photo_${Date.now()}.jpg`;
-        formData.append("file", {
-          uri: asset.uri,
-          name: filename,
-          type: asset.mimeType || "image/jpeg",
-        } as any);
+  const notice = notices[0];
 
-        const res = await api<{ attachment: any }>("/attachments", {
-          method: "POST",
-          body: formData,
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-
-        if (res?.attachment) {
-          const payload = `attachment:${JSON.stringify(res.attachment)}`;
-          await sendChannelMessageAction(currentChannelId, payload);
-        }
-      }
-    } catch (err: any) {
-      Alert.alert("Upload Failed", err.message || "Could not upload image.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const getChannelIcon = (type: string, size = 18, color = colors.textMuted) => {
-    switch (type) {
-      case "voice":
-        return <Volume2 size={size} color={color} />;
-      case "stage":
-        return <Radio size={size} color={colors.accentTeal} />;
-      case "board":
-        return <Kanban size={size} color={colors.accent} />;
-      case "docs":
-        return <FileText size={size} color={colors.textSecondary} />;
-      case "github":
-        return <GitPullRequest size={size} color={colors.accentTeal} />;
-      case "incident":
-        return <AlertTriangle size={size} color={colors.danger} />;
-      default:
-        return <Hash size={size} color={color} />;
-    }
-  };
-
-  const renderChannelModuleHeader = () => {
-    if (currentChannel?.type === "board") {
-      return (
-        <TouchableOpacity
-          style={styles.moduleBanner}
-          onPress={() => router.push(`/(app)/boards/${currentChannelId}`)}
-        >
-          <Kanban size={18} color={colors.accent} />
-          <Text style={styles.moduleBannerText}>View Full Kanban Sprint Board →</Text>
-        </TouchableOpacity>
-      );
-    }
-    if (currentChannel?.type === "docs") {
-      return (
-        <TouchableOpacity
-          style={styles.moduleBanner}
-          onPress={() => router.push(`/(app)/docs/${currentChannelId}`)}
-        >
-          <FileText size={18} color={colors.accentTeal} />
-          <Text style={styles.moduleBannerText}>Open Channel Documentation →</Text>
-        </TouchableOpacity>
-      );
-    }
-    if (currentChannel?.type === "voice" || currentChannel?.type === "stage") {
-      return (
-        <TouchableOpacity
-          style={[styles.moduleBanner, { borderColor: colors.accentTeal }]}
-          onPress={() => router.push(`/(app)/voice/${currentChannelId}`)}
-        >
-          <Radio size={18} color={colors.live} />
-          <Text style={[styles.moduleBannerText, { color: colors.live }]}>Join Live Audio Room / Stage →</Text>
-        </TouchableOpacity>
-      );
-    }
-    return null;
-  };
-
+  /* -------------------------------------------------------
+     RENDER
+     ------------------------------------------------------- */
   return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
-      {/* Top Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.drawerTrigger}
-          onPress={() => setDrawerOpen(true)}
-        >
-          <Menu size={22} color={colors.textPrimary} />
-          <View style={styles.headerChannelInfo}>
-            {getChannelIcon(currentChannel.type, 16, colors.accent)}
-            <Text style={styles.headerChannelTitle}>{currentChannel.name}</Text>
-          </View>
-        </TouchableOpacity>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      <View style={styles.root}>
+        {/* =================================================
+            LEFT DISCORD-STYLE RAIL
+            ================================================= */}
+        <SpaceRail
+          servers={servers}
+          selectedServerId={selectedServerId}
+          onSelectServer={(id) => {
+            setSelectedServerId(id);
+            setActiveSpace(id);
+            setCurrentSection("space");
+          }}
+          onDM={() => {
+            router.push("/(app)/dms/index" as any);
+          }}
+          currentSection={currentSection}
+          isAdmin={isAdmin}
+          onNotice={() => {
+            setCurrentSection("notices");
+          }}
+          onArchive={() => {
+            setCurrentSection("archive");
+          }}
+          onAdmin={() => {
+            if (isAdmin) {
+              setCurrentSection("admin");
+            }
+          }}
+        />
 
-        <View style={styles.headerRightActions}>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => router.push("/(app)/notifications")}
-          >
-            <Bell size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => router.push("/(app)/people")}
-          >
-            <Users size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
+        {/* =================================================
+            MAIN CONTENT
+            ================================================= */}
+        <View style={styles.main}>
+          {currentSection === "space" && selectedServer && (
+            <SpaceContent
+              server={selectedServer}
+              channels={channels}
+              selectedChannelId={selectedChannelId}
+              messages={channelMessages}
+              notice={notice}
+              onSelectChannel={(chId) => {
+                setSelectedChannelId(chId);
+                setActiveChannel(chId);
+              }}
+              onNotice={() => setCurrentSection("notices")}
+              onSend={sendMessage}
+              onSearch={() => router.push("/(app)/projects/index" as any)}
+              onAdd={() => router.push("/(app)/projects/index" as any)}
+              onEvents={() => router.push("/(app)/events/index" as any)}
+            />
+          )}
+
+          {currentSection === "notices" && (
+            <NoticePage notices={notices} />
+          )}
+
+          {currentSection === "archive" && (
+            <ArchivePage archive={archive} />
+          )}
+
+          {currentSection === "admin" && isAdmin && (
+            <AdminPage data={adminData} />
+          )}
         </View>
       </View>
-
-      {renderChannelModuleHeader()}
-
-      {/* Message Feed */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
-        style={{ flex: 1 }}
-      >
-        {isLoadingMessages && channelMessages.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.accent} />
-          </View>
-        ) : (
-          <FlatList
-            data={channelMessages}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.messageList}
-            renderItem={({ item }) => {
-              const { cleanText, attachments } = parseMessageAttachments(item.text);
-
-              return (
-                <View style={styles.messageItem}>
-                  <Avatar name={item.author.name} size={36} />
-                  <View style={styles.messageBody}>
-                    <View style={styles.messageMeta}>
-                      <Text
-                        style={[
-                          styles.authorName,
-                          item.author.roleColor ? { color: item.author.roleColor } : null,
-                        ]}
-                      >
-                        {item.author.name}
-                      </Text>
-                      <Text style={styles.messageTime}>
-                        {new Date(item.at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </Text>
-                    </View>
-
-                    {/* Cleaned text content */}
-                    {cleanText ? (
-                      <Text style={styles.messageContent}>{cleanText}</Text>
-                    ) : null}
-
-                    {/* Render Rich Attachments */}
-                    {attachments.map((att, idx) => (
-                      <AttachmentCard key={idx} attachment={att} />
-                    ))}
-
-                    {/* Reactions */}
-                    {item.reactions && item.reactions.length > 0 && (
-                      <View style={styles.reactionRow}>
-                        {item.reactions.map((r, i) => (
-                          <TouchableOpacity
-                            key={i}
-                            style={[
-                              styles.reactionPill,
-                              r.reacted && styles.reactionPillActive,
-                            ]}
-                            onPress={() =>
-                              toggleReaction(currentChannelId, item.id, r.emoji)
-                            }
-                          >
-                            <Text style={styles.reactionEmoji}>{r.emoji}</Text>
-                            <Text
-                              style={[
-                                styles.reactionCount,
-                                r.reacted && { color: colors.accent },
-                              ]}
-                            >
-                              {r.count}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                </View>
-              );
-            }}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <View style={styles.emptyIconWrap}>
-                  {getChannelIcon(currentChannel.type, 32, colors.accent)}
-                </View>
-                <Text style={styles.emptyTitle}>Welcome to #{currentChannel.name}</Text>
-                <Text style={styles.emptySubtitle}>
-                  This is the beginning of the #{currentChannel.name} channel.
-                </Text>
-              </View>
-            }
-          />
-        )}
-
-        {/* Message Composer with Glassmorphism and Attachment Uploaders */}
-        <View style={styles.composerContainer}>
-          <TouchableOpacity
-            style={styles.composerActionBtn}
-            onPress={handlePickDocument}
-            disabled={isUploading}
-          >
-            {isUploading ? (
-              <ActivityIndicator size="small" color={colors.accent} />
-            ) : (
-              <Paperclip size={18} color={colors.textSecondary} />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.composerActionBtn}
-            onPress={handlePickImage}
-            disabled={isUploading}
-          >
-            <ImageIcon size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <TextInput
-            style={styles.composerInput}
-            placeholder={`Message #${currentChannel.name}`}
-            placeholderTextColor={colors.textMuted}
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendBtn,
-              inputText.trim() ? styles.sendBtnActive : null,
-            ]}
-            onPress={handleSendMessage}
-            disabled={!inputText.trim()}
-          >
-            <Send
-              size={18}
-              color={inputText.trim() ? colors.accentContrast : colors.textMuted}
-            />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-
-      {/* Spaces & Channels Drawer Modal */}
-      <Modal
-        visible={drawerOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setDrawerOpen(false)}
-      >
-        <View style={styles.drawerOverlay}>
-          <SafeAreaView style={styles.drawerContainer}>
-            {/* Space Selector Rail */}
-            <View style={styles.spaceRail}>
-              {spaces.map((s) => (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[
-                    styles.spaceRailItem,
-                    s.id === currentSpaceId && styles.spaceRailItemActive,
-                  ]}
-                  onPress={() => {
-                    setActiveSpace(s.id);
-                    const firstChannel = (sections[s.id] || [])[0]?.channels[0];
-                    if (firstChannel) {
-                      router.push(`/(app)/spaces/${s.id}/${firstChannel.id}`);
-                    }
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.spaceRailText,
-                      s.id === currentSpaceId && { color: colors.accentContrast },
-                    ]}
-                  >
-                    {s.name.charAt(0)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Channels Panel */}
-            <View style={styles.channelPanel}>
-              <View style={styles.spaceHeader}>
-                <Text style={styles.spaceTitle}>{currentSpace.name}</Text>
-                <TouchableOpacity onPress={() => setDrawerOpen(false)}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Done</Text>
-                </TouchableOpacity>
-              </View>
-
-              <FlatList
-                data={currentSections}
-                keyExtractor={(sec) => sec.id}
-                renderItem={({ item: sec }) => (
-                  <View style={styles.sectionBlock}>
-                    <Text style={styles.sectionHeader}>{sec.name}</Text>
-                    {sec.channels.map((chan) => (
-                      <TouchableOpacity
-                        key={chan.id}
-                        style={[
-                          styles.channelRow,
-                          chan.id === currentChannelId && styles.channelRowActive,
-                        ]}
-                        onPress={() => {
-                          setDrawerOpen(false);
-                          router.push(`/(app)/spaces/${currentSpaceId}/${chan.id}`);
-                        }}
-                      >
-                        {getChannelIcon(
-                          chan.type,
-                          18,
-                          chan.id === currentChannelId ? colors.accent : colors.textMuted
-                        )}
-                        <Text
-                          style={[
-                            styles.channelRowText,
-                            chan.id === currentChannelId && styles.channelRowTextActive,
-                          ]}
-                        >
-                          {chan.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              />
-            </View>
-          </SafeAreaView>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
 
+/* =========================================================
+   COLORS
+   ========================================================= */
+
+const COLORS = {
+  bg: "#0B0B0F",
+  rail: "#111116",
+  panel: "#1A1A20",
+  panel2: "#202027",
+  selected: "#3A3A42",
+  white: "#F5F5F7",
+  muted: "#9698A8",
+  dim: "#696B79",
+  border: "#292A31",
+  accent: "#F2B544",
+  danger: "#E5484D",
+  success: "#3CCB72",
+};
+
+/* =========================================================
+   STYLES
+   ========================================================= */
+
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: COLORS.bg,
   },
+
+  root: {
+    flex: 1,
+    flexDirection: "row",
+    backgroundColor: COLORS.bg,
+  },
+
+  /* RAIL */
+
+  rail: {
+    width: 82,
+    backgroundColor: COLORS.rail,
+    alignItems: "center",
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+
+  dmButton: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#24242A",
+  },
+
+  activeDM: {
+    backgroundColor: COLORS.accent,
+  },
+
+  railDivider: {
+    width: 36,
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 10,
+  },
+
+  spaceList: {
+    alignItems: "center",
+    paddingBottom: 8,
+    gap: 10,
+  },
+
+  spaceButton: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+
+  activeSpace: {
+    backgroundColor: COLORS.selected,
+  },
+
+  spaceImage: {
+    width: 54,
+    height: 54,
+    borderRadius: 17,
+  },
+
+  spaceFallback: {
+    width: 54,
+    height: 54,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#292A33",
+  },
+
+  spaceLetter: {
+    color: COLORS.white,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+
+  unreadBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.danger,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+
+  unreadText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+
+  utilityArea: {
+    marginTop: "auto",
+    gap: 8,
+    alignItems: "center",
+  },
+
+  utilityButton: {
+    width: 54,
+    height: 48,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  utilityActive: {
+    backgroundColor: COLORS.selected,
+  },
+
+  /* MAIN */
+
+  main: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+
+  spaceContent: {
+    flex: 1,
+  },
+
+  /* HEADER */
+
   header: {
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+
+  serverTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 12,
+  },
+
+  serverName: {
+    color: COLORS.white,
+    fontSize: 21,
+    fontWeight: "800",
+  },
+
+  headerActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  searchButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 15,
+    backgroundColor: COLORS.panel2,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+
+  searchText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  squareButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 15,
+    backgroundColor: COLORS.panel2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  /* NOTICE */
+
+  noticeBar: {
+    marginHorizontal: 14,
+    marginTop: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 17,
+    backgroundColor: COLORS.panel2,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.bgDeep,
   },
-  drawerTrigger: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  headerChannelInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  headerChannelTitle: {
-    color: colors.textPrimary,
-    fontSize: 17,
+
+  noticeTitle: {
+    color: COLORS.white,
+    fontSize: 15,
     fontWeight: "700",
   },
-  headerRightActions: {
+
+  noticeMessage: {
+    color: COLORS.muted,
+    marginTop: 2,
+    fontSize: 12,
+  },
+
+  /* WORKSPACE */
+
+  workspace: {
+    flex: 1,
+    flexDirection: "row",
+    marginTop: 10,
+  },
+
+  channelDrawer: {
+    width: 175,
+    backgroundColor: "#15151A",
+    borderRightWidth: 1,
+    borderRightColor: COLORS.border,
+  },
+
+  channelsContainer: {
+    flex: 1,
+  },
+
+  categoryTitle: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    paddingHorizontal: 12,
+    paddingTop: 18,
+    paddingBottom: 6,
+  },
+
+  channelRow: {
+    minHeight: 42,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    paddingHorizontal: 12,
+    gap: 7,
+    borderRadius: 8,
+    marginHorizontal: 5,
   },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceRaised,
-    alignItems: "center",
-    justifyContent: "center",
+
+  selectedChannel: {
+    backgroundColor: COLORS.selected,
   },
-  moduleBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: colors.surfaceRaised,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderHighlight,
-  },
-  moduleBannerText: {
-    color: colors.accent,
-    fontSize: 13,
+
+  channelName: {
+    flex: 1,
+    color: COLORS.muted,
+    fontSize: 14,
     fontWeight: "600",
   },
-  loadingContainer: {
-    flex: 1,
+
+  selectedChannelText: {
+    color: COLORS.white,
+  },
+
+  channelUnread: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: COLORS.danger,
     alignItems: "center",
     justifyContent: "center",
   },
-  messageList: {
-    padding: 16,
+
+  channelContent: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+
+  channelHeader: {
+    height: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    gap: 7,
+  },
+
+  channelHeaderName: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+
+  /* MESSAGES */
+
+  messages: {
+    flex: 1,
+  },
+
+  messageContent: {
+    padding: 14,
     paddingBottom: 24,
   },
-  messageItem: {
+
+  messageRow: {
     flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
+    marginBottom: 17,
+    gap: 10,
   },
+
+  messageAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+
+  messageAvatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.panel2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  avatarLetter: {
+    color: COLORS.white,
+    fontWeight: "800",
+  },
+
   messageBody: {
     flex: 1,
   },
-  messageMeta: {
+
+  messageHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "baseline",
     gap: 8,
-    marginBottom: 4,
   },
-  authorName: {
-    color: colors.textPrimary,
+
+  displayName: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
   },
-  messageTime: {
-    color: colors.textMuted,
-    fontSize: 11,
+
+  timestamp: {
+    color: COLORS.dim,
+    fontSize: 10,
   },
-  messageContent: {
-    color: colors.textSecondary,
+
+  messageText: {
+    color: "#D8D8DE",
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
+    marginTop: 2,
   },
-  reactionRow: {
-    flexDirection: "row",
-    gap: 6,
-    marginTop: 6,
+
+  attachmentImage: {
+    width: "100%",
+    maxWidth: 280,
+    height: 180,
+    borderRadius: 12,
+    marginTop: 8,
+    backgroundColor: COLORS.panel2,
   },
-  reactionPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surfaceRaised,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    gap: 4,
+
+  fileCard: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: COLORS.panel2,
   },
-  reactionPillActive: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
-  },
-  reactionEmoji: {
-    fontSize: 12,
-  },
-  reactionCount: {
-    color: colors.textSecondary,
-    fontSize: 11,
+
+  fileName: {
+    color: COLORS.white,
     fontWeight: "600",
   },
-  emptyState: {
-    alignItems: "center",
-    paddingTop: 60,
-    paddingHorizontal: 24,
+
+  reactions: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 7,
   },
-  emptyIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.xl,
-    backgroundColor: colors.accentSoft,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
+
+  reaction: {
+    backgroundColor: COLORS.panel2,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
   },
-  emptyTitle: {
-    color: colors.textPrimary,
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 6,
-  },
-  emptySubtitle: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    textAlign: "center",
-  },
-  composerContainer: {
+
+  /* COMPOSER */
+
+  composer: {
+    minHeight: 58,
+    margin: 10,
+    borderRadius: 17,
+    backgroundColor: COLORS.panel2,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: 8,
+    paddingHorizontal: 8,
   },
-  composerActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceRaised,
+
+  composerPlus: {
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
+
   composerInput: {
     flex: 1,
-    backgroundColor: colors.surfaceInput,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    color: colors.textPrimary,
-    fontSize: 14,
     maxHeight: 100,
+    color: COLORS.white,
+    fontSize: 15,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
   },
-  sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceRaised,
+
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.accent,
     alignItems: "center",
     justifyContent: "center",
   },
-  sendBtnActive: {
-    backgroundColor: colors.accent,
+
+  sendDisabled: {
+    opacity: 0.35,
   },
-  drawerOverlay: {
+
+  /* PAGES */
+
+  page: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    padding: 20,
+    backgroundColor: COLORS.bg,
   },
-  drawerContainer: {
+
+  pageTitle: {
+    color: COLORS.white,
+    fontSize: 25,
+    fontWeight: "800",
+    marginBottom: 18,
+  },
+
+  empty: {
     flex: 1,
-    flexDirection: "row",
-    backgroundColor: colors.bgDeep,
-    width: "85%",
-  },
-  spaceRail: {
-    width: 60,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    paddingTop: 16,
-    gap: 12,
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-  },
-  spaceRailItem: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceRaised,
     alignItems: "center",
     justifyContent: "center",
   },
-  spaceRailItemActive: {
-    backgroundColor: colors.accent,
-  },
-  spaceRailText: {
-    color: colors.textPrimary,
-    fontSize: 16,
+
+  emptyTitle: {
+    color: COLORS.white,
+    fontSize: 18,
     fontWeight: "700",
   },
-  channelPanel: {
-    flex: 1,
+
+  emptyText: {
+    color: COLORS.muted,
+    marginTop: 20,
+  },
+
+  dmSearch: {
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: COLORS.panel2,
+    color: COLORS.white,
+    paddingHorizontal: 15,
+    fontSize: 14,
+  },
+
+  /* NOTICES */
+
+  noticeCard: {
     padding: 16,
+    borderRadius: 15,
+    backgroundColor: COLORS.panel2,
+    marginBottom: 10,
   },
-  spaceHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  spaceTitle: {
-    color: colors.textPrimary,
-    fontSize: 18,
+
+  noticeCardTitle: {
+    color: COLORS.white,
+    fontSize: 16,
     fontWeight: "800",
   },
-  sectionBlock: {
-    marginBottom: 20,
+
+  noticeCardText: {
+    color: COLORS.muted,
+    marginTop: 6,
+    lineHeight: 20,
   },
-  sectionHeader: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    marginBottom: 8,
-  },
-  channelRow: {
+
+  /* ARCHIVE */
+
+  archiveRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: radius.sm,
-    gap: 8,
-    marginBottom: 2,
+    gap: 12,
+    padding: 15,
+    borderRadius: 14,
+    backgroundColor: COLORS.panel2,
+    marginBottom: 8,
   },
-  channelRowActive: {
-    backgroundColor: colors.activeRow,
-  },
-  channelRowText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  channelRowTextActive: {
-    color: colors.accent,
+
+  archiveTitle: {
+    color: COLORS.white,
     fontWeight: "700",
+  },
+
+  archiveDescription: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 3,
+  },
+
+  /* ADMIN */
+
+  adminGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+
+  adminStat: {
+    width: "47%",
+    minHeight: 110,
+    padding: 15,
+    borderRadius: 16,
+    backgroundColor: COLORS.panel2,
+  },
+
+  adminStatTitle: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  adminStatValue: {
+    color: COLORS.white,
+    fontSize: 28,
+    fontWeight: "800",
+    marginTop: 15,
   },
 });
