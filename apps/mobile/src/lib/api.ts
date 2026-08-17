@@ -81,7 +81,12 @@ export async function api<T>(path: string, options: CustomRequestInit = {}): Pro
       data = await res.json().catch(() => null);
     } else {
       const text = await res.text().catch(() => "");
-      data = text ? { error: text } : null;
+      // If response is an HTML error page (404/500/Vercel fallback), extract a clean error string
+      if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+        data = { error: `HTTP ${res.status}: Route returned HTML instead of JSON (${normalizedPath})` };
+      } else {
+        data = text ? { error: text } : null;
+      }
     }
 
     if (!res.ok) {
