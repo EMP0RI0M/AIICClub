@@ -22,6 +22,25 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // Resolve authoritative role from organization_role_assignments
+    const { data: assignments } = await supabase
+        .from("organization_role_assignments")
+        .select("role:organization_roles(key, name, hierarchy_level)")
+        .eq("user_id", userRecord.id)
+        .eq("is_active", true)
+        .order("starts_at", { ascending: false });
+
+    let effectiveRole = "member";
+    let effectiveRoleName = "Member";
+
+    if (assignments && assignments.length > 0) {
+        const topRole = (assignments as any[])[0]?.role;
+        if (topRole) {
+            effectiveRole = topRole.key || "member";
+            effectiveRoleName = topRole.name || "Member";
+        }
+    }
+
     return NextResponse.json({
         user: {
             id: userRecord.id,
@@ -38,6 +57,8 @@ export async function GET(req: NextRequest) {
             interests: userRecord.interests || [],
             skills: userRecord.skills || [],
             status: userRecord.status || "online",
+            role: effectiveRole,
+            roleName: effectiveRoleName,
             onboardingCompleted: userRecord.onboarding_completed ?? true,
             createdAt: userRecord.created_at,
         },
@@ -63,122 +84,73 @@ export async function PATCH(req: NextRequest) {
         githubUrl,
         websiteUrl,
         linkedinUrl,
-        interests,
         skills,
+        interests,
         onboardingCompleted,
     } = body;
 
     const supabase = getSupabaseAdmin();
-    const updates: Record<string, any> = {
+    const updateData: Record<string, any> = {
         updated_at: new Date().toISOString(),
     };
 
-    if (displayName !== undefined) {
-        updates.display_name = displayName ? displayName.trim() : user.displayName;
-    }
-    if (bio !== undefined) {
-        updates.bio = bio ? bio.trim() : null;
-    }
-    if (avatar !== undefined || avatarUrl !== undefined) {
-        const val = avatar !== undefined ? avatar : avatarUrl;
-        updates.avatar_url = val ? val.trim() : null;
-    }
-    if (status !== undefined) {
-        updates.status = status;
-    }
-    if (onboardingCompleted !== undefined) {
-        updates.onboarding_completed = onboardingCompleted;
-    }
-    if (classYear !== undefined) {
-        updates.class_year = classYear ? String(classYear).trim() : null;
-    }
-    if (section !== undefined) {
-        updates.section = section ? String(section).trim() : null;
-    }
-    if (githubUrl !== undefined) {
-        updates.github_url = githubUrl ? String(githubUrl).trim() : null;
-    }
-    if (websiteUrl !== undefined) {
-        updates.website_url = websiteUrl ? String(websiteUrl).trim() : null;
-    }
-    if (linkedinUrl !== undefined) {
-        updates.linkedin_url = linkedinUrl ? String(linkedinUrl).trim() : null;
-    }
-    if (interests !== undefined) {
-        updates.interests = Array.isArray(interests)
-            ? interests.map((s: string) => String(s).trim()).filter(Boolean)
-            : typeof interests === "string"
-            ? interests.split(",").map((s) => s.trim()).filter(Boolean)
-            : [];
-    }
-    if (skills !== undefined) {
-        updates.skills = Array.isArray(skills)
-            ? skills.map((s: string) => String(s).trim()).filter(Boolean)
-            : typeof skills === "string"
-            ? skills.split(",").map((s) => s.trim()).filter(Boolean)
-            : [];
-    }
+    if (displayName !== undefined) updateData.display_name = displayName;
+    if (bio !== undefined) updateData.bio = bio;
+    if (avatar !== undefined || avatarUrl !== undefined)
+        updateData.avatar_url = avatarUrl ?? avatar;
+    if (status !== undefined) updateData.status = status;
+    if (username !== undefined) updateData.username = username;
+    if (classYear !== undefined) updateData.class_year = classYear;
+    if (section !== undefined) updateData.section = section;
+    if (githubUrl !== undefined) updateData.github_url = githubUrl;
+    if (websiteUrl !== undefined) updateData.website_url = websiteUrl;
+    if (linkedinUrl !== undefined) updateData.linkedin_url = linkedinUrl;
+    if (skills !== undefined) updateData.skills = Array.isArray(skills) ? skills : [];
+    if (interests !== undefined) updateData.interests = Array.isArray(interests) ? interests : [];
+    if (onboardingCompleted !== undefined)
+        updateData.onboarding_completed = Boolean(onboardingCompleted);
 
-    if (username !== undefined) {
-        const normalized = username.trim().toLowerCase();
-        if (!/^[a-zA-Z0-9_]{3,30}$/.test(normalized)) {
-            return NextResponse.json(
-                { error: "Username must be 3-30 letters, numbers, or underscores." },
-                { status: 400 }
-            );
-        }
-
-        // Check availability
-        const { data: existing } = await supabase
-            .from("users")
-            .select("id")
-            .ilike("username", normalized)
-            .neq("id", user.id)
-            .maybeSingle();
-
-        if (existing) {
-            return NextResponse.json(
-                { error: `Username "${normalized}" is already taken by another user.` },
-                { status: 409 }
-            );
-        }
-
-        updates.username = normalized;
-    }
-
-    const { data: updatedRecord, error } = await supabase
+    const { data: updated, error } = await supabase
         .from("users")
-        .update(updates)
+        .update(updateData)
         .eq("id", user.id)
-        .select()
+        .select("*")
         .single();
 
-    if (error || !updatedRecord) {
-        console.error("PATCH /api/auth/profile error:", error);
-        return NextResponse.json(
-            { error: error?.message || "Failed to update profile in database." },
-            { status: 500 }
-        );
+    if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Resolve authoritative role
+    const { data: assignments } = await supabase
+        .from("organization_role_assignments")
+        .select("role:organization_roles(key, name)")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .order("starts_at", { ascending: false });
+
+    const topRole = (assignments as any[])?.[0]?.role;
 
     return NextResponse.json({
         user: {
-            id: updatedRecord.id,
-            email: updatedRecord.email,
-            username: updatedRecord.username,
-            displayName: updatedRecord.display_name,
-            avatar: updatedRecord.avatar_url,
-            bio: updatedRecord.bio,
-            classYear: updatedRecord.class_year,
-            section: updatedRecord.section,
-            githubUrl: updatedRecord.github_url,
-            websiteUrl: updatedRecord.website_url,
-            linkedinUrl: updatedRecord.linkedin_url,
-            interests: updatedRecord.interests || [],
-            skills: updatedRecord.skills || [],
-            status: updatedRecord.status || "online",
-            onboardingCompleted: updatedRecord.onboarding_completed ?? true,
-            createdAt: updatedRecord.created_at,
+            id: updated.id,
+            email: updated.email,
+            username: updated.username,
+            displayName: updated.display_name,
+            avatar: updated.avatar_url,
+            bio: updated.bio,
+            classYear: updated.class_year,
+            section: updated.section,
+            githubUrl: updated.github_url,
+            websiteUrl: updated.website_url,
+            linkedinUrl: updated.linkedin_url,
+            interests: updated.interests || [],
+            skills: updated.skills || [],
+            status: updated.status || "online",
+            role: topRole?.key || "member",
+            roleName: topRole?.name || "Member",
+            onboardingCompleted: updated.onboarding_completed ?? true,
+            createdAt: updated.created_at,
         },
     });
 }
