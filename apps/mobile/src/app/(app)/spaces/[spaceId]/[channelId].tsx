@@ -19,11 +19,14 @@ import { useRouter } from "expo-router";
 import { useAuthStore } from "../../../../stores/auth-store";
 import { useWorkspaceStore } from "../../../../stores/workspace-store";
 import { useChatStore } from "../../../../stores/chat-store";
-import { api, searchUsers, publishAnnouncement, fetchChannelGitHub } from "../../../../lib/api";
+import { api, searchUsers, publishAnnouncement } from "../../../../lib/api";
 import { AttachmentCard, parseMessageAttachments } from "../../../../components/chat/AttachmentCard";
 import { Avatar } from "../../../../components/ui/Avatar";
 import { GlassCard } from "../../../../components/ui/GlassCard";
 import { Badge } from "../../../../components/ui/Badge";
+import { VoiceChannelView } from "../../../../components/chat/VoiceChannelView";
+import { IncidentChannelView } from "../../../../components/chat/IncidentChannelView";
+import { CanvasChannelView } from "../../../../components/chat/CanvasChannelView";
 import { colors, radius } from "../../../../theme/tokens";
 import {
   MessageSquare,
@@ -88,7 +91,7 @@ export type Channel = {
   id: string;
   serverId: string;
   name: string;
-  type: "text" | "voice" | "project" | "board" | "docs" | "github" | "incident" | "stage" | "announcement" | "forum";
+  type: "text" | "voice" | "project" | "board" | "docs" | "github" | "incident" | "stage" | "canvas" | "announcement" | "forum";
   category?: string;
   unreadCount?: number;
   topic?: string;
@@ -304,7 +307,7 @@ function SelectedSpaceView({
         channel.category ||
         (channel.type === "voice"
           ? "Voice Channels"
-          : channel.type === "project" || channel.type === "board" || channel.type === "github"
+          : channel.type === "project" || channel.type === "board" || channel.type === "github" || channel.type === "canvas"
             ? "Project & Engineering"
             : channel.type === "incident"
               ? "Incident Response"
@@ -330,6 +333,7 @@ function SelectedSpaceView({
       case "docs": return <FileText size={16} color={colors.info} />;
       case "github": return <Github size={16} color={colors.accentTeal} />;
       case "incident": return <AlertTriangle size={16} color={colors.danger} />;
+      case "canvas": return <Layers size={16} color={colors.accent} />;
       case "stage": return <Radio size={16} color={colors.live} />;
       case "announcement": return <Bell size={16} color={colors.accent} />;
       default: return <Hash size={16} color={colors.textMuted} />;
@@ -466,10 +470,80 @@ function SelectedSpaceView({
 }
 
 /* =========================================================
-   CHANNEL SCREEN (DEDICATED FULL-AREA TYPE-SPECIFIC VIEW)
+   TYPE-SPECIFIC CHANNEL ROUTER
+   Routes channel.type to dedicated screen without flattening
    ========================================================= */
 
-function ChannelScreen({
+function ChannelRouter({
+  channel,
+  messages,
+  onBack,
+  onSend,
+}: {
+  channel: Channel;
+  messages: Message[];
+  onBack: () => void;
+  onSend: (content: string) => Promise<void>;
+}) {
+  switch (channel.type) {
+    case "voice":
+      return (
+        <VoiceChannelView
+          channelName={channel.name}
+          isStage={false}
+          onBack={onBack}
+        />
+      );
+
+    case "stage":
+      return (
+        <VoiceChannelView
+          channelName={channel.name}
+          isStage={true}
+          onBack={onBack}
+        />
+      );
+
+    case "incident":
+      return (
+        <IncidentChannelView
+          channelName={channel.name}
+          onBack={onBack}
+        />
+      );
+
+    case "canvas":
+      return (
+        <CanvasChannelView
+          channelName={channel.name}
+          onBack={onBack}
+        />
+      );
+
+    case "text":
+    case "announcement":
+    case "forum":
+    case "project":
+    case "board":
+    case "docs":
+    case "github":
+    default:
+      return (
+        <TextChannelScreen
+          channel={channel}
+          messages={messages}
+          onBack={onBack}
+          onSend={onSend}
+        />
+      );
+  }
+}
+
+/* =========================================================
+   STANDARD TEXT CHANNEL SCREEN
+   ========================================================= */
+
+function TextChannelScreen({
   channel,
   messages,
   onBack,
@@ -488,12 +562,8 @@ function ChannelScreen({
           <ChevronLeft size={24} color={colors.textPrimary} />
         </Pressable>
 
-        {channel.type === "voice" ? (
-          <Volume2 size={18} color={colors.accentTeal} />
-        ) : channel.type === "github" ? (
+        {channel.type === "github" ? (
           <Github size={18} color={colors.accentTeal} />
-        ) : channel.type === "incident" ? (
-          <AlertTriangle size={18} color={colors.danger} />
         ) : channel.type === "board" ? (
           <Kanban size={18} color={colors.accentWarm} />
         ) : channel.type === "docs" ? (
@@ -1197,8 +1267,8 @@ export default function AIICDiscordApp() {
         <View style={styles.mainContent}>
           {currentSection === "space" && selectedServer && (
             selectedChannel ? (
-              /* DEDICATED CHANNEL SCREEN (OCCUPIES FULL CONTENT AREA) */
-              <ChannelScreen
+              /* DEDICATED TYPE-SPECIFIC CHANNEL ROUTER */
+              <ChannelRouter
                 channel={selectedChannel}
                 messages={channelMessages}
                 onBack={() => setSelectedChannelId(null)}
