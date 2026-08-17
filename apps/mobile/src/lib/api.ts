@@ -367,3 +367,49 @@ export async function fetchAdminOverview() {
 export async function fetchOrgMembers(spaceId: string) {
   return api<{ members: any[] }>(`/org/members?spaceId=${encodeURIComponent(spaceId)}`);
 }
+
+// ─────────────────────────────────────────────────────────────
+// 7. SPECIALIZED MODULE STATE (BOARD, DOCS, INCIDENT, CANVAS, VOICE)
+// ─────────────────────────────────────────────────────────────
+
+export async function joinVoiceChannel(channelId: string) {
+  return api<{ url: string; token: string }>(`/channels/${channelId}/voice/token`);
+}
+
+export async function fetchWorkspaceModules(spaceId: string) {
+  return api<{
+    boardsByChannel: Record<string, any>;
+    docsByChannel: Record<string, any>;
+    incidentsByChannel: Record<string, any>;
+    canvasesByChannel: Record<string, any>;
+    githubByChannel: Record<string, any>;
+  }>(`/servers/${spaceId}/modules`);
+}
+
+export async function saveBoardState(channelId: string, board: any) {
+  return api<{ board: any }>(`/channels/${channelId}/board`, {
+    method: "PUT",
+    body: JSON.stringify({ board }),
+  });
+}
+
+export async function saveDocsState(channelId: string, docs: any) {
+  return api<{ docs: any }>(`/channels/${channelId}/docs`, {
+    method: "PUT",
+    body: JSON.stringify({ docs }),
+  });
+}
+
+export async function saveIncidentState(channelId: string, incident: any) {
+  return api<{ incident: any }>(`/channels/${channelId}/incident`, {
+    method: "PUT",
+    body: JSON.stringify({ incident }),
+  });
+}
+
+export async function saveCanvasState(channelId: string, data: any) {
+  return api<{ data: any }>(`/channels/${channelId}/canvas`, {
+    method: "PUT",
+    body: JSON.stringify({ data }),
+  });
+}

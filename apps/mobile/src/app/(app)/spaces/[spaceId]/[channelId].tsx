@@ -493,6 +493,7 @@ function ChannelRouter({
     case "voice":
       return (
         <VoiceChannelView
+          channelId={channel.id}
           channelName={channel.name}
           isStage={false}
           onBack={onBack}
@@ -502,6 +503,7 @@ function ChannelRouter({
     case "stage":
       return (
         <VoiceChannelView
+          channelId={channel.id}
           channelName={channel.name}
           isStage={true}
           onBack={onBack}
@@ -511,6 +513,7 @@ function ChannelRouter({
     case "incident":
       return (
         <IncidentChannelView
+          channelId={channel.id}
           channelName={channel.name}
           onBack={onBack}
         />
@@ -519,6 +522,7 @@ function ChannelRouter({
     case "canvas":
       return (
         <CanvasChannelView
+          channelId={channel.id}
           channelName={channel.name}
           onBack={onBack}
         />

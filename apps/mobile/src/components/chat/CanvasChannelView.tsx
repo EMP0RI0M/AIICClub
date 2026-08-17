@@ -23,20 +23,53 @@ import {
   Layers,
 } from "lucide-react-native";
 
+import { saveCanvasState } from "../../lib/api";
+
 export function CanvasChannelView({
+  channelId,
   channelName,
+  initialShapes,
   onBack,
 }: {
+  channelId?: string;
   channelName: string;
+  initialShapes?: Array<{ id: string; type: string; label: string; x: number; y: number; color?: string }>;
   onBack: () => void;
 }) {
   const [selectedTool, setSelectedTool] = useState<"select" | "pen" | "rect" | "circle" | "arrow" | "text" | "eraser">("pen");
   const [selectedColor, setSelectedColor] = useState("#E8A33D");
-  const [shapes, setShapes] = useState<Array<{ id: string; type: string; label: string; x: number; y: number }>>([
-    { id: "s1", type: "rect", label: "Neural Architecture", x: 40, y: 80 },
-    { id: "s2", type: "circle", label: "Attention Head", x: 180, y: 160 },
-    { id: "s3", type: "text", label: "quantized_matmul()", x: 60, y: 260 },
-  ]);
+  const [shapes, setShapes] = useState<Array<{ id: string; type: string; label: string; x: number; y: number; color?: string }>>(
+    initialShapes || []
+  );
+
+  const persistCanvas = (nextShapes: typeof shapes) => {
+    if (!channelId) return;
+    saveCanvasState(channelId, { shapes: nextShapes }).catch(console.warn);
+  };
+
+  const handleCanvasTap = (evt: any) => {
+    const { locationX, locationY } = evt.nativeEvent;
+    if (selectedTool === "eraser") return;
+
+    const newShape = {
+      id: `shape_${Date.now()}`,
+      type: selectedTool,
+      label: selectedTool === "text" ? "New Text" : `${selectedTool.toUpperCase()} Node`,
+      x: Math.max(20, Math.min(300, locationX - 40)),
+      y: Math.max(20, Math.min(500, locationY - 20)),
+      color: selectedColor,
+    };
+
+    const nextShapes = [...shapes, newShape];
+    setShapes(nextShapes);
+    persistCanvas(nextShapes);
+  };
+
+  const handleDeleteShape = (shapeId: string) => {
+    const nextShapes = shapes.filter((s) => s.id !== shapeId);
+    setShapes(nextShapes);
+    persistCanvas(nextShapes);
+  };
 
   const tools = [
     { id: "pen", icon: PenLine, label: "Pen" },
@@ -104,24 +137,34 @@ export function CanvasChannelView({
       </View>
 
       {/* Canvas Workspace View */}
-      <View style={styles.canvasBoard}>
+      <Pressable style={styles.canvasBoard} onPress={handleCanvasTap}>
         {shapes.map((s) => (
-          <GlassCard
+          <Pressable
             key={s.id}
-            elevated
+            onPress={() => {
+              if (selectedTool === "eraser") {
+                handleDeleteShape(s.id);
+              }
+            }}
             style={[
               styles.canvasObject,
-              { top: s.y, left: s.x, borderColor: selectedColor },
+              { top: s.y, left: s.x, borderColor: s.color || colors.accent },
             ]}
           >
-            <Text style={styles.objectLabel}>{s.label}</Text>
-          </GlassCard>
+            <GlassCard elevated style={{ padding: 8 }}>
+              <Text style={styles.objectLabel}>{s.label}</Text>
+            </GlassCard>
+          </Pressable>
         ))}
 
         <View style={styles.canvasHelper}>
-          <Text style={styles.helperText}>Tap to place vector cards or sketch equations</Text>
+          <Text style={styles.helperText}>
+            {selectedTool === "eraser"
+              ? "Tap an object to erase it"
+              : `Tap anywhere to place a ${selectedTool.toUpperCase()} object`}
+          </Text>
         </View>
-      </View>
+      </Pressable>
     </View>
   );
 }

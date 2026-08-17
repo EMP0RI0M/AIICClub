@@ -20,54 +20,84 @@ import {
   Send,
 } from "lucide-react-native";
 
+import { saveIncidentState } from "../../lib/api";
+import { useAuthStore } from "../../stores/auth-store";
+
 export type IncidentStatus = "active" | "monitoring" | "resolved";
 
 export function IncidentChannelView({
+  channelId,
   channelName,
+  initialIncident,
   onBack,
 }: {
+  channelId?: string;
   channelName: string;
+  initialIncident?: {
+    status?: IncidentStatus;
+    severity?: "P0" | "P1" | "P2" | "P3";
+    commander?: { name: string; id: string };
+    timeline?: Array<{ time: string; author: string; message: string; status: string }>;
+  };
   onBack: () => void;
 }) {
-  const [status, setStatus] = useState<IncidentStatus>("active");
-  const [severity, setSeverity] = useState<"P0" | "P1" | "P2" | "P3">("P2");
-  const [commander, setCommander] = useState<string>("Alex Rivera");
+  const currentUser = useAuthStore((s) => s.user);
+  const [status, setStatus] = useState<IncidentStatus>(initialIncident?.status || "active");
+  const [severity, setSeverity] = useState<"P0" | "P1" | "P2" | "P3">(initialIncident?.severity || "P2");
+  const [commander, setCommander] = useState<string>(
+    initialIncident?.commander?.name || currentUser?.displayName || currentUser?.username || "Incident Commander"
+  );
   const [newUpdateText, setNewUpdateText] = useState("");
+  const [timeline, setTimeline] = useState<Array<{ time: string; author: string; message: string; status: string }>>(
+    initialIncident?.timeline || []
+  );
 
-  const [timeline, setTimeline] = useState<Array<{ time: string; author: string; message: string; status: string }>>([
-    {
-      time: "14:28 UTC",
-      author: "Alex Rivera",
-      message: "Traffic diverted to secondary edge cluster. P99 latency normalized to 38ms.",
-      status: "mitigated",
-    },
-    {
-      time: "14:15 UTC",
-      author: "Sarah Chen",
-      message: "Identified elevated socket reconnection rate on region US-East.",
-      status: "investigating",
-    },
-    {
-      time: "14:02 UTC",
-      author: "System Monitor",
-      message: "Elevated connection drop rate triggered automated incident.",
-      status: "triggered",
-    },
-  ]);
+  const persistIncident = (
+    nextStatus: IncidentStatus,
+    nextSev: "P0" | "P1" | "P2" | "P3",
+    nextCmd: string,
+    nextTimeline: typeof timeline
+  ) => {
+    if (!channelId) return;
+    saveIncidentState(channelId, {
+      status: nextStatus,
+      severity: nextSev,
+      commander: { name: nextCmd, id: currentUser?.id },
+      timeline: nextTimeline.map((t) => ({ at: t.time, text: `${t.author}: ${t.message}` })),
+    }).catch(console.warn);
+  };
 
   function addTimelineUpdate() {
     if (!newUpdateText.trim()) return;
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setTimeline([
+    const nextTimeline = [
       {
         time: `${now} UTC`,
-        author: commander || "Commander",
+        author: currentUser?.displayName || currentUser?.username || commander || "Commander",
         message: newUpdateText.trim(),
         status: status === "resolved" ? "resolved" : "investigating",
       },
       ...timeline,
-    ]);
+    ];
+    setTimeline(nextTimeline);
     setNewUpdateText("");
+    persistIncident(status, severity, commander, nextTimeline);
+  }
+
+  function handleClaimCommand() {
+    const myName = currentUser?.displayName || currentUser?.username || "Me";
+    setCommander(myName);
+    persistIncident(status, severity, myName, timeline);
+  }
+
+  function handleStatusChange(nextStatus: IncidentStatus) {
+    setStatus(nextStatus);
+    persistIncident(nextStatus, severity, commander, timeline);
+  }
+
+  function handleSeverityChange(nextSev: "P0" | "P1" | "P2" | "P3") {
+    setSeverity(nextSev);
+    persistIncident(status, nextSev, commander, timeline);
   }
 
   return (
@@ -95,7 +125,7 @@ export function IncidentChannelView({
 
         {status !== "resolved" && (
           <Pressable
-            onPress={() => setStatus("resolved")}
+            onPress={() => handleStatusChange("resolved")}
             style={styles.resolveBtn}
           >
             <Text style={styles.resolveBtnText}>Resolve</Text>
@@ -113,7 +143,7 @@ export function IncidentChannelView({
                 {(["P0", "P1", "P2", "P3"] as const).map((sev) => (
                   <Pressable
                     key={sev}
-                    onPress={() => setSeverity(sev)}
+                    onPress={() => handleSeverityChange(sev)}
                     style={[
                       styles.sevPill,
                       severity === sev && styles.sevPillActive,
@@ -130,7 +160,7 @@ export function IncidentChannelView({
             <View style={{ flex: 1 }}>
               <Text style={styles.matrixLabel}>COMMANDER</Text>
               <Pressable
-                onPress={() => setCommander("Me (Claimed)")}
+                onPress={handleClaimCommand}
                 style={styles.commanderPill}
               >
                 <Text style={styles.commanderText} numberOfLines={1}>
