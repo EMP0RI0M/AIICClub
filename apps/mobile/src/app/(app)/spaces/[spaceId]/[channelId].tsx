@@ -26,6 +26,10 @@ import { GlassCard } from "../../../../components/ui/GlassCard";
 import { Badge } from "../../../../components/ui/Badge";
 import { VoiceChannelView } from "../../../../components/chat/VoiceChannelView";
 import { IncidentChannelView } from "../../../../components/chat/IncidentChannelView";
+import {
+  SpaceSettingsModal,
+  type SpaceSettingsSection,
+} from "@/components/space/SpaceSettingsModal";
 import { CanvasChannelView } from "../../../../components/chat/CanvasChannelView";
 import { colors, radius } from "../../../../theme/tokens";
 import {
@@ -294,6 +298,7 @@ function SelectedSpaceView({
   onSearch,
   onAdd,
   onEvents,
+  onOpenSettings,
 }: {
   server: Server;
   channels: Channel[];
@@ -305,6 +310,7 @@ function SelectedSpaceView({
   onSearch: () => void;
   onAdd: () => void;
   onEvents: () => void;
+  onOpenSettings?: () => void;
 }) {
   const categories = useMemo(() => {
     const result: Record<string, Channel[]> = {};
@@ -366,7 +372,7 @@ function SelectedSpaceView({
     <View style={styles.selectorView}>
       {/* Space Header */}
       <View style={styles.header}>
-        <View style={styles.serverTitleRow}>
+        <Pressable onPress={onOpenSettings} style={styles.serverTitleRow}>
           <View style={{ flex: 1 }}>
             <View style={styles.spaceBadgeCapsule}>
               <Sparkles size={11} color={colors.accent} />
@@ -379,8 +385,8 @@ function SelectedSpaceView({
               </Text>
             ) : null}
           </View>
-          <ChevronRight size={20} color={colors.textMuted} />
-        </View>
+          <Settings size={18} color={colors.textMuted} />
+        </Pressable>
 
         <View style={styles.headerActions}>
           <Pressable onPress={onSearch} style={styles.searchButton}>
@@ -395,6 +401,12 @@ function SelectedSpaceView({
           <Pressable onPress={onEvents} style={styles.squareButton}>
             <Calendar size={18} color={colors.textPrimary} />
           </Pressable>
+
+          {onOpenSettings && (
+            <Pressable onPress={onOpenSettings} style={styles.squareButton}>
+              <Settings size={18} color={colors.accent} />
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -1220,6 +1232,7 @@ export default function AIICDiscordApp() {
   // Modals
   const [searchOpen, setSearchOpen] = useState(false);
   const [createNoticeOpen, setCreateNoticeOpen] = useState(false);
+  const [spaceSettingsOpen, setSpaceSettingsOpen] = useState(false);
 
   // Authority & Role calculation from Supabase profile data
   const userRole = (user?.role || "member").toLowerCase().trim();
@@ -1433,6 +1446,7 @@ export default function AIICDiscordApp() {
                 onSearch={() => setSearchOpen(true)}
                 onAdd={() => router.push("/(app)/projects/index" as any)}
                 onEvents={() => router.push("/(app)/events/index" as any)}
+                onOpenSettings={() => setSpaceSettingsOpen(true)}
               />
             )
           )}
@@ -1564,6 +1578,25 @@ export default function AIICDiscordApp() {
         onClose={() => setCreateNoticeOpen(false)}
         onCreated={loadNoticesData}
       />
+
+      {/* Space-Level Settings & Governance System (All 8 Web Sections) */}
+      {selectedServer && (
+        <SpaceSettingsModal
+          visible={spaceSettingsOpen}
+          onClose={() => setSpaceSettingsOpen(false)}
+          spaceId={selectedServer.id}
+          spaceName={selectedServer.name}
+          spaceDescription={selectedServer.description}
+          userRole={userRole}
+          onRenameSpace={(newName) => {
+            loadSpaces();
+          }}
+          onDeleteSpace={() => {
+            setSpaceSettingsOpen(false);
+            loadSpaces();
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
