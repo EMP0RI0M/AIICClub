@@ -30,6 +30,8 @@ const COLORS = {
   faint: "rgba(245,247,250,0.38)",
 
   border: "rgba(255,255,255,0.11)",
+  borderStrong: "rgba(255,255,255,0.16)",
+
   input: "rgba(255,255,255,0.055)",
   inputFocused: "rgba(255,255,255,0.085)",
 };
@@ -119,66 +121,26 @@ function AmbientGlow() {
   );
 }
 
-function InputField({
-  icon,
-  placeholder,
-  value,
-  onChangeText,
-  secureTextEntry,
-  keyboardType,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  placeholder: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  secureTextEntry?: boolean;
-  keyboardType?: any;
-}) {
-  const [focused, setFocused] = useState(false);
-
-  return (
-    <View
-      style={[
-        styles.inputContainer,
-        focused && styles.inputFocused,
-      ]}
-    >
-      <Ionicons
-        name={icon}
-        size={20}
-        color={focused ? COLORS.amber : COLORS.muted}
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder={placeholder}
-        placeholderTextColor={COLORS.faint}
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={secureTextEntry}
-        keyboardType={keyboardType}
-        autoCapitalize="none"
-        autoCorrect={false}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        selectionColor={COLORS.amber}
-      />
-    </View>
-  );
-}
-
 export default function RegisterScreen() {
   const router = useRouter();
   const { register, isLoading } = useAuthStore();
 
-  const [name, setName] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [successConfirmation, setSuccessConfirmation] = useState(false);
 
+  // Independent field focus states (for border/halo styling ONLY)
+  const [focusedField, setFocusedField] = useState<"displayName" | "email" | "password" | null>(null);
+
+  // Independent refs for smooth keyboard navigation
+  const displayNameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+
   const ready =
-    name.trim().length >= 2 &&
+    displayName.trim().length >= 2 &&
     email.includes("@") &&
     email.includes(".") &&
     password.length >= 6;
@@ -187,9 +149,9 @@ export default function RegisterScreen() {
     if (!ready) return;
     setError(null);
     try {
-      const generatedUsername = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+      const generatedUsername = displayName.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
       const { confirmEmail } = await register({
-        displayName: name.trim(),
+        displayName: displayName.trim(),
         username: generatedUsername,
         email: email.trim(),
         password,
@@ -292,33 +254,101 @@ export default function RegisterScreen() {
 
         {/* Form */}
         <View style={styles.form}>
+          {/* Display Name Input */}
           <FadeSlide delay={350}>
-            <InputField
-              icon="person-outline"
-              placeholder="Display name"
-              value={name}
-              onChangeText={setName}
-            />
+            <View
+              style={[
+                styles.inputContainer,
+                focusedField === "displayName" && styles.inputFocused,
+              ]}
+            >
+              <Ionicons
+                name="person-outline"
+                size={20}
+                color={focusedField === "displayName" ? COLORS.amber : COLORS.muted}
+              />
+              <TextInput
+                ref={displayNameRef}
+                style={styles.input}
+                placeholder="Display name"
+                placeholderTextColor={COLORS.faint}
+                value={displayName}
+                onChangeText={setDisplayName}
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => emailRef.current?.focus()}
+                onFocus={() => setFocusedField("displayName")}
+                onBlur={() => setFocusedField((prev) => (prev === "displayName" ? null : prev))}
+                selectionColor={COLORS.amber}
+              />
+            </View>
           </FadeSlide>
 
+          {/* Email Input */}
           <FadeSlide delay={430}>
-            <InputField
-              icon="mail-outline"
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-            />
+            <View
+              style={[
+                styles.inputContainer,
+                focusedField === "email" && styles.inputFocused,
+              ]}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={focusedField === "email" ? COLORS.amber : COLORS.muted}
+              />
+              <TextInput
+                ref={emailRef}
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor={COLORS.faint}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                onFocus={() => setFocusedField("email")}
+                onBlur={() => setFocusedField((prev) => (prev === "email" ? null : prev))}
+                selectionColor={COLORS.amber}
+              />
+            </View>
           </FadeSlide>
 
+          {/* Password Input */}
           <FadeSlide delay={510}>
-            <InputField
-              icon="lock-closed-outline"
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+            <View
+              style={[
+                styles.inputContainer,
+                focusedField === "password" && styles.inputFocused,
+              ]}
+            >
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={focusedField === "password" ? COLORS.amber : COLORS.muted}
+              />
+              <TextInput
+                ref={passwordRef}
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor={COLORS.faint}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={true}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={() => passwordRef.current?.blur()}
+                onFocus={() => setFocusedField("password")}
+                onBlur={() => setFocusedField((prev) => (prev === "password" ? null : prev))}
+                selectionColor={COLORS.amber}
+              />
+            </View>
           </FadeSlide>
 
           {/* Password requirement */}
@@ -330,7 +360,6 @@ export default function RegisterScreen() {
                   password.length >= 6 && styles.statusDotActive,
                 ]}
               />
-
               <Text style={styles.passwordHintText}>
                 Use at least 6 characters
               </Text>
@@ -375,7 +404,6 @@ export default function RegisterScreen() {
             <Text style={styles.loginNormal}>
               Already have an account?{" "}
             </Text>
-
             <Text style={styles.loginLink}>
               Sign in
             </Text>
@@ -446,23 +474,15 @@ const styles = StyleSheet.create({
     width: 43,
     height: 43,
     borderRadius: 22,
-
     alignItems: "center",
     justifyContent: "center",
-
     backgroundColor: "rgba(255,255,255,0.065)",
-
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.11)",
-
     shadowColor: "#000",
     shadowOpacity: 0.3,
     shadowRadius: 15,
-    shadowOffset: {
-      width: 0,
-      height: 7,
-    },
-
+    shadowOffset: { width: 0, height: 7 },
     elevation: 8,
   },
 
@@ -496,7 +516,6 @@ const styles = StyleSheet.create({
     height: 9,
     borderRadius: 5,
     backgroundColor: COLORS.amber,
-
     shadowColor: COLORS.amber,
     shadowOpacity: 0.9,
     shadowRadius: 8,
@@ -548,42 +567,30 @@ const styles = StyleSheet.create({
   inputContainer: {
     height: 55,
     width: "100%",
-
     flexDirection: "row",
     alignItems: "center",
-
     paddingHorizontal: 16,
     gap: 11,
-
     borderRadius: 17,
-
     backgroundColor: COLORS.input,
-
     borderWidth: 1,
     borderColor: COLORS.border,
-
     marginBottom: 11,
   },
 
   inputFocused: {
     backgroundColor: COLORS.inputFocused,
     borderColor: "rgba(232,163,61,0.58)",
-
     shadowColor: COLORS.amber,
     shadowOpacity: 0.13,
     shadowRadius: 15,
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
+    shadowOffset: { width: 0, height: 0 },
   },
 
   input: {
     flex: 1,
     height: "100%",
-
     color: COLORS.text,
-
     fontSize: 15,
     fontWeight: "500",
   },
@@ -591,11 +598,9 @@ const styles = StyleSheet.create({
   passwordHint: {
     flexDirection: "row",
     alignItems: "center",
-
     marginTop: 1,
     marginBottom: 5,
     paddingLeft: 4,
-
     gap: 8,
   },
 
@@ -608,7 +613,6 @@ const styles = StyleSheet.create({
 
   statusDotActive: {
     backgroundColor: COLORS.teal,
-
     shadowColor: COLORS.teal,
     shadowOpacity: 0.8,
     shadowRadius: 5,
@@ -623,25 +627,16 @@ const styles = StyleSheet.create({
   createButton: {
     height: 54,
     borderRadius: 27,
-
     marginTop: 13,
-
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-
     gap: 9,
-
     backgroundColor: COLORS.amber,
-
     shadowColor: COLORS.amber,
     shadowOpacity: 0.32,
     shadowRadius: 22,
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-
+    shadowOffset: { width: 0, height: 10 },
     elevation: 9,
   },
 
