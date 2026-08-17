@@ -265,16 +265,49 @@ function MessageRow({
               </p>
             </div>
           ) : (
-            message.text && (
-              <div className="whitespace-pre-wrap break-words text-[14px] sm:text-[14.5px] leading-[1.55] text-text-primary/95">
-                <InlineMarkdown text={message.text} />
-                {message.edited && (
-                  <span className="ml-1.5 font-mono text-[10px] text-text-muted/60">
-                    (edited)
-                  </span>
-                )}
-              </div>
-            )
+            (() => {
+              const rawText = message.text || "";
+              const attachmentRegex = /attachment:(?:%7B|{)(.*?)(?:%7D|})/g;
+              const extractedAttachments: Attachment[] = [];
+              let match;
+              while ((match = attachmentRegex.exec(rawText)) !== null) {
+                try {
+                  const decoded = match[0].startsWith("attachment:%7B")
+                    ? decodeURIComponent(match[0].replace("attachment:", ""))
+                    : match[0].replace("attachment:", "");
+                  const parsed = JSON.parse(decoded);
+                  if (parsed.url) {
+                    extractedAttachments.push({
+                      kind: (parsed.kind || (parsed.mimeType?.startsWith("image/") ? "image" : "file")) as any,
+                      url: parsed.url,
+                      name: parsed.name || "Attachment",
+                      size: parsed.size ? `${(parsed.size / 1024).toFixed(1)} KB` : undefined,
+                    });
+                  }
+                } catch {}
+              }
+
+              const cleanText = rawText.replace(/attachment:(?:%7B|{).*?(?:%7D|})/g, "").trim();
+
+              return (
+                <>
+                  {cleanText ? (
+                    <div className="whitespace-pre-wrap break-words text-[14px] sm:text-[14.5px] leading-[1.55] text-text-primary/95">
+                      <InlineMarkdown text={cleanText} />
+                      {message.edited && (
+                        <span className="ml-1.5 font-mono text-[10px] text-text-muted/60">
+                          (edited)
+                        </span>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {extractedAttachments.map((att, i) => (
+                    <AttachmentView key={`ext-${i}`} attachment={att} />
+                  ))}
+                </>
+              );
+            })()
           )}
 
           {/* Attachments & Media */}

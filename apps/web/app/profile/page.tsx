@@ -57,8 +57,8 @@ export default function ProfilePage() {
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-text-primary">
                 {user.displayName || user.username}
               </h1>
-              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2.5 py-0.5 font-mono text-[10px] text-accent">
-                <Shield size={10} /> Member
+              <span className="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/15 px-2.5 py-0.5 font-mono text-[10px] text-accent font-semibold uppercase">
+                <Shield size={10} /> {(user as any).roleName || ((user as any).role ? (user as any).role.replace(/_/g, " ") : "Member")}
               </span>
             </div>
 
