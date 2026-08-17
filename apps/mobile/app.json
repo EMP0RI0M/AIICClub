@@ -22,7 +22,44 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0B11"
       },
-      "package": "org.aiic.mobile"
+      "package": "org.aiic.mobile",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "aiic-bbs.vercel.app",
+              "pathPrefix": "/join"
+            },
+            {
+              "scheme": "https",
+              "host": "aiic-bbs.vercel.app",
+              "pathPrefix": "/invite"
+            },
+            {
+              "scheme": "https",
+              "host": "aiic-bbs.vercel.app",
+              "pathPrefix": "/space"
+            },
+            {
+              "scheme": "https",
+              "host": "aiic-bbs.vercel.app",
+              "pathPrefix": "/spaces"
+            },
+            {
+              "scheme": "https",
+              "host": "aiic-bbs.vercel.app",
+              "pathPrefix": "/channels"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",

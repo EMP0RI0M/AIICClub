@@ -16,14 +16,31 @@ export default function RootLayout() {
     restoreSession();
   }, []);
 
-  // Global Native Deep Link Listener for OAuth callback (aiic://auth/callback)
+  // Global Native Deep Link Listener for OAuth callback & HTTPS App Links (/join, /invite)
   useEffect(() => {
     const handleUrl = async ({ url }: { url: string }) => {
-      if (url && (url.startsWith("aiic://auth/callback") || url.includes("auth/callback"))) {
+      if (!url) return;
+
+      // 1. OAuth Deep Link
+      if (url.startsWith("aiic://auth/callback") || url.includes("auth/callback")) {
         console.log("[AIIC OAuth] Deep link received:", url);
         const success = await handleOAuthCallback(url);
         if (success) {
           router.replace("/(app)/spaces/space-aiic-main/c-general");
+        }
+        return;
+      }
+
+      // 2. Android App Links & Custom Scheme Join Links
+      const parsed = Linking.parse(url);
+      const path = parsed.path || "";
+
+      if (path.startsWith("join/") || path.startsWith("invite/")) {
+        const parts = path.split("/");
+        const code = parts[1];
+        if (code) {
+          console.log("[AIIC AppLink] Navigating to invite code:", code);
+          router.push({ pathname: "/join/[code]", params: { code } });
         }
       }
     };
