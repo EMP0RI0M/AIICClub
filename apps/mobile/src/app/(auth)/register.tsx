@@ -661,9 +661,7 @@ const styles = StyleSheet.create({
 
   loginButton: {
     alignSelf: "center",
-
     flexDirection: "row",
-
     marginTop: "auto",
     paddingVertical: 9,
   },
@@ -677,16 +675,13 @@ const styles = StyleSheet.create({
   loginLink: {
     color: COLORS.amberLight,
     fontSize: 13,
-    fontWeight: "750",
+    fontWeight: "700",
   },
 
   terms: {
     textAlign: "center",
-
     paddingHorizontal: 20,
-
     color: "rgba(245,247,250,0.34)",
-
     fontSize: 10.5,
     lineHeight: 16,
     fontWeight: "500",
