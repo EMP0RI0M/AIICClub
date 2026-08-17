@@ -3,11 +3,12 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
+import * as Linking from "expo-linking";
 import { useAuthStore } from "../stores/auth-store";
 import { colors } from "../theme/tokens";
 
 export default function RootLayout() {
-  const { isAuthenticated, isRestoring, restoreSession } = useAuthStore();
+  const { isAuthenticated, isRestoring, restoreSession, handleOAuthCallback } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
 
@@ -15,15 +16,37 @@ export default function RootLayout() {
     restoreSession();
   }, []);
 
+  // Global Native Deep Link Listener for OAuth callback (aiic://auth/callback)
+  useEffect(() => {
+    const handleUrl = async ({ url }: { url: string }) => {
+      if (url && (url.startsWith("aiic://auth/callback") || url.includes("auth/callback"))) {
+        console.log("[AIIC OAuth] Deep link received:", url);
+        const success = await handleOAuthCallback(url);
+        if (success) {
+          router.replace("/(app)/spaces/space-aiic-main/c-general");
+        }
+      }
+    };
+
+    const subscription = Linking.addEventListener("url", handleUrl);
+
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleUrl({ url });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   useEffect(() => {
     if (isRestoring) return;
 
     const inAuthGroup = segments[0] === "(auth)";
 
-    if (!isAuthenticated && !inAuthGroup && segments[0] !== undefined) {
-      // User is not authenticated and trying to access protected route
-      // router.replace("/(auth)/login");
-    } else if (isAuthenticated && inAuthGroup) {
+    if (isAuthenticated && inAuthGroup) {
       // User is authenticated and on login screen
       router.replace("/(app)/spaces/space-aiic-main/c-general");
     }

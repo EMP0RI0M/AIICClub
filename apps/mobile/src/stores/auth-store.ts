@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import * as WebBrowser from "expo-web-browser";
-import { makeRedirectUri } from "expo-auth-session";
+import * as Linking from "expo-linking";
 import * as QueryParams from "expo-auth-session/build/QueryParams";
 import { getSupabaseClient } from "../lib/supabase";
 import { NativeStorage } from "../lib/storage";
@@ -36,6 +36,7 @@ interface AuthState {
 
   login: (email: string, password: string) => Promise<void>;
   loginWithOAuth: (provider: "google" | "github") => Promise<void>;
+  handleOAuthCallback: (url: string) => Promise<boolean>;
   register: (data: {
     displayName: string;
     username: string;
@@ -104,47 +105,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  loginWithOAuth: async (provider: "google" | "github") => {
-    set({ isLoading: true });
+  handleOAuthCallback: async (url: string) => {
+    console.log("[AIIC OAuth] callback received:", url);
     try {
       const supabase = getSupabaseClient();
-      const redirectTo = makeRedirectUri();
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw error;
-      if (!data?.url) throw new Error("No authorization URL returned from Supabase.");
-
-      const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        redirectTo
-      );
-
-      if (result.type === "success" && result.url) {
-        const { params, errorCode } = QueryParams.getQueryParams(result.url);
-        if (errorCode) {
-          throw new Error(errorCode);
-        }
-
-        const { access_token, refresh_token } = params;
-        if (access_token && refresh_token) {
-          const { error: sessionErr } = await supabase.auth.setSession({
-            access_token,
-            refresh_token,
-          });
-          if (sessionErr) throw sessionErr;
-        }
+      // Check if URL has PKCE code (?code=XXXX) or implicit token fragment (#access_token=XXXX)
+      const { params, errorCode } = QueryParams.getQueryParams(url);
+      if (errorCode) {
+        throw new Error(errorCode);
       }
 
-      // Query latest session after browser closure
+      if (params.code) {
+        console.log("[AIIC OAuth] exchanging PKCE code for session");
+        const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
+        if (error) throw error;
+      } else if (params.access_token) {
+        console.log("[AIIC OAuth] setting session from token");
+        const { error } = await supabase.auth.setSession({
+          access_token: params.access_token,
+          refresh_token: params.refresh_token || "",
+        });
+        if (error) throw error;
+      }
+
+      // Verify established session
       const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session) {
+      if (sessionData?.session) {
+        console.log("[AIIC OAuth] session established");
         const accessToken = sessionData.session.access_token;
         setAuthToken(accessToken);
 
@@ -175,10 +163,82 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isAuthenticated: true,
           isLoading: false,
         });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("[AIIC OAuth] error establishing session from callback:", err);
+      return false;
+    }
+  },
+
+  loginWithOAuth: async (provider: "google" | "github") => {
+    console.log(`[AIIC OAuth] starting ${provider} OAuth`);
+    set({ isLoading: true });
+    try {
+      const supabase = getSupabaseClient();
+      const redirectTo = "aiic://auth/callback";
+      console.log("[AIIC OAuth] redirect URI:", redirectTo);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) {
+        console.error("[AIIC OAuth] error:", error);
+        throw error;
+      }
+      if (!data?.url) throw new Error("No authorization URL returned from Supabase.");
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectTo
+      );
+
+      if (result.type === "success" && result.url) {
+        await get().handleOAuthCallback(result.url);
       } else {
-        set({ isLoading: false });
+        // In case deep linking resumed outside WebBrowser return
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session) {
+          const accessToken = sessionData.session.access_token;
+          setAuthToken(accessToken);
+          let profileUser: User;
+          try {
+            const profileRes = await api<{ user: User }>("/auth/profile");
+            profileUser = profileRes.user;
+          } catch {
+            const u = sessionData.session.user;
+            const email = u.email || "";
+            profileUser = {
+              id: u.id,
+              email,
+              displayName: u.user_metadata?.displayName || u.user_metadata?.full_name || email.split("@")[0] || "Member",
+              username: u.user_metadata?.username || email.split("@")[0] || "member",
+              avatar: u.user_metadata?.avatar_url || null,
+              bio: null,
+              status: "online",
+              onboardingCompleted: true,
+            };
+          }
+          await NativeStorage.setItem("aiic_user_session", JSON.stringify(profileUser));
+          await NativeStorage.setItem("aiic_auth_token", accessToken);
+          set({
+            user: profileUser,
+            token: accessToken,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } else {
+          set({ isLoading: false });
+        }
       }
     } catch (err) {
+      console.error("[AIIC OAuth] error:", err);
       set({ isLoading: false });
       throw err;
     }
