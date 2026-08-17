@@ -305,6 +305,7 @@ function SelectedSpaceView({
   onAdd,
   onEvents,
   onOpenSettings,
+  onOpenDrawer,
 }: {
   server: Server;
   channels: Channel[];
@@ -1409,7 +1410,7 @@ export default function AIICDiscordApp() {
             LEVEL 1: MAIN FULL-WIDTH MOBILE CONTENT
             ================================================= */}
         <View style={styles.mainContentFull}>
-          {(currentSection === "space" || currentSection === "chat") && selectedServer && (
+          {currentSection === "space" && selectedServer && (
             selectedChannel ? (
               /* DEDICATED TYPE-SPECIFIC CHANNEL ROUTER */
               <ChannelRouter
