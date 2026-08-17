@@ -30,7 +30,7 @@ import {
   Clock,
   Terminal,
 } from "lucide-react-native";
-import { colors } from "@/theme/colors";
+import { colors } from "@/theme/tokens";
 import { api } from "@/lib/api";
 
 export type SpaceSettingsSection =
