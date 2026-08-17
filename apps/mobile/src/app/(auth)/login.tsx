@@ -31,97 +31,6 @@ const COLORS = {
   border: "rgba(255,255,255,0.12)",
 };
 
-function FadeSlide({
-  children,
-  delay,
-  distance = 12,
-}: {
-  children: React.ReactNode;
-  delay: number;
-  distance?: number;
-}) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(distance)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 550,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 550,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [delay, distance]);
-
-  return (
-    <Animated.View
-      style={{
-        opacity,
-        transform: [{ translateY }],
-      }}
-    >
-      {children}
-    </Animated.View>
-  );
-}
-
-function ScaleIn({
-  children,
-  delay,
-}: {
-  children: React.ReactNode;
-  delay: number;
-}) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.6)).current;
-  const translateY = useRef(new Animated.Value(12)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 180,
-        delay,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scale, {
-        toValue: 1,
-        delay,
-        friction: 6,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 600,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [delay]);
-
-  return (
-    <Animated.View
-      style={{
-        opacity,
-        transform: [{ scale }, { translateY }],
-      }}
-    >
-      {children}
-    </Animated.View>
-  );
-}
-
 function AmbientBackground() {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(90)).current;
@@ -278,100 +187,131 @@ function LoginButton({
 export default function LoginHubScreen() {
   const router = useRouter();
 
+  const brandAnim = useRef(new Animated.Value(0)).current;
+  const sheetAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.stagger(150, [
+      Animated.timing(brandAnim, {
+        toValue: 1,
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetAnim, {
+        toValue: 1,
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   return (
     <View style={styles.container}>
       <AmbientBackground />
 
       <View style={styles.content}>
         {/* Brand + heading */}
-        <View style={styles.copy}>
-          <ScaleIn delay={300}>
-            <Glass style={styles.brandGlass}>
-              <AIICMark />
-            </Glass>
-          </ScaleIn>
+        <Animated.View
+          style={[
+            styles.copy,
+            {
+              opacity: brandAnim,
+              transform: [
+                {
+                  translateY: brandAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [16, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Glass style={styles.brandGlass}>
+            <AIICMark />
+          </Glass>
 
-          <FadeSlide delay={420}>
-            <Text style={styles.heading}>
-              Take a breath.
-            </Text>
-          </FadeSlide>
+          <Text style={styles.heading}>
+            Take a breath.
+          </Text>
 
-          <FadeSlide delay={540}>
-            <Text style={styles.subtitle}>
-              Sign in and settle into your AIIC space.
-            </Text>
-          </FadeSlide>
-        </View>
+          <Text style={styles.subtitle}>
+            Sign in and settle into your AIIC space.
+          </Text>
+        </Animated.View>
 
         {/* Login sheet */}
-        <FadeSlide delay={620} distance={26}>
+        <Animated.View
+          style={{
+            opacity: sheetAnim,
+            transform: [
+              {
+                translateY: sheetAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [24, 0],
+                }),
+              },
+            ],
+          }}
+        >
           <Glass style={styles.sheet}>
             {/* Google */}
-            <FadeSlide delay={720}>
-              <LoginButton
-                variant="google"
-                onPress={() => router.push("/(auth)/email-login" as any)}
-              >
-                Continue with Google
-              </LoginButton>
-            </FadeSlide>
+            <LoginButton
+              variant="google"
+              onPress={() => router.push("/(auth)/email-login" as any)}
+            >
+              Continue with Google
+            </LoginButton>
 
             {/* Apple */}
-            <FadeSlide delay={800}>
-              <LoginButton
-                variant="apple"
-                onPress={() => router.push("/(auth)/email-login" as any)}
-              >
-                Continue with Apple
-              </LoginButton>
-            </FadeSlide>
+            <LoginButton
+              variant="apple"
+              onPress={() => router.push("/(auth)/email-login" as any)}
+            >
+              Continue with Apple
+            </LoginButton>
 
             {/* Email */}
-            <FadeSlide delay={880}>
-              <Pressable
-                onPress={() => router.push("/(auth)/email-login" as any)}
-                style={({ pressed }) => [
-                  styles.emailButton,
-                  pressed && styles.emailPressed,
-                ]}
-              >
-                <Ionicons
-                  name="mail-outline"
-                  size={18}
-                  color={COLORS.text}
-                />
+            <Pressable
+              onPress={() => router.push("/(auth)/email-login" as any)}
+              style={({ pressed }) => [
+                styles.emailButton,
+                pressed && styles.emailPressed,
+              ]}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={18}
+                color={COLORS.text}
+              />
 
-                <Text style={styles.emailText}>
-                  Continue with email
-                </Text>
-              </Pressable>
-            </FadeSlide>
+              <Text style={styles.emailText}>
+                Continue with email
+              </Text>
+            </Pressable>
 
             {/* Terms */}
-            <FadeSlide delay={980}>
-              <Text style={styles.terms}>
-                By continuing you agree to our Terms and Privacy Policy.
-              </Text>
-            </FadeSlide>
+            <Text style={styles.terms}>
+              By continuing you agree to our Terms and Privacy Policy.
+            </Text>
           </Glass>
-        </FadeSlide>
+        </Animated.View>
 
         {/* Register */}
-        <FadeSlide delay={1060}>
-          <Pressable
-            onPress={() => router.push("/(auth)/register" as any)}
-            style={styles.registerButton}
-          >
-            <Text style={styles.registerNormal}>
-              Don't have an account?{" "}
-            </Text>
+        <Pressable
+          onPress={() => router.push("/(auth)/register" as any)}
+          style={styles.registerButton}
+        >
+          <Text style={styles.registerNormal}>
+            Don't have an account?{" "}
+          </Text>
 
-            <Text style={styles.registerLink}>
-              Create one
-            </Text>
-          </Pressable>
-        </FadeSlide>
+          <Text style={styles.registerLink}>
+            Create one
+          </Text>
+        </Pressable>
       </View>
     </View>
   );

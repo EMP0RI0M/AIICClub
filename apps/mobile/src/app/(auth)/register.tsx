@@ -30,57 +30,9 @@ const COLORS = {
   faint: "rgba(245,247,250,0.38)",
 
   border: "rgba(255,255,255,0.11)",
-  borderStrong: "rgba(255,255,255,0.16)",
-
   input: "rgba(255,255,255,0.055)",
   inputFocused: "rgba(255,255,255,0.085)",
 };
-
-function FadeSlide({
-  children,
-  delay,
-  style,
-}: {
-  children: React.ReactNode;
-  delay: number;
-  style?: any;
-}) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(12)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 500,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 500,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [delay]);
-
-  return (
-    <Animated.View
-      style={[
-        style,
-        {
-          opacity,
-          transform: [{ translateY }],
-        },
-      ]}
-    >
-      {children}
-    </Animated.View>
-  );
-}
 
 function AmbientGlow() {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -131,13 +83,34 @@ export default function RegisterScreen() {
   const [error, setError] = useState<string | null>(null);
   const [successConfirmation, setSuccessConfirmation] = useState(false);
 
-  // Independent field focus states (for border/halo styling ONLY)
+  // Field focus states for visual border highlight
   const [focusedField, setFocusedField] = useState<"displayName" | "email" | "password" | null>(null);
 
   // Independent refs for smooth keyboard navigation
   const displayNameRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
+
+  // Stable entrance animations on screen level only (does not wrap or unmount individual inputs)
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const formAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.stagger(120, [
+      Animated.timing(headerAnim, {
+        toValue: 1,
+        duration: 450,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(formAnim, {
+        toValue: 1,
+        duration: 450,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const ready =
     displayName.trim().length >= 2 &&
@@ -209,7 +182,7 @@ export default function RegisterScreen() {
       </View>
 
       {/* Back button */}
-      <FadeSlide delay={250} style={styles.backWrapper}>
+      <View style={styles.backWrapper}>
         <Pressable
           onPress={() => router.back()}
           hitSlop={12}
@@ -224,198 +197,209 @@ export default function RegisterScreen() {
             color={COLORS.text}
           />
         </Pressable>
-      </FadeSlide>
+      </View>
 
       <View style={styles.body}>
         {/* Header */}
-        <FadeSlide delay={180}>
-          <View>
-            <View style={styles.smallBrand}>
-              <View style={styles.brandDot} />
-              <Text style={styles.brandText}>AIIC</Text>
-            </View>
-
-            <Text style={styles.title}>
-              Create your account.
-            </Text>
-
-            <Text style={styles.subtitle}>
-              Join your AIIC community and start building your space.
-            </Text>
+        <Animated.View
+          style={{
+            opacity: headerAnim,
+            transform: [
+              {
+                translateY: headerAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [12, 0],
+                }),
+              },
+            ],
+          }}
+        >
+          <View style={styles.smallBrand}>
+            <View style={styles.brandDot} />
+            <Text style={styles.brandText}>AIIC</Text>
           </View>
-        </FadeSlide>
+
+          <Text style={styles.title}>
+            Create your account.
+          </Text>
+
+          <Text style={styles.subtitle}>
+            Join your AIIC community and start building your space.
+          </Text>
+        </Animated.View>
 
         {/* Error banner */}
         {error ? (
-          <FadeSlide delay={300} style={styles.errorContainer}>
+          <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-          </FadeSlide>
+          </View>
         ) : null}
 
-        {/* Form */}
-        <View style={styles.form}>
+        {/* Stable Form Container (Inputs remain permanently mounted without remounting) */}
+        <Animated.View
+          style={[
+            styles.form,
+            {
+              opacity: formAnim,
+              transform: [
+                {
+                  translateY: formAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [14, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           {/* Display Name Input */}
-          <FadeSlide delay={350}>
-            <View
-              style={[
-                styles.inputContainer,
-                focusedField === "displayName" && styles.inputFocused,
-              ]}
-            >
-              <Ionicons
-                name="person-outline"
-                size={20}
-                color={focusedField === "displayName" ? COLORS.amber : COLORS.muted}
-              />
-              <TextInput
-                ref={displayNameRef}
-                style={styles.input}
-                placeholder="Display name"
-                placeholderTextColor={COLORS.faint}
-                value={displayName}
-                onChangeText={setDisplayName}
-                autoCapitalize="words"
-                autoCorrect={false}
-                returnKeyType="next"
-                blurOnSubmit={false}
-                onSubmitEditing={() => emailRef.current?.focus()}
-                onFocus={() => setFocusedField("displayName")}
-                onBlur={() => setFocusedField((prev) => (prev === "displayName" ? null : prev))}
-                selectionColor={COLORS.amber}
-              />
-            </View>
-          </FadeSlide>
+          <View
+            style={[
+              styles.inputContainer,
+              focusedField === "displayName" && styles.inputFocused,
+            ]}
+          >
+            <Ionicons
+              name="person-outline"
+              size={20}
+              color={focusedField === "displayName" ? COLORS.amber : COLORS.muted}
+            />
+            <TextInput
+              ref={displayNameRef}
+              style={styles.input}
+              placeholder="Display name"
+              placeholderTextColor={COLORS.faint}
+              value={displayName}
+              onChangeText={setDisplayName}
+              autoCapitalize="words"
+              autoCorrect={false}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => emailRef.current?.focus()}
+              onFocus={() => setFocusedField("displayName")}
+              onBlur={() => setFocusedField((prev) => (prev === "displayName" ? null : prev))}
+              selectionColor={COLORS.amber}
+            />
+          </View>
 
           {/* Email Input */}
-          <FadeSlide delay={430}>
-            <View
-              style={[
-                styles.inputContainer,
-                focusedField === "email" && styles.inputFocused,
-              ]}
-            >
-              <Ionicons
-                name="mail-outline"
-                size={20}
-                color={focusedField === "email" ? COLORS.amber : COLORS.muted}
-              />
-              <TextInput
-                ref={emailRef}
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor={COLORS.faint}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="next"
-                blurOnSubmit={false}
-                onSubmitEditing={() => passwordRef.current?.focus()}
-                onFocus={() => setFocusedField("email")}
-                onBlur={() => setFocusedField((prev) => (prev === "email" ? null : prev))}
-                selectionColor={COLORS.amber}
-              />
-            </View>
-          </FadeSlide>
+          <View
+            style={[
+              styles.inputContainer,
+              focusedField === "email" && styles.inputFocused,
+            ]}
+          >
+            <Ionicons
+              name="mail-outline"
+              size={20}
+              color={focusedField === "email" ? COLORS.amber : COLORS.muted}
+            />
+            <TextInput
+              ref={emailRef}
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor={COLORS.faint}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              onFocus={() => setFocusedField("email")}
+              onBlur={() => setFocusedField((prev) => (prev === "email" ? null : prev))}
+              selectionColor={COLORS.amber}
+            />
+          </View>
 
           {/* Password Input */}
-          <FadeSlide delay={510}>
-            <View
-              style={[
-                styles.inputContainer,
-                focusedField === "password" && styles.inputFocused,
-              ]}
-            >
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color={focusedField === "password" ? COLORS.amber : COLORS.muted}
-              />
-              <TextInput
-                ref={passwordRef}
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor={COLORS.faint}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={true}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="done"
-                onSubmitEditing={() => passwordRef.current?.blur()}
-                onFocus={() => setFocusedField("password")}
-                onBlur={() => setFocusedField((prev) => (prev === "password" ? null : prev))}
-                selectionColor={COLORS.amber}
-              />
-            </View>
-          </FadeSlide>
+          <View
+            style={[
+              styles.inputContainer,
+              focusedField === "password" && styles.inputFocused,
+            ]}
+          >
+            <Ionicons
+              name="lock-closed-outline"
+              size={20}
+              color={focusedField === "password" ? COLORS.amber : COLORS.muted}
+            />
+            <TextInput
+              ref={passwordRef}
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor={COLORS.faint}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={true}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={() => passwordRef.current?.blur()}
+              onFocus={() => setFocusedField("password")}
+              onBlur={() => setFocusedField((prev) => (prev === "password" ? null : prev))}
+              selectionColor={COLORS.amber}
+            />
+          </View>
 
           {/* Password requirement */}
-          <FadeSlide delay={590}>
-            <View style={styles.passwordHint}>
-              <View
-                style={[
-                  styles.statusDot,
-                  password.length >= 6 && styles.statusDotActive,
-                ]}
-              />
-              <Text style={styles.passwordHintText}>
-                Use at least 6 characters
-              </Text>
-            </View>
-          </FadeSlide>
+          <View style={styles.passwordHint}>
+            <View
+              style={[
+                styles.statusDot,
+                password.length >= 6 && styles.statusDotActive,
+              ]}
+            />
+            <Text style={styles.passwordHintText}>
+              Use at least 6 characters
+            </Text>
+          </View>
 
           {/* Create button */}
-          <FadeSlide delay={670}>
-            <Pressable
-              disabled={!ready || isLoading}
-              onPress={handleRegister}
-              style={({ pressed }) => [
-                styles.createButton,
-                (!ready || isLoading) && styles.createDisabled,
-                pressed && ready && styles.createPressed,
-              ]}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#080A0D" />
-              ) : (
-                <>
-                  <Text style={styles.createButtonText}>
-                    Create account
-                  </Text>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={19}
-                    color="#080A0D"
-                  />
-                </>
-              )}
-            </Pressable>
-          </FadeSlide>
-        </View>
+          <Pressable
+            disabled={!ready || isLoading}
+            onPress={handleRegister}
+            style={({ pressed }) => [
+              styles.createButton,
+              (!ready || isLoading) && styles.createDisabled,
+              pressed && ready && styles.createPressed,
+            ]}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#080A0D" />
+            ) : (
+              <>
+                <Text style={styles.createButtonText}>
+                  Create account
+                </Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={19}
+                  color="#080A0D"
+                />
+              </>
+            )}
+          </Pressable>
+        </Animated.View>
 
         {/* Login */}
-        <FadeSlide delay={800}>
-          <Pressable
-            onPress={() => router.push("/(auth)/login" as any)}
-            style={styles.loginButton}
-          >
-            <Text style={styles.loginNormal}>
-              Already have an account?{" "}
-            </Text>
-            <Text style={styles.loginLink}>
-              Sign in
-            </Text>
-          </Pressable>
-        </FadeSlide>
+        <Pressable
+          onPress={() => router.push("/(auth)/login" as any)}
+          style={styles.loginButton}
+        >
+          <Text style={styles.loginNormal}>
+            Already have an account?{" "}
+          </Text>
+          <Text style={styles.loginLink}>
+            Sign in
+          </Text>
+        </Pressable>
 
         {/* Terms */}
-        <FadeSlide delay={880}>
-          <Text style={styles.terms}>
-            By creating an account, you agree to our Terms and Privacy Policy.
-          </Text>
-        </FadeSlide>
+        <Text style={styles.terms}>
+          By creating an account, you agree to our Terms and Privacy Policy.
+        </Text>
       </View>
     </KeyboardAvoidingView>
   );
