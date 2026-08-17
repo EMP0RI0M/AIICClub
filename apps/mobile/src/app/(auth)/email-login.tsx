@@ -3,14 +3,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
   ActivityIndicator,
-  Animated,
-  Easing,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../stores/auth-store";
@@ -30,94 +30,16 @@ const COLORS = {
   faint: "rgba(245,247,250,0.38)",
 
   border: "rgba(255,255,255,0.11)",
-  borderStrong: "rgba(255,255,255,0.16)",
-
   input: "rgba(255,255,255,0.055)",
-  inputFocused: "rgba(255,255,255,0.085)",
 };
 
-function FadeSlide({
-  children,
-  delay,
-  style,
-}: {
-  children: React.ReactNode;
-  delay: number;
-  style?: any;
-}) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(12)).current;
-
-  React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 500,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 500,
-        delay,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [delay]);
-
-  return (
-    <Animated.View
-      style={[
-        style,
-        {
-          opacity,
-          transform: [{ translateY }],
-        },
-      ]}
-    >
-      {children}
-    </Animated.View>
-  );
-}
-
 function AmbientGlow() {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(60)).current;
-
-  React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 900,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 900,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        StyleSheet.absoluteFillObject,
-        {
-          opacity,
-          transform: [{ translateY }],
-        },
-      ]}
-    >
+    <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
       <View style={styles.amberGlow} />
       <View style={styles.tealGlow} />
       <View style={styles.centerGlow} />
-    </Animated.View>
+    </View>
   );
 }
 
@@ -128,8 +50,9 @@ export default function EmailLoginScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const [emailFocused, setEmailFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
+  // Independent refs matching working register screen
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   const ready =
     email.includes("@") &&
@@ -137,7 +60,7 @@ export default function EmailLoginScreen() {
     password.length >= 6;
 
   const handleSignIn = async () => {
-    if (!ready) return;
+    if (!ready || isLoading) return;
     setError(null);
     try {
       await login(email, password);
@@ -148,37 +71,43 @@ export default function EmailLoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <View style={StyleSheet.absoluteFill}>
         <View style={styles.background} />
         <AmbientGlow />
       </View>
 
-      {/* Back button */}
-      <FadeSlide delay={300} style={styles.backWrapper}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && styles.backPressed,
-          ]}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+          showsVerticalScrollIndicator={false}
         >
-          <Ionicons
-            name="chevron-back"
-            size={22}
-            color={COLORS.text}
-          />
-        </Pressable>
-      </FadeSlide>
+          {/* Back button */}
+          <View style={styles.backWrapper}>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={12}
+              style={({ pressed }) => [
+                styles.backButton,
+                pressed && styles.backPressed,
+              ]}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={22}
+                color={COLORS.text}
+              />
+            </Pressable>
+          </View>
 
-      <View style={styles.body}>
-        {/* Header */}
-        <FadeSlide delay={200}>
-          <View>
+          {/* Header */}
+          <View style={styles.header}>
             <View style={styles.smallBrand}>
               <View style={styles.brandDot} />
               <Text style={styles.brandText}>AIIC</Text>
@@ -192,31 +121,25 @@ export default function EmailLoginScreen() {
               Sign in to continue to your AIIC space.
             </Text>
           </View>
-        </FadeSlide>
 
-        {/* Error message */}
-        {error ? (
-          <FadeSlide delay={350} style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </FadeSlide>
-        ) : null}
+          {/* Error message */}
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
-        {/* Form */}
-        <View style={styles.form}>
-          {/* Email Input */}
-          <FadeSlide delay={420}>
-            <View
-              style={[
-                styles.inputContainer,
-                emailFocused && styles.inputFocused,
-              ]}
-            >
+          {/* Form */}
+          <View style={styles.form}>
+            {/* Email Input */}
+            <View style={styles.inputContainer}>
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color={emailFocused ? COLORS.amber : COLORS.muted}
+                color={COLORS.muted}
               />
               <TextInput
+                ref={emailRef}
                 style={styles.input}
                 placeholder="Email"
                 placeholderTextColor={COLORS.faint}
@@ -225,27 +148,22 @@ export default function EmailLoginScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => passwordRef.current?.focus()}
                 selectionColor={COLORS.amber}
               />
             </View>
-          </FadeSlide>
 
-          {/* Password Input - standalone, clean focus without re-render jumping */}
-          <FadeSlide delay={500}>
-            <View
-              style={[
-                styles.inputContainer,
-                passwordFocused && styles.inputFocused,
-              ]}
-            >
+            {/* Password Input */}
+            <View style={styles.inputContainer}>
               <Ionicons
                 name="lock-closed-outline"
                 size={20}
-                color={passwordFocused ? COLORS.amber : COLORS.muted}
+                color={COLORS.muted}
               />
               <TextInput
+                ref={passwordRef}
                 style={styles.input}
                 placeholder="Password"
                 placeholderTextColor={COLORS.faint}
@@ -254,14 +172,13 @@ export default function EmailLoginScreen() {
                 secureTextEntry={true}
                 autoCapitalize="none"
                 autoCorrect={false}
-                onFocus={() => setPasswordFocused(true)}
-                onBlur={() => setPasswordFocused(false)}
+                returnKeyType="done"
+                onSubmitEditing={handleSignIn}
                 selectionColor={COLORS.amber}
               />
             </View>
-          </FadeSlide>
 
-          <FadeSlide delay={580}>
+            {/* Forgot password */}
             <Pressable
               onPress={() => router.push("/(auth)/forgot-password" as any)}
               style={({ pressed }) => [
@@ -273,9 +190,8 @@ export default function EmailLoginScreen() {
                 Forgot password?
               </Text>
             </Pressable>
-          </FadeSlide>
 
-          <FadeSlide delay={660}>
+            {/* Sign in button */}
             <Pressable
               disabled={!ready || isLoading}
               onPress={handleSignIn}
@@ -300,11 +216,9 @@ export default function EmailLoginScreen() {
                 </>
               )}
             </Pressable>
-          </FadeSlide>
-        </View>
+          </View>
 
-        {/* Create account */}
-        <FadeSlide delay={800}>
+          {/* Create account */}
           <Pressable
             onPress={() => router.push("/(auth)/register" as any)}
             style={styles.createAccount}
@@ -312,14 +226,13 @@ export default function EmailLoginScreen() {
             <Text style={styles.createNormal}>
               New here?{" "}
             </Text>
-
             <Text style={styles.createLink}>
               Create an account
             </Text>
           </Pressable>
-        </FadeSlide>
-      </View>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -327,12 +240,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
-    overflow: "hidden",
   },
 
   background: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: COLORS.bg,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 25,
+    paddingTop: 14,
+    paddingBottom: 24,
   },
 
   amberGlow: {
@@ -366,10 +285,8 @@ const styles = StyleSheet.create({
   },
 
   backWrapper: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 58 : 38,
-    left: 18,
-    zIndex: 10,
+    marginBottom: 20,
+    alignSelf: "flex-start",
   },
 
   backButton: {
@@ -381,11 +298,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.065)",
     borderWidth: 1,
     borderColor: COLORS.border,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 8,
   },
 
   backPressed: {
@@ -393,17 +305,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.10)",
   },
 
-  body: {
-    flex: 1,
-    paddingHorizontal: 25,
-    paddingTop: Platform.OS === "ios" ? 125 : 105,
-    paddingBottom: 30,
+  header: {
+    marginBottom: 8,
   },
 
   smallBrand: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 17,
     gap: 8,
   },
 
@@ -412,9 +321,6 @@ const styles = StyleSheet.create({
     height: 9,
     borderRadius: 5,
     backgroundColor: COLORS.amber,
-    shadowColor: COLORS.amber,
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
   },
 
   brandText: {
@@ -426,8 +332,8 @@ const styles = StyleSheet.create({
 
   title: {
     color: COLORS.text,
-    fontSize: 31,
-    lineHeight: 37,
+    fontSize: 30,
+    lineHeight: 36,
     fontWeight: "800",
     letterSpacing: -0.8,
   },
@@ -438,11 +344,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     fontWeight: "500",
-    maxWidth: 310,
+    maxWidth: 325,
   },
 
   errorContainer: {
-    marginTop: 12,
+    marginTop: 10,
     padding: 10,
     borderRadius: 12,
     backgroundColor: "rgba(239, 68, 68, 0.12)",
@@ -457,7 +363,7 @@ const styles = StyleSheet.create({
   },
 
   form: {
-    marginTop: 24,
+    marginTop: 20,
   },
 
   inputContainer: {
@@ -474,15 +380,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  inputFocused: {
-    backgroundColor: COLORS.inputFocused,
-    borderColor: "rgba(232,163,61,0.58)",
-    shadowColor: COLORS.amber,
-    shadowOpacity: 0.13,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 0 },
-  },
-
   input: {
     flex: 1,
     height: "100%",
@@ -493,30 +390,26 @@ const styles = StyleSheet.create({
 
   forgotButton: {
     alignSelf: "flex-end",
-    paddingVertical: 7,
-    paddingHorizontal: 2,
+    paddingVertical: 5,
+    marginTop: -2,
+    marginBottom: 6,
   },
 
   forgotText: {
-    color: COLORS.amberLight,
+    color: COLORS.muted,
     fontSize: 12.5,
-    fontWeight: "600",
+    fontWeight: "500",
   },
 
   signInButton: {
     height: 54,
     borderRadius: 27,
-    marginTop: 9,
+    marginTop: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 9,
     backgroundColor: COLORS.amber,
-    shadowColor: COLORS.amber,
-    shadowOpacity: 0.32,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 9,
   },
 
   signInDisabled: {
@@ -534,10 +427,11 @@ const styles = StyleSheet.create({
   },
 
   createAccount: {
-    marginTop: "auto",
     alignSelf: "center",
     flexDirection: "row",
-    paddingVertical: 12,
+    marginTop: 28,
+    marginBottom: 14,
+    paddingVertical: 6,
   },
 
   createNormal: {
