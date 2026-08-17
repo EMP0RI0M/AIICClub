@@ -1,22 +1,14 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Pressable,
   StyleSheet,
   Text,
   View,
+  Animated,
+  Easing,
   useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
-import Animated, {
-  Easing,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from "react-native-reanimated";
 import { useAuthStore } from "../stores/auth-store";
 
 const COLORS = {
@@ -38,31 +30,38 @@ const COLORS = {
 };
 
 function CalmOrb() {
-  const breathe = useSharedValue(1);
+  const breathe = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    breathe.value = withRepeat(
-      withSequence(
-        withTiming(1.055, {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathe, {
+          toValue: 1.055,
           duration: 2100,
           easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
         }),
-        withTiming(1, {
+        Animated.timing(breathe, {
+          toValue: 1,
           duration: 2100,
           easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
         }),
-      ),
-      -1,
-      false,
+      ])
     );
-  }, []);
-
-  const breatheStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: breathe.value }],
-  }));
+    loop.start();
+    return () => loop.stop();
+  }, [breathe]);
 
   return (
-    <Animated.View style={[styles.orbBreathe, breatheStyle]}>
+    <Animated.View
+      style={[
+        styles.orbBreathe,
+        {
+          transform: [{ scale: breathe }],
+        },
+      ]}
+    >
       <View style={styles.orbHalo} />
 
       <View style={styles.orb}>
@@ -83,46 +82,46 @@ function CalmOrb() {
 }
 
 function AnimatedOrb() {
-  const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.55);
-  const translateY = useSharedValue(8);
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.55)).current;
+  const translateY = useRef(new Animated.Value(8)).current;
 
   useEffect(() => {
-    opacity.value = withDelay(
-      150,
-      withTiming(1, {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
         duration: 900,
+        delay: 150,
         easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
       }),
-    );
-
-    scale.value = withDelay(
-      150,
-      withTiming(1, {
-        duration: 900,
-        easing: Easing.out(Easing.back(1.2)),
+      Animated.spring(scale, {
+        toValue: 1,
+        delay: 150,
+        friction: 6,
+        tension: 40,
+        useNativeDriver: true,
       }),
-    );
-
-    translateY.value = withDelay(
-      150,
-      withTiming(0, {
+      Animated.timing(translateY, {
+        toValue: 0,
         duration: 900,
+        delay: 150,
         easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
       }),
-    );
+    ]).start();
   }, []);
 
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [
-      { scale: scale.value },
-      { translateY: translateY.value },
-    ],
-  }));
-
   return (
-    <Animated.View style={[styles.orbWrap, style]}>
+    <Animated.View
+      style={[
+        styles.orbWrap,
+        {
+          opacity,
+          transform: [{ scale }, { translateY }],
+        },
+      ]}
+    >
       <CalmOrb />
     </Animated.View>
   );
@@ -137,34 +136,35 @@ function AnimatedText({
   delay: number;
   style?: any;
 }) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(14);
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(14)).current;
 
   useEffect(() => {
-    opacity.value = withDelay(
-      delay,
-      withTiming(1, {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
         duration: 600,
+        delay,
         easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
       }),
-    );
-
-    translateY.value = withDelay(
-      delay,
-      withTiming(0, {
+      Animated.timing(translateY, {
+        toValue: 0,
         duration: 600,
+        delay,
         easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
       }),
-    );
+    ]).start();
   }, [delay]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
-
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View
+      style={{
+        opacity,
+        transform: [{ translateY }],
+      }}
+    >
       <Text style={style}>{children}</Text>
     </Animated.View>
   );
@@ -175,50 +175,36 @@ export default function HomeScreen() {
   const { isAuthenticated } = useAuthStore();
   const { height } = useWindowDimensions();
 
-  const gradientProgress = useSharedValue(0);
+  const gradientProgress = useRef(new Animated.Value(0)).current;
+  const loginOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    gradientProgress.value = withDelay(
-      420,
-      withTiming(1, {
-        duration: 1100,
-        easing: Easing.out(Easing.cubic),
-      }),
-    );
+    Animated.timing(gradientProgress, {
+      toValue: 1,
+      duration: 1100,
+      delay: 420,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+
+    Animated.timing(loginOpacity, {
+      toValue: 1,
+      duration: 500,
+      delay: 1500,
+      useNativeDriver: true,
+    }).start();
   }, []);
 
-  const gradientStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY: interpolate(
-          gradientProgress.value,
-          [0, 1],
-          [height, 0],
-        ),
-      },
-    ],
-  }));
-
-  const loginOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    loginOpacity.value = withDelay(
-      1500,
-      withTiming(1, {
-        duration: 500,
-      }),
-    );
-  }, []);
-
-  const loginStyle = useAnimatedStyle(() => ({
-    opacity: loginOpacity.value,
-  }));
+  const gradientTranslateY = gradientProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [height, 0],
+  });
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
       router.push("/(app)/spaces/space-aiic-main/c-general" as any);
     } else {
-      router.push("/(auth)/register");
+      router.push("/(auth)/register" as any);
     }
   };
 
@@ -226,7 +212,7 @@ export default function HomeScreen() {
     if (isAuthenticated) {
       router.push("/(app)/spaces/space-aiic-main/c-general" as any);
     } else {
-      router.push("/(auth)/login");
+      router.push("/(auth)/login" as any);
     }
   };
 
@@ -238,7 +224,9 @@ export default function HomeScreen() {
       <Animated.View
         style={[
           styles.ambientGradient,
-          gradientStyle,
+          {
+            transform: [{ translateY: gradientTranslateY }],
+          },
         ]}
       >
         <View style={styles.amberAmbient} />
@@ -253,25 +241,17 @@ export default function HomeScreen() {
 
       {/* Main content */}
       <View style={styles.content}>
-        <AnimatedText
-          delay={1050}
-          style={styles.title}
-        >
+        <AnimatedText delay={1050} style={styles.title}>
           Welcome to AIIC
         </AnimatedText>
 
-        <AnimatedText
-          delay={1150}
-          style={styles.subtitle}
-        >
+        <AnimatedText delay={1150} style={styles.subtitle}>
           A space to connect,
           {"\n"}
           collaborate, and build together.
         </AnimatedText>
 
-        <Animated.View
-          style={styles.actions}
-        >
+        <View style={styles.actions}>
           <Pressable
             onPress={handleGetStarted}
             style={({ pressed }) => [
@@ -284,7 +264,7 @@ export default function HomeScreen() {
             </Text>
           </Pressable>
 
-          <Animated.View style={loginStyle}>
+          <Animated.View style={{ opacity: loginOpacity }}>
             <Pressable
               onPress={handleLogin}
               hitSlop={12}
@@ -298,7 +278,7 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
           </Animated.View>
-        </Animated.View>
+        </View>
       </View>
     </View>
   );

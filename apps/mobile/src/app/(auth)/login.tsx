@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -8,16 +8,10 @@ import {
   TextInput,
   View,
   ActivityIndicator,
-  Alert,
+  Animated,
+  Easing,
 } from "react-native";
 import { useRouter } from "expo-router";
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withTiming,
-} from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../stores/auth-store";
 
@@ -51,64 +45,74 @@ function FadeSlide({
   delay: number;
   style?: any;
 }) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(12);
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(12)).current;
 
   useEffect(() => {
-    opacity.value = withDelay(
-      delay,
-      withTiming(1, {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
         duration: 500,
+        delay,
         easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
       }),
-    );
-
-    translateY.value = withDelay(
-      delay,
-      withTiming(0, {
+      Animated.timing(translateY, {
+        toValue: 0,
         duration: 500,
+        delay,
         easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
       }),
-    );
+    ]).start();
   }, [delay]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
-
   return (
-    <Animated.View style={[animatedStyle, style]}>
+    <Animated.View
+      style={[
+        style,
+        {
+          opacity,
+          transform: [{ translateY }],
+        },
+      ]}
+    >
       {children}
     </Animated.View>
   );
 }
 
 function AmbientGlow() {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(60);
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(60)).current;
 
   useEffect(() => {
-    opacity.value = withTiming(1, {
-      duration: 900,
-      easing: Easing.out(Easing.cubic),
-    });
-
-    translateY.value = withTiming(0, {
-      duration: 900,
-      easing: Easing.out(Easing.cubic),
-    });
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 900,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
 
   return (
     <Animated.View
       pointerEvents="none"
-      style={[StyleSheet.absoluteFillObject, style]}
+      style={[
+        StyleSheet.absoluteFillObject,
+        {
+          opacity,
+          transform: [{ translateY }],
+        },
+      ]}
     >
       <View style={styles.amberGlow} />
       <View style={styles.tealGlow} />
