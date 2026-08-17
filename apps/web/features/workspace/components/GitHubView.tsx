@@ -1,166 +1,423 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@corvus/ui";
-import { GitPullRequest } from "lucide-react";
+import {
+  GitPullRequest,
+  GitBranch,
+  FolderGit2,
+  ExternalLink,
+  Search,
+  RefreshCw,
+  Loader2,
+  ArrowLeft,
+  CheckCircle2,
+  Unlink,
+} from "lucide-react";
 import { ChannelGlyph } from "@/shared/components/ui";
+import { api } from "@/shared/lib/api";
 import type { CIStatus, PullRequest, PRStatus } from "./types";
 
-type Filter = "all" | "review" | "changes" | "approved" | "merged";
+type PRFilter = "all" | "open" | "review" | "merged" | "closed";
 
-const FILTERS: { id: Filter; label: string }[] = [
+const PR_FILTERS: { id: PRFilter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "review", label: "Needs review" },
-  { id: "changes", label: "Changes requested" },
-  { id: "approved", label: "Approved" },
+  { id: "open", label: "Open" },
+  { id: "review", label: "Needs Review" },
   { id: "merged", label: "Merged" },
+  { id: "closed", label: "Closed" },
 ];
 
 const STATUS_DOT: Record<PRStatus, string> = {
-  open: "bg-status-online",
-  draft: "bg-text-faint",
-  review: "bg-status-idle",
-  merged: "bg-accent",
-  closed: "bg-status-dnd",
+  open: "bg-emerald-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]",
+  draft: "bg-text-muted",
+  review: "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]",
+  merged: "bg-accent shadow-[0_0_6px_rgba(var(--c-accent-rgb,138,92,246),0.6)]",
+  closed: "bg-red-500",
 };
 
+interface GitHubChannelData {
+  integration: any | null;
+  repository: {
+    id: string;
+    github_repo_id: number;
+    full_name: string;
+    repo_name: string;
+    owner_login: string;
+    is_private: boolean;
+    default_branch: string;
+  } | null;
+  pullRequests: PullRequest[];
+  authorizedRepositories: Array<{
+    id: string;
+    github_repo_id: number;
+    full_name: string;
+    repo_name: string;
+    owner_login: string;
+    is_private: boolean;
+    default_branch: string;
+  }>;
+  channel: {
+    id: string;
+    serverId: string;
+    name: string;
+    type: string;
+  };
+}
+
 /**
- * GitHub Connect — the PR review feed (brief §GitHub). A native surface, not
- * a notification plugin: status dot, mono metadata, CI badge, review count.
+ * GitHub Workspace Hub — Data-driven Pull Requests & Repository Binding
  */
 export function GitHubView({
-  prs,
-  onConnect,
+  channelId,
+  serverId,
+  onBack,
 }: {
-  prs: PullRequest[];
-  /** Connect a repository — shown when the channel has no feed yet. */
-  onConnect?: () => void;
+  channelId: string;
+  serverId?: string;
+  onBack?: () => void;
 }) {
-  const [filter, setFilter] = useState<Filter>("all");
+  const [data, setData] = useState<GitHubChannelData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [prFilter, setPrFilter] = useState<PRFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const visible = prs.filter((pr) => {
-    if (filter === "all") return true;
-    if (filter === "review") return pr.status === "review" || pr.status === "open";
-    if (filter === "changes") return pr.ciStatus === "failing";
-    if (filter === "approved") return pr.status === "open" && pr.ciStatus === "passing";
-    return pr.status === "merged";
+  // Connect modal state
+  const [selectedRepoId, setSelectedRepoId] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
+
+  const fetchChannelGitHub = async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+
+    try {
+      const res = await api<GitHubChannelData>(`/channels/${channelId}/github`);
+      setData(res);
+    } catch (err: any) {
+      setError(err.message || "Failed to load channel GitHub integration.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (channelId) {
+      fetchChannelGitHub();
+    }
+  }, [channelId]);
+
+  const handleConnect = async () => {
+    if (!selectedRepoId) return;
+    setConnecting(true);
+    setError(null);
+
+    try {
+      await api(`/channels/${channelId}/github`, {
+        method: "POST",
+        body: JSON.stringify({
+          repositoryId: selectedRepoId,
+          notifyPullRequests: true,
+          notifyIssues: true,
+          notifyPushes: false,
+          notifyReleases: true,
+          notifyWorkflowRuns: false,
+        }),
+      });
+      setSelectedRepoId("");
+      await fetchChannelGitHub(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to connect repository.");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleUnlink = async () => {
+    if (!confirm("Are you sure you want to disconnect this repository from this channel?")) return;
+    setUnlinking(true);
+    try {
+      await api(`/channels/${channelId}/github`, {
+        method: "DELETE",
+      });
+      await fetchChannelGitHub(true);
+    } catch (err: any) {
+      alert(err.message || "Failed to disconnect repository.");
+    } finally {
+      setUnlinking(false);
+    }
+  };
+
+  const prs = data?.pullRequests || [];
+  const visiblePRs = prs.filter((pr) => {
+    const matchesSearch =
+      !searchQuery ||
+      pr.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      pr.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(pr.number).includes(searchQuery);
+
+    if (!matchesSearch) return false;
+    if (prFilter === "all") return true;
+    if (prFilter === "open") return pr.status === "open" || pr.status === "draft";
+    if (prFilter === "review") return pr.status === "review" || (pr.status === "open" && pr.reviewCount && pr.reviewCount > 0);
+    if (prFilter === "merged") return pr.status === "merged";
+    if (prFilter === "closed") return pr.status === "closed";
+    return true;
   });
 
-  // Not connected yet — the setup state for freshly-created github channels.
-  if (prs.length === 0) {
-    return (
-      <section className="flex h-full min-w-0 flex-1 flex-col bg-background">
-        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
-          <ChannelGlyph type="github" size={16} />
-          <h1 className="text-[15px] font-semibold text-text-primary">Pull Requests</h1>
-        </header>
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface-raised">
-            <GitPullRequest size={24} className="text-text-muted" />
-          </span>
-          <p className="text-[15px] font-medium text-text-primary">Connect a repository</p>
-          <p className="max-w-[42ch] text-center text-[13px] leading-relaxed text-text-muted">
-            PRs, reviews, and CI status route into this channel once a repository is connected.
-          </p>
-          <button
-            type="button"
-            onClick={onConnect}
-            className="mt-1 h-9 rounded-md bg-accent px-4 text-[13px] font-medium text-on-accent transition-colors hover:bg-accent-violet-bright"
-          >
-            Connect GitHub
-          </button>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="flex h-full min-w-0 flex-1 flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
-        <ChannelGlyph type="github" size={16} />
-        <h1 className="text-[15px] font-semibold text-text-primary">Pull Requests</h1>
-      </header>
-
-      {/* Filter row — same tab pattern as Board tabs */}
-      <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-4 py-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            data-active={filter === f.id}
-            onClick={() => setFilter(f.id)}
-            className={cn(
-              "h-7 shrink-0 rounded px-3 text-[13px] transition-colors",
-              filter === f.id
-                ? "bg-surface-overlay text-text-primary"
-                : "text-text-secondary hover:bg-hover-row hover:text-text-primary"
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
-        {visible.map((pr) => (
-          <button
-            key={pr.id}
-            type="button"
-            className="flex h-14 w-full items-center gap-3 border-b border-border px-4 text-left transition-colors hover:bg-hover-row"
-          >
-            <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT[pr.status])} />
-            <div className="min-w-0 flex-1 leading-tight">
-              <p className="truncate text-[14px] text-text-primary">{pr.title}</p>
-              <p className="mt-0.5 truncate font-mono text-[11px] text-text-muted">
-                {pr.repo} · #{pr.number} · {pr.author} · {pr.updatedAt}
-              </p>
+    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-[#0b0e14] overflow-hidden">
+      {/* ─── Floating Glass Header ─── */}
+      <div className="relative z-10 px-3 pt-3 sm:px-4 sm:pt-4">
+        <header className="flex flex-col gap-3 rounded-[20px] border border-white/[0.08] bg-[#121722]/75 p-3 sm:px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  aria-label="Back to channels"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl text-text-secondary hover:bg-white/[0.06] hover:text-text-primary active:scale-95 transition-all md:hidden"
+                >
+                  <ArrowLeft size={17} />
+                </button>
+              )}
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/15 border border-accent/25 text-accent shrink-0">
+                <ChannelGlyph type="github" size={15} />
+              </div>
+              <div>
+                <h1 className="text-[14.5px] font-bold text-text-primary flex items-center gap-2">
+                  <span>AIIC GitHub Hub</span>
+                  {data?.repository && (
+                    <span className="font-mono text-xs text-accent font-normal">
+                      · {data.repository.full_name}
+                    </span>
+                  )}
+                </h1>
+                <span className="font-mono text-[10px] text-text-muted uppercase tracking-wider block">
+                  {data?.repository
+                    ? `${data.repository.default_branch || "main"} branch · ${prs.length} pull requests`
+                    : "No repository bound"}
+                </span>
+              </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {pr.ciStatus && <CIBadge status={pr.ciStatus} />}
-              {!!pr.reviewCount && (
-                <span className="font-mono text-[11px] text-text-muted">◎ {pr.reviewCount}</span>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fetchChannelGitHub(true)}
+                disabled={loading || refreshing}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-xs font-mono text-text-secondary hover:text-text-primary transition-all active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
+                <span className="hidden sm:inline">Sync</span>
+              </button>
+
+              {data?.integration && (
+                <button
+                  type="button"
+                  onClick={handleUnlink}
+                  disabled={unlinking}
+                  title="Disconnect repository"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-danger/25 bg-danger/10 hover:bg-danger/20 text-xs font-mono text-danger transition-all active:scale-95"
+                >
+                  <Unlink size={12} />
+                  <span className="hidden sm:inline">Unlink</span>
+                </button>
               )}
             </div>
-          </button>
-        ))}
-        {visible.length === 0 && (
-          <p className="px-4 py-8 text-[13px] text-text-muted">No pull requests here.</p>
+          </div>
+
+          {/* Sub-Filters / Search */}
+          {data?.integration && (
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/[0.06]">
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+                {PR_FILTERS.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setPrFilter(f.id)}
+                    className={cn(
+                      "h-6 rounded-lg px-2 font-mono text-[10px] font-semibold transition-all",
+                      prFilter === f.id
+                        ? "bg-accent/20 text-accent border border-accent/30"
+                        : "text-text-muted hover:text-text-primary"
+                    )}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.06] px-2 py-1 rounded-lg">
+                <Search size={11} className="text-text-muted" />
+                <input
+                  type="text"
+                  placeholder="Filter PRs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/60 outline-none w-28 sm:w-36 font-mono"
+                />
+              </div>
+            </div>
+          )}
+        </header>
+      </div>
+
+      {/* ─── Body Surface ─── */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
+        {loading ? (
+          <div className="flex h-64 items-center justify-center">
+            <Loader2 className="animate-spin text-accent" size={24} />
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-danger/30 bg-danger/10 p-6 text-center text-xs text-danger font-mono">
+            {error}
+          </div>
+        ) : !data?.integration || !data.repository ? (
+          /* ─── Clean Unconnected State ─── */
+          <div className="flex flex-col items-center justify-center py-16 text-center max-w-md mx-auto px-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 border border-accent/20 text-accent mb-4">
+              <FolderGit2 size={26} />
+            </div>
+            <h3 className="text-sm font-bold text-text-primary mb-1">GitHub repository not connected</h3>
+            <p className="text-xs text-text-secondary mb-6 leading-relaxed">
+              This channel has not been bound to a GitHub repository yet. Choose an authorized repository from your Space to route pull requests and webhook feeds here.
+            </p>
+
+            {(data?.authorizedRepositories || []).length > 0 ? (
+              <div className="w-full space-y-3 bg-[#121622] p-4 rounded-2xl border border-white/[0.08] shadow-xl text-left">
+                <label className="block text-[11px] font-mono font-semibold text-text-secondary">
+                  Authorized Space Repositories:
+                </label>
+                <select
+                  value={selectedRepoId}
+                  onChange={(e) => setSelectedRepoId(e.target.value)}
+                  className="w-full bg-[#0b0e14] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+                >
+                  <option value="">Select a repository...</option>
+                  {data?.authorizedRepositories.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.full_name} ({r.is_private ? "Private" : "Public"})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleConnect}
+                  disabled={!selectedRepoId || connecting}
+                  className="w-full py-2 rounded-xl bg-accent hover:bg-accent/90 text-white font-semibold text-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {connecting && <Loader2 size={13} className="animate-spin" />}
+                  <span>{connecting ? "Connecting Repository..." : "Bind Channel to Repository"}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="text-[11px] font-mono text-text-muted bg-white/[0.02] border border-white/[0.06] p-4 rounded-2xl">
+                No repositories have been authorized for this Space yet. An Admin can authorize repositories globally in the Admin Board.
+              </div>
+            )}
+          </div>
+        ) : (
+          /* ─── Live Pull Requests Feed ─── */
+          <>
+            {visiblePRs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <GitPullRequest size={32} className="text-text-muted mb-2 opacity-50" />
+                <p className="text-xs font-mono text-text-muted">
+                  {prs.length === 0 ? "No pull requests found for this repository." : "No pull requests match this filter."}
+                </p>
+              </div>
+            ) : (
+              visiblePRs.map((pr) => (
+                <article
+                  key={pr.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-white/[0.06] bg-[#121622]/80 hover:bg-[#121622] hover:border-white/[0.12] transition-all shadow-md group"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div
+                      className={cn(
+                        "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full",
+                        STATUS_DOT[pr.status] || "bg-text-muted"
+                      )}
+                    />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-text-primary group-hover:text-accent transition-colors">
+                          #{pr.number} {pr.title}
+                        </span>
+                        <span
+                          className={cn(
+                            "px-2 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-wider border",
+                            pr.status === "merged"
+                              ? "bg-purple-500/10 border-purple-500/25 text-purple-400"
+                              : pr.status === "closed"
+                              ? "bg-red-500/10 border-red-500/25 text-red-400"
+                              : "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                          )}
+                        >
+                          {pr.status}
+                        </span>
+                      </div>
+
+                      <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[11px] text-text-muted">
+                        <span>by @{pr.author}</span>
+                        <span>·</span>
+                        <span className="text-text-secondary">{pr.repo}</span>
+                        <span>·</span>
+                        <span>{new Date(pr.updatedAt).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    {pr.url && (
+                      <a
+                        href={pr.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/[0.08] hover:bg-white/[0.06] text-xs font-mono font-semibold text-text-primary transition-all active:scale-95"
+                      >
+                        <span>Review PR</span>
+                        <ExternalLink size={12} />
+                      </a>
+                    )}
+                  </div>
+                </article>
+              ))
+            )}
+          </>
         )}
       </div>
     </section>
   );
 }
 
-export function CIBadge({ status }: { status: CIStatus }) {
-  const tone: Record<CIStatus, string> = {
-    passing: "text-success border-success/30",
-    failing: "text-danger border-danger/30",
-    pending: "text-warning border-warning/30",
-  };
+export function CIBadge({ status }: { status?: CIStatus }) {
+  if (!status) return null;
+  const config = {
+    passing: { label: "CI passing", className: "bg-emerald-500/10 border-emerald-500/25 text-emerald-400" },
+    failing: { label: "CI failing", className: "bg-danger/10 border-danger/25 text-danger" },
+    pending: { label: "CI running", className: "bg-amber-500/10 border-amber-500/25 text-amber-400" },
+  }[status] || { label: "CI unknown", className: "bg-white/10 text-text-muted" };
+
   return (
-    <span
-      className={cn(
-        "flex h-5 items-center rounded-[3px] border px-2 font-mono text-[10px] uppercase tracking-[0.04em]",
-        tone[status]
-      )}
-    >
-      {status}
+    <span className={cn("px-2 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-wider border", config.className)}>
+      {config.label}
     </span>
   );
 }
 
-/**
- * Commit/PR events routed into a message channel — a typographic system line,
- * not a bot message with an avatar (brief §GitHub).
- */
-export function GitHubEvent({ text, meta }: { text: string; meta: string }) {
+export function GitHubEvent({ text, meta }: { text: string; meta?: string }) {
   return (
-    <div className="mx-4 my-0.5 rounded-r-sm border-l-2 border-border py-1 pl-8 pr-4 font-mono text-[12px] text-text-muted">
-      <span className="text-text-faint">↗ github</span>
-      {"  "}
-      {text}
-      {"  ·  "}
-      {meta}
+    <div className="flex items-center gap-2 font-mono text-xs text-text-secondary bg-white/[0.02] border border-white/[0.04] px-3 py-1.5 rounded-xl my-1">
+      <GitPullRequest size={13} className="text-accent shrink-0" />
+      <span className="text-text-primary">{text}</span>
+      {meta && <span className="text-[10px] text-text-muted ml-auto">{meta}</span>}
     </div>
   );
 }

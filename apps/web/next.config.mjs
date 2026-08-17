@@ -2,7 +2,7 @@
 const isTauriBuild = process.env.TAURI_BUILD === "true";
 
 const nextConfig = {
-  trailingSlash: true,
+  trailingSlash: isTauriBuild,
   images: { unoptimized: true },
   transpilePackages: ["@corvus/ui"],
   ...(isTauriBuild ? { output: "export" } : {}),

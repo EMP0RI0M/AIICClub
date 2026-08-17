@@ -32,6 +32,7 @@ export function IncidentView({
   me,
   onUpdate,
   onSend,
+  onBack,
 }: {
   channelName: string;
   incident: IncidentMeta;
@@ -41,6 +42,7 @@ export function IncidentView({
   /** Persist incident changes (status, severity, commander, timeline). */
   onUpdate?: (incident: IncidentMeta) => void;
   onSend?: (text: string, attachments?: Attachment[]) => void;
+  onBack?: () => void;
 }) {
   const [showSidebar, setShowSidebar] = useState(true);
 
@@ -57,39 +59,56 @@ export function IncidentView({
   };
 
   return (
-    <>
-      <section className="flex h-full min-w-0 flex-1 flex-col bg-background">
-        {/* Incident header — replaces the standard channel header */}
-        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
-          <ChannelGlyph type="incident" size={16} />
-          <h1 className="text-[15px] font-semibold text-danger">{channelName}</h1>
-          <StatusPill status={incident.status} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-text-muted">
-            {incident.severity}
-          </span>
-          <span className="font-mono text-[11px] text-text-muted">{incident.duration}</span>
-          <div className="ml-auto flex items-center gap-2">
-            {incident.status !== "resolved" && (
+    <div className="relative flex h-full min-h-0 min-w-0 w-full flex-1 overflow-hidden bg-[#0b0e14]">
+      <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {/* ─── Floating Glass Header ─── */}
+        <div className="relative z-10 px-3 pt-3 sm:px-4 sm:pt-4">
+          <header className="flex h-13 shrink-0 items-center gap-2 sm:gap-3 rounded-[20px] border border-white/[0.08] bg-[#121722]/75 px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
+            {onBack && (
               <button
                 type="button"
-                onClick={() => setStatus("resolved")}
-                className="flex h-7 items-center rounded-md border border-success/40 px-3 text-[13px] font-medium text-success transition-colors hover:bg-success/10"
+                onClick={onBack}
+                aria-label="Back to channels"
+                className="flex h-8 w-8 items-center justify-center rounded-xl text-text-secondary hover:bg-white/[0.06] hover:text-text-primary active:scale-95 transition-all md:hidden"
               >
-                Resolve
+                ←
               </button>
             )}
-            <button
-              type="button"
-              aria-label="Toggle incident sidebar"
-              onClick={() => setShowSidebar((v) => !v)}
-              className="flex h-8 w-8 items-center justify-center rounded-sm text-text-faint transition-colors hover:bg-hover-row hover:text-text-primary"
-            >
-              <PanelRight size={16} />
-            </button>
-          </div>
-        </header>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-danger/15 border border-danger/30 text-danger shrink-0">
+              <ChannelGlyph type="incident" size={15} />
+            </div>
+            <h1 className="truncate text-[14.5px] font-bold text-danger">{channelName}</h1>
+            <StatusPill status={incident.status} />
+            <span className="hidden font-mono text-[10.5px] uppercase font-bold tracking-wider text-accent sm:inline bg-accent/15 border border-accent/30 rounded-lg px-2 py-0.5">
+              {incident.severity}
+            </span>
+            <span className="hidden font-mono text-[11px] text-text-muted md:inline">{incident.duration}</span>
+            <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+              {incident.status !== "resolved" && (
+                <button
+                  type="button"
+                  onClick={() => setStatus("resolved")}
+                  className="flex h-8 items-center rounded-xl border border-success/40 bg-success/15 px-3 font-mono text-[11.5px] font-bold text-success transition-all hover:bg-success/25 active:scale-95"
+                >
+                  Resolve
+                </button>
+              )}
+              <button
+                type="button"
+                aria-label="Toggle incident sidebar"
+                onClick={() => setShowSidebar((v) => !v)}
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-xl transition-all active:scale-95",
+                  showSidebar ? "text-text-primary bg-white/[0.08] border border-white/[0.1]" : "text-text-muted hover:text-text-primary hover:bg-white/[0.04]"
+                )}
+              >
+                <PanelRight size={16} />
+              </button>
+            </div>
+          </header>
+        </div>
 
-        <div className="flex flex-1 flex-col overflow-y-auto py-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto py-4">
           {/* Auto-generated timeline entries as system lines */}
           {incident.timeline.slice(0, 2).map((entry, i) => (
             <TimelineLine key={i} at={entry.at} text={entry.text} active={incident.status === "active"} />
@@ -115,7 +134,7 @@ export function IncidentView({
           onClose={() => setShowSidebar(false)}
         />
       )}
-    </>
+    </div>
   );
 }
 
@@ -185,13 +204,13 @@ function IncidentSidebar({
   };
 
   return (
-    <aside className="flex h-full w-[360px] shrink-0 flex-col overflow-y-auto border-l border-border bg-surface-raised">
+    <aside className="absolute inset-y-0 right-0 z-20 flex h-full w-full max-w-full shrink-0 flex-col overflow-y-auto border-l border-border bg-surface-overlay sm:static sm:w-[300px] md:w-[340px] lg:w-[360px] sm:bg-surface-raised">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
         <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-text-muted">Incident</span>
         <button
           type="button"
           onClick={onClose}
-          className="text-[12px] text-text-faint transition-colors hover:text-text-primary"
+          className="rounded px-2 py-1 text-[12px] text-text-faint transition-colors hover:bg-hover-row hover:text-text-primary"
         >
           Close
         </button>

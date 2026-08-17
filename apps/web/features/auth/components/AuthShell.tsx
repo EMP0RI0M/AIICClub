@@ -73,7 +73,7 @@ export function AuthShell({
                 draggable={false}
               />
               <span className="text-[20px] font-semibold tracking-[-0.02em] text-text-primary">
-                Corvus
+                AIIC
               </span>
             </div>
             <p className="mt-1 text-[14px] text-text-muted">{tagline}</p>

@@ -80,12 +80,14 @@ export function CanvasView({
   channelName,
   bare,
   storageKey,
+  onBack,
 }: {
   channelName: string;
   /** Skip the channel header — used when embedded as a call whiteboard. */
   bare?: boolean;
   /** Persist drawings under this key (e.g. the channel id). */
   storageKey?: string;
+  onBack?: () => void;
 }) {
   const [tool, setTool] = useState<Tool>("pen");
   const [shapes, setShapes] = useState<Shape[]>([]);
@@ -317,6 +319,16 @@ export function CanvasView({
     >
       {!bare && (
         <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back to channels"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-text-secondary hover:bg-hover-row hover:text-text-primary md:hidden"
+            >
+              ←
+            </button>
+          )}
           <ChannelGlyph type="canvas" size={16} />
           <h1 className="text-[15px] font-semibold text-text-primary">{channelName}</h1>
           <span className="ml-auto font-mono text-[11px] text-text-muted">{shapes.length} objects</span>

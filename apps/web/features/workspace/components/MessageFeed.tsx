@@ -3,656 +3,680 @@
 import { Fragment, useState } from "react";
 import { cn } from "@corvus/ui";
 import {
-    SmilePlus,
-    Reply,
-    MessagesSquare,
-    MoreHorizontal,
-    CornerUpLeft,
-    FileText,
-    Download,
-    Play,
-    Pin,
-    PinOff,
-    Copy,
-    Pencil,
-    Trash2,
-    Phone,
-    PhoneMissed,
-    Video,
+  SmilePlus,
+  Reply,
+  MessagesSquare,
+  MoreHorizontal,
+  CornerUpLeft,
+  FileText,
+  Download,
+  Play,
+  Pin,
+  PinOff,
+  Copy,
+  Pencil,
+  Trash2,
+  Phone,
+  PhoneMissed,
+  Video,
+  Check,
 } from "lucide-react";
 import { Avatar } from "@/shared/components/ui";
 import type { Attachment, ChatMessage, LinkEmbed } from "./types";
 import { ClipEmbed } from "./ClipRecorder";
 import { GitHubEvent } from "./GitHubView";
 import { ConfirmModal } from "@/shared/components/ui/Modal";
+import { useToastStore } from "@/shared/stores/toast-store";
 
 const GROUP_WINDOW_MS = 7 * 60 * 1000;
 
 export function timeShort(iso: string) {
-    return new Date(iso).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-    });
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
 }
+
 function timeLabel(iso: string) {
-    const date = new Date(iso);
-    const prefix =
-        date.toDateString() === new Date().toDateString()
-            ? "Today"
-            : date.toLocaleDateString([], {
-                  month: "short",
-                  day: "numeric",
-                  year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
-              });
-    return `${prefix} at ${timeShort(iso)}`;
+  const date = new Date(iso);
+  const prefix =
+    date.toDateString() === new Date().toDateString()
+      ? "Today"
+      : date.toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+          year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+        });
+  return `${prefix} · ${timeShort(iso)}`;
 }
+
 function dayKey(iso: string) {
-    return new Date(iso).toDateString();
+  return new Date(iso).toDateString();
 }
+
 function dayLabel(iso: string) {
-    return new Date(iso)
-        .toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })
-        .toUpperCase();
+  return new Date(iso)
+    .toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })
+    .toUpperCase();
 }
 
 const QUICK_REACTIONS = ["👍", "🔥", "❤️", "😂", "🎉", "👀", "✅", "🚀"];
 
-/**
- * Shared grouped message list (brief §MessageArea) — one feed for channels,
- * DMs, and group DMs. Messages from the same author within 7 minutes collapse
- * into a compact follow-up; replies always show their reference line.
- */
 export interface MessageActions {
-    onReply?: (id: string) => void;
-    onOpenThread?: (id: string) => void;
-    onReact?: (id: string, emoji: string) => void;
-    onPin?: (id: string) => void;
-    onEdit?: (id: string, text: string) => void;
-    onDelete?: (id: string) => void;
+  onReply?: (id: string) => void;
+  onOpenThread?: (id: string) => void;
+  onReact?: (id: string, emoji: string) => void;
+  onPin?: (id: string) => void;
+  onEdit?: (id: string, text: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 export function MessageFeed({
-    messages,
-    compact,
-    meId,
-    onReply,
-    onOpenThread,
-    onReact,
-    onPin,
-    onEdit,
-    onDelete,
+  messages,
+  compact,
+  meId,
+  onReply,
+  onOpenThread,
+  onReact,
+  onPin,
+  onEdit,
+  onDelete,
 }: {
-    messages: ChatMessage[];
-    /** Tighter spacing for the narrow thread column. */
-    compact?: boolean;
-    /** Current user id — enables Edit/Delete on own messages. */
-    meId?: string;
+  messages: ChatMessage[];
+  compact?: boolean;
+  meId?: string;
 } & MessageActions) {
-    return (
-        <>
-            {messages.map((msg, i) => {
-                const prev = messages[i - 1];
-                const newDay = !prev || dayKey(prev.at) !== dayKey(msg.at);
-                const grouped =
-                    !newDay &&
-                    !msg.replyTo &&
-                    prev &&
-                    !prev.githubEvent &&
-                    prev.author.id === msg.author.id &&
-                    new Date(msg.at).getTime() - new Date(prev.at).getTime() < GROUP_WINDOW_MS;
+  return (
+    <div className="flex flex-col space-y-1.5 px-2 sm:px-4">
+      {messages.map((msg, i) => {
+        const prev = messages[i - 1];
+        const newDay = !prev || dayKey(prev.at) !== dayKey(msg.at);
+        const grouped =
+          !newDay &&
+          !msg.replyTo &&
+          prev &&
+          !prev.githubEvent &&
+          prev.author.id === msg.author.id &&
+          new Date(msg.at).getTime() - new Date(prev.at).getTime() < GROUP_WINDOW_MS;
 
-                if (msg.githubEvent) {
-                    return (
-                        <Fragment key={msg.id}>
-                            {newDay && !compact && <DateSeparator label={dayLabel(msg.at)} />}
-                            <GitHubEvent text={msg.githubEvent.text} meta={msg.githubEvent.meta} />
-                        </Fragment>
-                    );
-                }
+        if (msg.githubEvent) {
+          return (
+            <Fragment key={msg.id}>
+              {newDay && !compact && <DateSeparator label={dayLabel(msg.at)} />}
+              <GitHubEvent text={msg.githubEvent.text} meta={msg.githubEvent.meta} />
+            </Fragment>
+          );
+        }
 
-                return (
-                    <Fragment key={msg.id}>
-                        {newDay && !compact && <DateSeparator label={dayLabel(msg.at)} />}
-                        <MessageRow
-                            message={msg}
-                            grouped={Boolean(grouped)}
-                            mine={meId !== undefined && msg.author.id === meId}
-                            onReply={onReply}
-                            onOpenThread={onOpenThread}
-                            onReact={onReact}
-                            onPin={onPin}
-                            onEdit={onEdit}
-                            onDelete={onDelete}
-                        />
-                    </Fragment>
-                );
-            })}
-        </>
-    );
+        return (
+          <Fragment key={msg.id}>
+            {newDay && !compact && <DateSeparator label={dayLabel(msg.at)} />}
+            <MessageRow
+              message={msg}
+              grouped={Boolean(grouped)}
+              mine={meId !== undefined && msg.author.id === meId}
+              onReply={onReply}
+              onOpenThread={onOpenThread}
+              onReact={onReact}
+              onPin={onPin}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          </Fragment>
+        );
+      })}
+    </div>
+  );
 }
 
 function MessageRow({
-    message,
-    grouped,
-    mine,
-    onReply,
-    onOpenThread,
-    onReact,
-    onPin,
-    onEdit,
-    onDelete,
+  message,
+  grouped,
+  mine,
+  onReply,
+  onOpenThread,
+  onReact,
+  onPin,
+  onEdit,
+  onDelete,
 }: {
-    message: ChatMessage;
-    grouped: boolean;
-    mine: boolean;
+  message: ChatMessage;
+  grouped: boolean;
+  mine: boolean;
 } & MessageActions) {
-    const [reactOpen, setReactOpen] = useState(false);
-    const [menuOpen, setMenuOpen] = useState(false);
-    const [editing, setEditing] = useState(false);
-    const [confirmDelete, setConfirmDelete] = useState(false);
-    const [draft, setDraft] = useState(message.text);
+  const [reactOpen, setReactOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [draft, setDraft] = useState(message.text);
 
-    return (
-        <div
-            className={cn(
-                "group relative flex flex-col px-4 py-0.5 transition-colors hover:bg-hover-row",
-                reactOpen && "bg-hover-row",
-            )}
+  return (
+    <div
+      id={`msg-${message.id}`}
+      className={cn(
+        "group relative flex flex-col py-0.5 rounded-2xl transition-all duration-200",
+        mine ? "items-end" : "items-start"
+      )}
+    >
+      <ConfirmModal
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          onDelete?.(message.id);
+          setConfirmDelete(false);
+        }}
+        title="Delete message?"
+        body="This will permanently remove the message for everyone."
+        confirmLabel="Delete message"
+        destructive
+      />
+
+      {/* Reply reference — clickable to scroll & highlight original message */}
+      {message.replyTo && (
+        <button
+          type="button"
+          onClick={() => {
+            const targetEl = document.getElementById(`msg-${message.replyTo?.id}`);
+            if (targetEl) {
+              targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+              targetEl.classList.add("ring-2", "ring-accent", "ring-offset-2", "ring-offset-black/50");
+              setTimeout(() => {
+                targetEl.classList.remove("ring-2", "ring-accent", "ring-offset-2", "ring-offset-black/50");
+              }, 2000);
+            }
+          }}
+          className={cn(
+            "mb-1 flex items-center gap-1.5 px-3 font-mono text-[11px] text-text-muted/80 hover:text-text-primary transition-colors cursor-pointer text-left",
+            mine ? "mr-1 justify-end" : "ml-1 justify-start"
+          )}
         >
-            <ConfirmModal
-                open={confirmDelete}
-                onClose={() => setConfirmDelete(false)}
-                onConfirm={() => {
-                    onDelete?.(message.id);
-                    setConfirmDelete(false);
+          <CornerUpLeft size={11} className="shrink-0 text-accent/70" />
+          <span className="font-semibold text-accent/90">{message.replyTo.authorName || "Member"}:</span>
+          <span className="max-w-[200px] sm:max-w-[320px] truncate text-text-faint">
+            {message.replyTo.text || "original message unavailable"}
+          </span>
+        </button>
+      )}
+
+      <div
+        className={cn(
+          "relative flex max-w-[88%] sm:max-w-[78%] md:max-w-[70%] gap-2.5 items-end",
+          mine ? "flex-row-reverse" : "flex-row"
+        )}
+      >
+        {/* Author Avatar (when not grouped and not outgoing) */}
+        {!mine && (
+          <div className="w-8 shrink-0 mb-1">
+            {!grouped ? (
+              <div className="rounded-full ring-1 ring-white/10 ring-offset-1 ring-offset-black/40">
+                <Avatar src={message.author.avatar} name={message.author.name} size={30} shape="circle" />
+              </div>
+            ) : (
+              <div className="w-8" />
+            )}
+          </div>
+        )}
+
+        {/* ─── Glass Bubble ─── */}
+        <div
+          className={cn(
+            "relative flex flex-col px-3.5 py-2.5 transition-all",
+            mine
+              ? "rounded-[18px] rounded-br-[4px] bg-[#1d1633]/85 text-text-primary border border-accent/30 shadow-[0_4px_20px_rgba(var(--c-accent-rgb,138,92,246),0.12),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md"
+              : "rounded-[18px] rounded-bl-[4px] bg-[#141824]/85 text-text-primary border border-white/[0.08] shadow-[0_4px_16px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md"
+          )}
+        >
+          {/* Author Header (Incoming non-grouped) */}
+          {!mine && !grouped && (
+            <div className="mb-1 flex items-center gap-2">
+              <span className="text-[12.5px] font-semibold text-accent leading-none">
+                {message.author.name}
+              </span>
+              <span className="font-mono text-[10px] text-text-muted/60 leading-none">
+                {timeShort(message.at)}
+              </span>
+            </div>
+          )}
+
+          {/* Message Text & Editor */}
+          {editing ? (
+            <div className="min-w-[220px]">
+              <textarea
+                value={draft}
+                autoFocus
+                rows={Math.max(1, draft.split("\n").length)}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (draft.trim()) onEdit?.(message.id, draft.trim());
+                    setEditing(false);
+                  }
+                  if (e.key === "Escape") {
+                    setDraft(message.text);
+                    setEditing(false);
+                  }
                 }}
-                title="Delete message?"
-                body="This will permanently remove the message for everyone."
-                confirmLabel="Delete message"
-                destructive
-            />
-            {/* Reply reference — a quiet line that connects to the original. */}
-            {message.replyTo && (
-                <div className="mb-0.5 flex items-center gap-1.5 pl-11">
-                    <CornerUpLeft size={11} className="shrink-0 text-text-faint" />
-                    <span className="font-mono text-[11px] text-text-muted">
-                        {message.replyTo.authorName}
-                    </span>
-                    <span className="truncate text-[11px] text-text-faint">
-                        {message.replyTo.text}
-                    </span>
-                </div>
-            )}
-
-            <div className="flex gap-3">
-                <div className="w-8 shrink-0">
-                    {grouped ? (
-                        <span className="hidden pt-[3px] text-right font-mono text-[10px] leading-5 text-text-faint group-hover:block">
-                            {timeShort(message.at)}
-                        </span>
-                    ) : (
-                        <Avatar
-                            src={message.author.avatar}
-                            name={message.author.name}
-                            size={32}
-                            radius={8}
-                        />
-                    )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                    {!grouped && (
-                        <div className="flex items-center gap-2">
-                            {message.author.roleColor && (
-                                <span
-                                    className="inline-block h-2.5 w-0.5 rounded-full"
-                                    style={{ background: message.author.roleColor }}
-                                />
-                            )}
-                            <span className="text-[14px] font-medium text-text-primary">
-                                {message.author.name}
-                            </span>
-                            <span className="font-mono text-[11px] tracking-[0.02em] text-text-muted">
-                                {timeLabel(message.at)}
-                            </span>
-                        </div>
-                    )}
-
-                    {editing ? (
-                        <div className="mt-1">
-                            <textarea
-                                value={draft}
-                                autoFocus
-                                rows={Math.max(1, draft.split("\n").length)}
-                                onChange={(e) => setDraft(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && !e.shiftKey) {
-                                        e.preventDefault();
-                                        if (draft.trim()) onEdit?.(message.id, draft.trim());
-                                        setEditing(false);
-                                    }
-                                    if (e.key === "Escape") {
-                                        setDraft(message.text);
-                                        setEditing(false);
-                                    }
-                                }}
-                                className="w-full resize-none rounded-md border border-border-active bg-surface-raised px-3 py-2 text-[14px] leading-[1.5] text-text-primary outline-none"
-                            />
-                            <p className="mt-1 font-mono text-[10px] text-text-faint">
-                                enter to save · esc to cancel
-                            </p>
-                        </div>
-                    ) : (
-                        message.text && (
-                            <div className="whitespace-pre-wrap break-words text-[15px] leading-[1.55] text-text-secondary">
-                                <InlineMarkdown text={message.text} />
-                                {message.edited && (
-                                    <span className="ml-1.5 font-mono text-[10px] text-text-faint">
-                                        (edited)
-                                    </span>
-                                )}
-                            </div>
-                        )
-                    )}
-
-                    {message.attachments?.map((att, i) => (
-                        <AttachmentView key={i} attachment={att} />
-                    ))}
-
-                    {message.embed && <LinkEmbedCard embed={message.embed} />}
-
-                    {message.clip && (
-                        <ClipEmbed duration={message.clip.duration} size={message.clip.size} />
-                    )}
-
-                    {message.call && (
-                        <CallEntry call={message.call} authorName={message.author.name} />
-                    )}
-
-                    {message.reactions && message.reactions.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                            {message.reactions.map((r, idx) => (
-                                <button
-                                    key={idx}
-                                    type="button"
-                                    data-reacted={r.reacted}
-                                    onClick={() => onReact?.(message.id, r.emoji)}
-                                    className={cn(
-                                        "flex h-[22px] items-center gap-1.5 rounded-full border px-2 text-[12px] transition-colors",
-                                        r.reacted
-                                            ? "border-accent-muted bg-accent-soft"
-                                            : "border-border bg-surface-raised hover:border-border-active",
-                                    )}
-                                >
-                                    <span className="text-[14px] leading-none">{r.emoji}</span>
-                                    <span className="font-mono text-[11px] text-text-secondary">
-                                        {r.count}
-                                    </span>
-                                </button>
-                            ))}
-                            {onReact && (
-                                <button
-                                    type="button"
-                                    aria-label="Add reaction"
-                                    onClick={() => setReactOpen((v) => !v)}
-                                    className="flex h-[22px] items-center rounded-full border border-border bg-surface-raised px-2 text-text-faint opacity-0 transition-all hover:border-border-active hover:text-text-primary group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
-                                >
-                                    <SmilePlus size={12} />
-                                </button>
-                            )}
-                        </div>
-                    )}
-                </div>
+                className="w-full resize-none rounded-xl border border-accent/40 bg-black/40 px-3 py-2 text-[14px] leading-relaxed text-text-primary outline-none focus:border-accent"
+              />
+              <p className="mt-1 font-mono text-[10px] text-text-faint">
+                Enter to save · Esc to cancel
+              </p>
             </div>
-
-            {/* Hover toolbar */}
-            <div
-                className={cn(
-                    "absolute -top-3 right-4 items-center gap-0.5 rounded-sm border border-border bg-surface-overlay p-0.5 group-hover:flex group-focus-within:flex",
-                    menuOpen ? "flex" : "hidden",
+          ) : (
+            message.text && (
+              <div className="whitespace-pre-wrap break-words text-[14px] sm:text-[14.5px] leading-[1.55] text-text-primary/95">
+                <InlineMarkdown text={message.text} />
+                {message.edited && (
+                  <span className="ml-1.5 font-mono text-[10px] text-text-muted/60">
+                    (edited)
+                  </span>
                 )}
-            >
-                <ActionIcon label="React" onClick={() => setReactOpen((v) => !v)}>
-                    <SmilePlus size={14} />
-                </ActionIcon>
-                <ActionIcon label="Reply" onClick={() => onReply?.(message.id)}>
-                    <Reply size={14} />
-                </ActionIcon>
-                <ActionIcon label="Thread" onClick={() => onOpenThread?.(message.id)}>
-                    <MessagesSquare size={14} />
-                </ActionIcon>
-                <ActionIcon label="More" onClick={() => setMenuOpen((v) => !v)}>
-                    <MoreHorizontal size={14} />
-                </ActionIcon>
+              </div>
+            )
+          )}
+
+          {/* Attachments & Media */}
+          {message.attachments?.map((att, i) => (
+            <AttachmentView key={i} attachment={att} />
+          ))}
+
+          {message.embed && <LinkEmbedCard embed={message.embed} />}
+
+          {message.clip && (
+            <ClipEmbed duration={message.clip.duration} size={message.clip.size} url={message.clip.url} />
+          )}
+
+          {message.call && (
+            <CallEntry call={message.call} authorName={message.author.name} />
+          )}
+
+          {/* Outgoing Timestamp + Status Tick */}
+          {mine && (
+            <div className="mt-1 flex items-center justify-end gap-1 font-mono text-[10px] text-accent-muted">
+              <span>{timeShort(message.at)}</span>
+              <Check size={11} className="text-accent" />
             </div>
+          )}
 
-            {/* More menu */}
-            {menuOpen && (
-                <div
-                    role="menu"
-                    className="absolute right-4 top-4 z-30 min-w-[200px] rounded-[10px] border border-border bg-surface-overlay p-1"
-                    style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}
+          {/* Reactions Pill Row */}
+          {message.reactions && message.reactions.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {message.reactions.map((r, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  data-reacted={r.reacted}
+                  onClick={() => onReact?.(message.id, r.emoji)}
+                  className={cn(
+                    "flex h-[22px] items-center gap-1.5 rounded-full border px-2 text-[12px] transition-all hover:scale-105 active:scale-95",
+                    r.reacted
+                      ? "border-accent/40 bg-accent/20 text-accent font-semibold"
+                      : "border-white/[0.08] bg-white/[0.04] text-text-secondary hover:border-white/[0.15]"
+                  )}
                 >
-                    <MenuItem
-                        icon={<Copy size={14} />}
-                        label="Copy text"
-                        onClick={() => {
-                            void navigator.clipboard?.writeText(message.text);
-                            setMenuOpen(false);
-                        }}
-                    />
-                    {onPin && (
-                        <MenuItem
-                            icon={message.pinned ? <PinOff size={14} /> : <Pin size={14} />}
-                            label={message.pinned ? "Unpin message" : "Pin message"}
-                            onClick={() => {
-                                onPin(message.id);
-                                setMenuOpen(false);
-                            }}
-                        />
-                    )}
-                    {mine && onEdit && (
-                        <MenuItem
-                            icon={<Pencil size={14} />}
-                            label="Edit message"
-                            onClick={() => {
-                                setDraft(message.text);
-                                setEditing(true);
-                                setMenuOpen(false);
-                            }}
-                        />
-                    )}
-                    {mine && onDelete && (
-                        <MenuItem
-                            icon={<Trash2 size={14} />}
-                            label="Delete message"
-                            danger
-                            onClick={() => {
-                                setConfirmDelete(true);
-                                setMenuOpen(false);
-                            }}
-                        />
-                    )}
-                </div>
-            )}
-
-            {/* Quick reaction menu */}
-            {reactOpen && (
-                <div
-                    role="menu"
-                    className="absolute -top-3 right-4 z-30 flex translate-y-[-100%] items-center gap-0.5 rounded-[10px] border border-border bg-surface-overlay p-1"
-                    style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}
-                >
-                    {QUICK_REACTIONS.map((e) => (
-                        <button
-                            key={e}
-                            type="button"
-                            role="menuitem"
-                            onClick={() => {
-                                onReact?.(message.id, e);
-                                setReactOpen(false);
-                            }}
-                            className="flex h-8 w-8 items-center justify-center rounded-sm text-[17px] leading-none transition-colors hover:bg-hover-row"
-                        >
-                            {e}
-                        </button>
-                    ))}
-                </div>
-            )}
+                  <span className="text-[13px] leading-none">{r.emoji}</span>
+                  <span className="font-mono text-[10px]">{r.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-    );
+
+        {/* ─── Floating Glass Action Toolbar on Hover ─── */}
+        <div
+          className={cn(
+            "absolute -top-3 z-20 items-center gap-0.5 rounded-full border border-white/[0.12] bg-[#161c29]/95 px-1.5 py-0.5 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.4)] transition-all group-hover:flex group-focus-within:flex",
+            mine ? "left-2" : "right-2",
+            menuOpen || reactOpen ? "flex" : "hidden"
+          )}
+        >
+          <ActionIcon label="React" onClick={() => setReactOpen((v) => !v)}>
+            <SmilePlus size={13} />
+          </ActionIcon>
+          <ActionIcon label="Reply" onClick={() => onReply?.(message.id)}>
+            <Reply size={13} />
+          </ActionIcon>
+          {onOpenThread && (
+            <ActionIcon label="Thread" onClick={() => onOpenThread(message.id)}>
+              <MessagesSquare size={13} />
+            </ActionIcon>
+          )}
+          <ActionIcon label="More" onClick={() => setMenuOpen((v) => !v)}>
+            <MoreHorizontal size={13} />
+          </ActionIcon>
+        </div>
+
+        {/* Floating More Menu */}
+        {menuOpen && (
+          <div
+            role="menu"
+            className={cn(
+              "absolute top-6 z-30 min-w-[180px] rounded-2xl border border-white/[0.12] bg-[#161c29]/95 p-1.5 backdrop-blur-xl shadow-[0_12px_32px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-150",
+              mine ? "left-0" : "right-0"
+            )}
+          >
+            <MenuItem
+              icon={<Copy size={13} />}
+              label="Copy text"
+              onClick={() => {
+                void navigator.clipboard?.writeText(message.text);
+                useToastStore.getState().addToast({
+                  title: "Copied to clipboard",
+                  body: "Message text copied successfully.",
+                  variant: "info",
+                });
+                setMenuOpen(false);
+              }}
+            />
+            {onPin && (
+              <MenuItem
+                icon={message.pinned ? <PinOff size={13} /> : <Pin size={13} />}
+                label={message.pinned ? "Unpin message" : "Pin message"}
+                onClick={() => {
+                  onPin(message.id);
+                  setMenuOpen(false);
+                }}
+              />
+            )}
+            {mine && onEdit && (
+              <MenuItem
+                icon={<Pencil size={13} />}
+                label="Edit message"
+                onClick={() => {
+                  setDraft(message.text);
+                  setEditing(true);
+                  setMenuOpen(false);
+                }}
+              />
+            )}
+            {mine && onDelete && (
+              <MenuItem
+                icon={<Trash2 size={13} />}
+                label="Delete message"
+                danger
+                onClick={() => {
+                  setConfirmDelete(true);
+                  setMenuOpen(false);
+                }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Floating Quick Reaction Bar */}
+        {reactOpen && (
+          <div
+            role="menu"
+            className={cn(
+              "absolute -top-10 z-30 flex items-center gap-1 rounded-full border border-white/[0.12] bg-[#161c29]/95 p-1 backdrop-blur-xl shadow-[0_12px_32px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-150",
+              mine ? "left-0" : "right-0"
+            )}
+          >
+            {QUICK_REACTIONS.map((e) => (
+              <button
+                key={e}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onReact?.(message.id, e);
+                  setReactOpen(false);
+                }}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[16px] leading-none transition-transform hover:scale-125 active:scale-95"
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /* ── Content renderers ──────────────────────────────────────────────── */
 
 const INLINE_TOKEN_RE = /https?:\/\/[^\s<>"]+|\*\*[^*\n]+\*\*|~~[^~\n]+~~|`[^`\n]+`|\*[^*\n]+\*/g;
 
-/** Safe inline Markdown renderer: React escapes all source text by default. */
 export function InlineMarkdown({ text, depth = 0 }: { text: string; depth?: number }) {
-    const nodes: React.ReactNode[] = [];
-    let cursor = 0;
-    let match: RegExpExecArray | null;
-    INLINE_TOKEN_RE.lastIndex = 0;
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  INLINE_TOKEN_RE.lastIndex = 0;
 
-    while ((match = INLINE_TOKEN_RE.exec(text)) !== null) {
-        if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
-        const token = match[0];
-        const key = `${match.index}-${token}`;
+  while ((match = INLINE_TOKEN_RE.exec(text)) !== null) {
+    if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
+    const token = match[0];
+    const key = `${match.index}-${token}`;
 
-        if (token.startsWith("http://") || token.startsWith("https://")) {
-            nodes.push(
-                <a
-                    key={key}
-                    href={token}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="text-accent underline decoration-accent/40 underline-offset-2 transition-colors hover:decoration-accent"
-                >
-                    {token}
-                </a>,
-            );
-        } else if (token.startsWith("**")) {
-            const content = token.slice(2, -2);
-            nodes.push(
-                <strong key={key} className="font-semibold text-text-primary">
-                    {depth < 2 ? <InlineMarkdown text={content} depth={depth + 1} /> : content}
-                </strong>,
-            );
-        } else if (token.startsWith("~~")) {
-            nodes.push(
-                <del key={key} className="text-text-muted decoration-text-muted">
-                    {token.slice(2, -2)}
-                </del>,
-            );
-        } else if (token.startsWith("`")) {
-            nodes.push(
-                <code
-                    key={key}
-                    className="rounded bg-surface-overlay px-1 py-0.5 font-mono text-[0.88em] text-text-primary"
-                >
-                    {token.slice(1, -1)}
-                </code>,
-            );
-        } else {
-            nodes.push(<em key={key}>{token.slice(1, -1)}</em>);
-        }
-        cursor = match.index + token.length;
+    if (token.startsWith("http://") || token.startsWith("https://")) {
+      nodes.push(
+        <a
+          key={key}
+          href={token}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-accent underline decoration-accent/40 underline-offset-2 transition-colors hover:decoration-accent"
+        >
+          {token}
+        </a>
+      );
+    } else if (token.startsWith("**")) {
+      const content = token.slice(2, -2);
+      nodes.push(
+        <strong key={key} className="font-semibold text-text-primary">
+          {depth < 2 ? <InlineMarkdown text={content} depth={depth + 1} /> : content}
+        </strong>
+      );
+    } else if (token.startsWith("~~")) {
+      nodes.push(
+        <del key={key} className="text-text-muted decoration-text-muted">
+          {token.slice(2, -2)}
+        </del>
+      );
+    } else if (token.startsWith("`")) {
+      nodes.push(
+        <code
+          key={key}
+          className="rounded-md bg-black/40 border border-white/[0.06] px-1.5 py-0.5 font-mono text-[0.88em] text-accent"
+        >
+          {token.slice(1, -1)}
+        </code>
+      );
+    } else {
+      nodes.push(<em key={key}>{token.slice(1, -1)}</em>);
     }
+    cursor = match.index + token.length;
+  }
 
-    if (cursor < text.length) nodes.push(text.slice(cursor));
-    return <>{nodes.length > 0 ? nodes : text}</>;
+  if (cursor < text.length) nodes.push(text.slice(cursor));
+  return <>{nodes.length > 0 ? nodes : text}</>;
 }
 
 function AttachmentView({ attachment }: { attachment: Attachment }) {
-    if (attachment.kind === "image" || attachment.kind === "gif") {
-        return (
-            <div className="relative mt-2 max-w-[420px] overflow-hidden rounded-[10px] border border-border bg-surface-raised">
-                {attachment.url ? (
-                    <img
-                        src={attachment.url}
-                        alt={attachment.name}
-                        className="block max-h-[320px] w-full object-cover"
-                    />
-                ) : (
-                    <div className="flex aspect-video items-center justify-center bg-surface-overlay">
-                        <span className="font-mono text-[11px] text-text-muted">
-                            {attachment.name}
-                        </span>
-                    </div>
-                )}
-                {attachment.kind === "gif" && (
-                    <span className="absolute left-2 top-2 rounded-[3px] border border-border bg-surface-overlay/90 px-1.5 py-px font-mono text-[10px] tracking-[0.08em] text-text-secondary">
-                        GIF
-                    </span>
-                )}
-            </div>
-        );
-    }
-
-    if (attachment.kind === "video") {
-        return (
-            <div className="mt-2 max-w-[480px] overflow-hidden rounded-[10px] border border-border bg-surface-raised">
-                {attachment.url ? (
-                    <video src={attachment.url} controls className="block max-h-[320px] w-full" />
-                ) : (
-                    <div className="flex aspect-video items-center justify-center bg-surface-overlay">
-                        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white">
-                            <Play size={18} fill="currentColor" />
-                        </span>
-                    </div>
-                )}
-                <div className="flex justify-between px-3 py-2 font-mono text-[12px] text-text-muted">
-                    <span className="truncate">{attachment.name}</span>
-                    {attachment.size && <span className="shrink-0 pl-3">{attachment.size}</span>}
-                </div>
-            </div>
-        );
-    }
-
-    // Generic file chip
+  if (attachment.kind === "image" || attachment.kind === "gif") {
     return (
-        <a
-            href={attachment.url}
-            download={attachment.name}
-            className="mt-2 flex max-w-[380px] items-center gap-3 rounded-[10px] border border-border bg-surface-raised px-3.5 py-3 transition-colors hover:border-border-active"
-        >
-            <FileText size={18} className="shrink-0 text-text-muted" />
-            <span className="min-w-0 flex-1 leading-tight">
-                <span className="block truncate text-[13px] font-medium text-text-primary">
-                    {attachment.name}
-                </span>
-                {attachment.size && (
-                    <span className="font-mono text-[11px] text-text-muted">{attachment.size}</span>
-                )}
-            </span>
-            <Download size={15} className="shrink-0 text-text-faint" />
-        </a>
+      <div className="relative mt-2 max-w-[420px] overflow-hidden rounded-[14px] border border-white/[0.08] bg-black/30 shadow-md">
+        {attachment.url ? (
+          <img
+            src={attachment.url}
+            alt={attachment.name}
+            className="block max-h-[320px] w-full object-cover"
+          />
+        ) : (
+          <div className="flex aspect-video items-center justify-center bg-white/[0.04]">
+            <span className="font-mono text-[11px] text-text-muted">{attachment.name}</span>
+          </div>
+        )}
+        {attachment.kind === "gif" && (
+          <span className="absolute left-2 top-2 rounded-md border border-white/[0.1] bg-black/70 px-1.5 py-0.5 font-mono text-[9px] tracking-[0.08em] text-white">
+            GIF
+          </span>
+        )}
+      </div>
     );
+  }
+
+  if (attachment.kind === "video") {
+    return (
+      <div className="mt-2 max-w-[480px] overflow-hidden rounded-[14px] border border-white/[0.08] bg-black/30 shadow-md">
+        {attachment.url ? (
+          <video src={attachment.url} controls className="block max-h-[320px] w-full" />
+        ) : (
+          <div className="flex aspect-video items-center justify-center bg-white/[0.04]">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white">
+              <Play size={18} fill="currentColor" />
+            </span>
+          </div>
+        )}
+        <div className="flex justify-between px-3 py-2 font-mono text-[11px] text-text-muted">
+          <span className="truncate">{attachment.name}</span>
+          {attachment.size && <span className="shrink-0 pl-3">{attachment.size}</span>}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={attachment.url}
+      download={attachment.name}
+      className="mt-2 flex max-w-[380px] items-center gap-3 rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3.5 py-2.5 transition-all hover:border-white/[0.18] hover:bg-white/[0.07]"
+    >
+      <FileText size={16} className="shrink-0 text-accent" />
+      <span className="min-w-0 flex-1 leading-tight">
+        <span className="block truncate text-[12.5px] font-medium text-text-primary">
+          {attachment.name}
+        </span>
+        {attachment.size && (
+          <span className="font-mono text-[10px] text-text-muted">{attachment.size}</span>
+        )}
+      </span>
+      <Download size={14} className="shrink-0 text-text-faint" />
+    </a>
+  );
 }
 
-/** Call history entry — a quiet card logged when a call ends. */
 function CallEntry({
-    call,
-    authorName,
+  call,
+  authorName,
 }: {
-    call: NonNullable<ChatMessage["call"]>;
-    authorName: string;
+  call: NonNullable<ChatMessage["call"]>;
+  authorName: string;
 }) {
-    const label = call.missed
-        ? `Missed ${call.kind} call`
-        : `${call.kind === "video" ? "Video" : "Voice"} call`;
-    return (
-        <div className="mt-1.5 flex max-w-[380px] items-center gap-3 rounded-[10px] border border-border bg-surface-raised px-3.5 py-3">
-            <span
-                className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                    call.missed
-                        ? "bg-danger/10 text-danger"
-                        : "bg-status-online/10 text-status-online",
-                )}
-            >
-                {call.missed ? (
-                    <PhoneMissed size={16} />
-                ) : call.kind === "video" ? (
-                    <Video size={16} />
-                ) : (
-                    <Phone size={16} />
-                )}
-            </span>
-            <span className="min-w-0 flex-1 leading-tight">
-                <span className="block truncate text-[13px] font-medium text-text-primary">
-                    {label}
-                </span>
-                <span className="font-mono text-[11px] text-text-muted">
-                    {call.missed
-                        ? `from ${authorName}`
-                        : call.duration
-                          ? `lasted ${call.duration}`
-                          : "no answer"}
-                </span>
-            </span>
-        </div>
-    );
+  const label = call.missed
+    ? `Missed ${call.kind} call`
+    : `${call.kind === "video" ? "Video" : "Voice"} call`;
+  return (
+    <div className="mt-1.5 flex max-w-[380px] items-center gap-3 rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-3.5 py-2.5">
+      <span
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          call.missed
+            ? "bg-danger/15 text-danger"
+            : "bg-status-online/15 text-status-online"
+        )}
+      >
+        {call.missed ? (
+          <PhoneMissed size={14} />
+        ) : call.kind === "video" ? (
+          <Video size={14} />
+        ) : (
+          <Phone size={14} />
+        )}
+      </span>
+      <span className="min-w-0 flex-1 leading-tight">
+        <span className="block truncate text-[12.5px] font-medium text-text-primary">
+          {label}
+        </span>
+        <span className="font-mono text-[10px] text-text-muted">
+          {call.missed ? `from ${authorName}` : call.duration ? `lasted ${call.duration}` : "no answer"}
+        </span>
+      </span>
+    </div>
+  );
 }
 
 function LinkEmbedCard({ embed }: { embed: LinkEmbed }) {
-    return (
-        <a
-            href={embed.url}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="mt-2 block max-w-[440px] rounded-r-[6px] border-y border-r border-border border-l-2 border-l-accent bg-surface-raised px-4 py-3 transition-colors hover:bg-hover-row"
-        >
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-text-muted">
-                {embed.domain}
-            </span>
-            <span className="mt-0.5 block text-[14px] font-medium leading-[1.4] text-text-primary">
-                {embed.title}
-            </span>
-            {embed.description && (
-                <span className="mt-0.5 line-clamp-2 block text-[12px] leading-[1.5] text-text-secondary">
-                    {embed.description}
-                </span>
-            )}
-        </a>
-    );
+  return (
+    <a
+      href={embed.url}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="mt-2 block max-w-[440px] rounded-[14px] border border-white/[0.08] border-l-2 border-l-accent bg-white/[0.03] px-3.5 py-2.5 transition-all hover:bg-white/[0.06]"
+    >
+      <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-accent">
+        {embed.domain}
+      </span>
+      <span className="mt-0.5 block text-[13.5px] font-semibold leading-[1.35] text-text-primary">
+        {embed.title}
+      </span>
+      {embed.description && (
+        <span className="mt-1 line-clamp-2 block text-[12px] leading-relaxed text-text-secondary">
+          {embed.description}
+        </span>
+      )}
+    </a>
+  );
 }
 
 function DateSeparator({ label }: { label: string }) {
-    return (
-        <div className="flex items-center gap-3 px-4 py-4">
-            <span className="h-px flex-1 bg-border" />
-            <span className="font-mono text-[11px] tracking-[0.06em] text-text-muted">{label}</span>
-            <span className="h-px flex-1 bg-border" />
-        </div>
-    );
+  return (
+    <div className="flex items-center justify-center my-3">
+      <span className="rounded-full border border-white/[0.08] bg-[#121622]/80 px-3.5 py-0.5 font-mono text-[10px] font-medium tracking-[0.06em] text-text-muted backdrop-blur-md shadow-sm">
+        {label}
+      </span>
+    </div>
+  );
 }
 
 function MenuItem({
-    icon,
-    label,
-    danger,
-    onClick,
+  icon,
+  label,
+  danger,
+  onClick,
 }: {
-    icon: React.ReactNode;
-    label: string;
-    danger?: boolean;
-    onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  danger?: boolean;
+  onClick: () => void;
 }) {
-    return (
-        <button
-            type="button"
-            role="menuitem"
-            onClick={onClick}
-            className={cn(
-                "flex h-9 w-full items-center gap-2.5 rounded-sm px-2.5 text-left transition-colors hover:bg-hover-row",
-                danger ? "text-danger" : "text-text-secondary hover:text-text-primary",
-            )}
-        >
-            {icon}
-            <span className="text-[13px]">{label}</span>
-        </button>
-    );
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={cn(
+        "flex h-8 w-full items-center gap-2 rounded-xl px-2.5 text-left text-[12.5px] transition-all hover:scale-[1.02] active:scale-98",
+        danger
+          ? "text-danger hover:bg-danger/10"
+          : "text-text-secondary hover:bg-white/[0.06] hover:text-text-primary"
+      )}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
 }
 
 function ActionIcon({
-    label,
-    onClick,
-    children,
+  label,
+  onClick,
+  children,
 }: {
-    label: string;
-    onClick?: () => void;
-    children: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+  children: React.ReactNode;
 }) {
-    return (
-        <button
-            type="button"
-            aria-label={label}
-            onClick={onClick}
-            className="flex h-7 w-7 items-center justify-center rounded-[4px] text-text-faint transition-colors hover:bg-hover-row hover:text-text-primary"
-        >
-            {children}
-        </button>
-    );
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className="flex h-6 w-6 items-center justify-center rounded-full text-text-muted hover:bg-white/[0.1] hover:text-text-primary active:scale-95 transition-all"
+    >
+      {children}
+    </button>
+  );
 }

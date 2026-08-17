@@ -63,17 +63,20 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
   );
 }
 
-/* ── GIFs — live Tenor search ───────────────────────────────────────── */
+/* ── GIFs — live Klipy search ────────────────────────────────────────── */
 
-const TENOR_KEY = "AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ"; // Tenor public API key
-const TENOR_BASE = "https://tenor.googleapis.com/v2";
+const KLIPY_KEY = "8EqiwewCJG3bRCjQFYWDsyVQGQ1JoH8d0O05TOrODLiymNArG3RS2kPvKjRLSdG7";
+const KLIPY_BASE = `https://api.klipy.com/api/v1/${KLIPY_KEY}`;
 
-interface TenorGif {
-  id: string;
+interface KlipyGif {
+  id: number | string;
   title: string;
-  media_formats: {
-    tinygif?: { url: string };
-    gif?: { url: string };
+  slug?: string;
+  file?: {
+    hd?: { gif?: { url: string } };
+    md?: { gif?: { url: string } };
+    sm?: { gif?: { url: string } };
+    xs?: { gif?: { url: string } };
   };
 }
 
@@ -86,11 +89,46 @@ const TAB_QUERY: Record<string, string | null> = {
   Nope: "nope",
 };
 
+const CURATED_GIFS: KlipyGif[] = [
+  {
+    id: "g1",
+    title: "Celebrate",
+    file: {
+      sm: { gif: { url: "https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif" } },
+      hd: { gif: { url: "https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif" } },
+    },
+  },
+  {
+    id: "g2",
+    title: "Cheers",
+    file: {
+      sm: { gif: { url: "https://media.giphy.com/media/g9582DNuQppxC/giphy.gif" } },
+      hd: { gif: { url: "https://media.giphy.com/media/g9582DNuQppxC/giphy.gif" } },
+    },
+  },
+  {
+    id: "g3",
+    title: "Awesome",
+    file: {
+      sm: { gif: { url: "https://media.giphy.com/media/11ISwbgGL28Ehy/giphy.gif" } },
+      hd: { gif: { url: "https://media.giphy.com/media/11ISwbgGL28Ehy/giphy.gif" } },
+    },
+  },
+  {
+    id: "g4",
+    title: "High Five",
+    file: {
+      sm: { gif: { url: "https://media.giphy.com/media/pHb82xtBPfqEg/giphy.gif" } },
+      hd: { gif: { url: "https://media.giphy.com/media/pHb82xtBPfqEg/giphy.gif" } },
+    },
+  },
+];
+
 export function GifPicker({ onPick }: { onPick: (gif: { url: string; name: string }) => void }) {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<(typeof GIF_TABS)[number]>("Trending");
-  const [gifs, setGifs] = useState<TenorGif[]>([]);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [gifs, setGifs] = useState<KlipyGif[]>(CURATED_GIFS);
+  const [state, setState] = useState<"loading" | "ready" | "error">("ready");
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -100,15 +138,21 @@ export function GifPicker({ onPick }: { onPick: (gif: { url: string; name: strin
       try {
         const q = query.trim() || TAB_QUERY[tab];
         const url = q
-          ? `${TENOR_BASE}/search?key=${TENOR_KEY}&q=${encodeURIComponent(q)}&limit=24&media_filter=tinygif,gif`
-          : `${TENOR_BASE}/featured?key=${TENOR_KEY}&limit=24&media_filter=tinygif,gif`;
+          ? `${KLIPY_BASE}/gifs/search?q=${encodeURIComponent(q)}&per_page=24`
+          : `${KLIPY_BASE}/gifs/trending?per_page=24`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(String(res.status));
-        const json = (await res.json()) as { results: TenorGif[] };
-        setGifs(json.results ?? []);
+        const json = (await res.json()) as { result?: boolean; data?: { data?: KlipyGif[] } };
+        const results = json.data?.data;
+        if (results && results.length > 0) {
+          setGifs(results);
+        } else {
+          setGifs(CURATED_GIFS);
+        }
         setState("ready");
       } catch {
-        setState("error");
+        setGifs(CURATED_GIFS);
+        setState("ready");
       }
     }, query ? 350 : 0);
     return () => {
@@ -123,7 +167,7 @@ export function GifPicker({ onPick }: { onPick: (gif: { url: string; name: strin
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search Tenor"
+          placeholder="Search Klipy"
           autoFocus
           className="w-full bg-transparent text-[13px] text-text-primary outline-none placeholder:text-text-faint"
         />
@@ -158,17 +202,25 @@ export function GifPicker({ onPick }: { onPick: (gif: { url: string; name: strin
         )}
         {state === "error" && (
           <p className="col-span-2 py-8 text-center text-[12px] text-text-muted">
-            Couldn&apos;t reach Tenor. Check your connection.
+            Couldn&apos;t reach Klipy. Check your connection.
           </p>
         )}
         {state === "ready" &&
           gifs.map((g) => {
-            const preview = g.media_formats.tinygif?.url ?? g.media_formats.gif?.url;
-            const full = g.media_formats.gif?.url ?? preview;
+            const preview =
+              g.file?.sm?.gif?.url ||
+              g.file?.md?.gif?.url ||
+              g.file?.hd?.gif?.url ||
+              g.file?.xs?.gif?.url;
+            const full =
+              g.file?.hd?.gif?.url ||
+              g.file?.md?.gif?.url ||
+              g.file?.sm?.gif?.url ||
+              preview;
             if (!preview || !full) return null;
             return (
               <button
-                key={g.id}
+                key={String(g.id)}
                 type="button"
                 title={g.title}
                 onClick={() => onPick({ url: full, name: g.title || "gif" })}

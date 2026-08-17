@@ -39,10 +39,12 @@ const STATUSES: { id: CardStatus; label: string }[] = [
 export function BoardView({
   board: initial,
   onChange,
+  onBack,
 }: {
   board: BoardData;
   /** Persist board edits — cards, columns, renames. */
   onChange?: (board: BoardData) => void;
+  onBack?: () => void;
 }) {
   const [name, setName] = useState(initial.name);
   const [columns, setColumns] = useState<BoardColumn[]>(initial.columns);
@@ -122,34 +124,50 @@ export function BoardView({
   };
 
   return (
-    <section className="flex h-full min-w-0 flex-1 flex-col bg-background">
-      {/* Board header — matches channel header height */}
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
-        <ChannelGlyph type="board" size={16} />
-        <h1 className="text-[15px] font-semibold text-text-primary">{name}</h1>
-        {initial.sprint && (
-          <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-text-muted">
-            {initial.sprint}
-          </span>
-        )}
-        <div className="ml-auto flex items-center gap-1">
-          <HeaderAction label="Filter"><SlidersHorizontal size={16} /></HeaderAction>
-          <HeaderAction label="Group by"><Rows3 size={16} /></HeaderAction>
-          <button
-            type="button"
-            onClick={() => {
-              setTab("board");
-              if (columns[0]) setComposerCol(columns[0].id);
-            }}
-            className="ml-1 flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-[13px] font-medium text-on-accent transition-colors hover:bg-accent-violet-bright"
-          >
-            <Plus size={14} /> New card
-          </button>
-        </div>
-      </header>
+    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-[#0b0e14] overflow-hidden">
+      {/* ─── Floating Glass Header ─── */}
+      <div className="relative z-10 px-3 pt-3 sm:px-4 sm:pt-4">
+        <header className="flex h-13 shrink-0 items-center gap-3 rounded-[20px] border border-white/[0.08] bg-[#121722]/75 px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back to channels"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-text-secondary hover:bg-white/[0.06] hover:text-text-primary active:scale-95 transition-all md:hidden"
+            >
+              ←
+            </button>
+          )}
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/15 border border-accent/25 text-accent shrink-0">
+            <ChannelGlyph type="board" size={15} />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-[14.5px] font-bold text-text-primary truncate">{name}</h1>
+            {initial.sprint && (
+              <span className="font-mono text-[10px] text-accent uppercase tracking-wider">
+                {initial.sprint}
+              </span>
+            )}
+          </div>
+          <div className="ml-auto flex items-center gap-1.5">
+            <HeaderAction label="Filter"><SlidersHorizontal size={15} /></HeaderAction>
+            <HeaderAction label="Group by"><Rows3 size={15} /></HeaderAction>
+            <button
+              type="button"
+              onClick={() => {
+                setTab("board");
+                if (columns[0]) setComposerCol(columns[0].id);
+              }}
+              className="ml-1.5 flex h-8 items-center gap-1.5 rounded-xl bg-accent px-3.5 font-mono text-xs font-semibold text-on-accent shadow-[0_2px_12px_rgba(var(--c-accent-rgb,138,92,246),0.4)] transition-all hover:scale-105 active:scale-95"
+            >
+              <Plus size={14} /> New card
+            </button>
+          </div>
+        </header>
+      </div>
 
-      {/* Tab row — same pattern as Home/Friends tabs */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-2">
+      {/* Tab row */}
+      <div className="flex shrink-0 items-center gap-1.5 px-4 py-2.5">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -157,10 +175,10 @@ export function BoardView({
             data-active={tab === t.id}
             onClick={() => setTab(t.id)}
             className={cn(
-              "h-7 rounded px-3 text-[13px] transition-colors",
+              "h-7 rounded-xl px-3 font-mono text-[11px] font-semibold transition-all active:scale-95",
               tab === t.id
-                ? "bg-surface-overlay text-text-primary"
-                : "text-text-secondary hover:bg-hover-row hover:text-text-primary"
+                ? "border border-accent/40 bg-accent/20 text-accent shadow-sm"
+                : "border border-transparent text-text-muted hover:bg-white/[0.04] hover:text-text-primary"
             )}
           >
             {t.label}
@@ -298,8 +316,8 @@ function Column({
   return (
     <div
       className={cn(
-        "flex max-h-full w-[272px] shrink-0 flex-col rounded-[10px] border bg-surface-raised",
-        over && dragging ? "border-border-active" : "border-border"
+        "flex max-h-full w-[280px] shrink-0 flex-col rounded-[22px] border bg-[#121622]/85 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.36),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all",
+        over && dragging ? "border-accent/60 shadow-[0_0_20px_rgba(var(--c-accent-rgb,138,92,246),0.2)]" : "border-white/[0.08]"
       )}
       onDragOver={(e) => {
         e.preventDefault();
@@ -312,13 +330,13 @@ function Column({
         onDropCard(column.id);
       }}
     >
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
-        <span className="flex-1 text-[13px] font-medium text-text-primary">{column.title}</span>
-        <span className="rounded-[10px] bg-surface-overlay px-[7px] py-px font-mono text-[11px] text-text-muted">
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-white/[0.06] px-4">
+        <span className="flex-1 text-[13.5px] font-bold text-text-primary">{column.title}</span>
+        <span className="rounded-full border border-white/[0.08] bg-black/40 px-2 py-0.5 font-mono text-[10px] font-semibold text-accent">
           {column.cards.length}
         </span>
       </div>
-      <div className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2.5 scrollbar-thin scrollbar-thumb-white/10">
         {column.cards.map((card) => (
           <Card
             key={card.id}
@@ -576,10 +594,10 @@ function Card({
       onDragEnd={onDragEnd}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && onOpen()}
-      className="flex cursor-grab flex-col gap-2 rounded-md border border-border bg-background px-3 py-2.5 transition-colors hover:border-border-active hover:bg-hover-row active:cursor-grabbing"
+      className="flex cursor-grab flex-col gap-2 rounded-[16px] border border-white/[0.06] bg-[#171c28]/70 p-3.5 backdrop-blur-md shadow-sm transition-all hover:border-accent/40 hover:bg-[#1a202e]/85 active:scale-[0.98] active:cursor-grabbing"
     >
       {card.label && <CardLabel label={card.label} />}
-      <p className="text-[13px] leading-[1.45] text-text-primary">{card.title}</p>
+      <p className="text-[13px] font-medium leading-snug text-text-primary">{card.title}</p>
       <CardMeta card={card} />
     </div>
   );

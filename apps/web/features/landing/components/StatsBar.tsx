@@ -11,7 +11,7 @@ const facts = [
 export function StatsBar() {
     return (
         <section
-            aria-label="Corvus technology"
+            aria-label="AIIC technology"
             className="border-y border-border-subtle bg-surface/40 px-5 sm:px-8"
         >
             <dl className="mx-auto grid max-w-[1280px] grid-cols-2 lg:grid-cols-5">

@@ -108,7 +108,7 @@ export interface ChatMessage {
   embed?: LinkEmbed;
   reactions?: { emoji: string; count: number; reacted?: boolean }[];
   /** Async video clip attached to the message (Loom-style). */
-  clip?: { duration: string; size?: string };
+  clip?: { duration: string; size?: string; url?: string };
   /** Routed GitHub event — renders as a typographic system line, not a bot message. */
   githubEvent?: { text: string; meta: string };
   /** Call history entry — logged into the conversation when a call ends. */
@@ -195,6 +195,8 @@ export interface PullRequest {
   title: string;
   repo: string;
   author: string;
+  branch?: string;
+  url?: string;
   /** e.g. "2h ago" */
   updatedAt: string;
   status: PRStatus;

@@ -1,0 +1,499 @@
+{
+  "version": 3,
+  "routes": [
+    {
+      "src": "^(?:/((?!\\.well-known(?:/.*)?)(?:[^/]+/)*[^/]+\\.\\w+))/$",
+      "headers": {
+        "Location": "/$1"
+      },
+      "status": 308,
+      "missing": [
+        {
+          "type": "header",
+          "key": "x-nextjs-data"
+        }
+      ],
+      "continue": true
+    },
+    {
+      "src": "^(?:/((?!\\.well-known(?:/.*)?)(?:[^/]+/)*[^/\\.]+))$",
+      "headers": {
+        "Location": "/$1/"
+      },
+      "status": 308,
+      "continue": true
+    },
+    {
+      "src": "/_next/__private/trace",
+      "dest": "/404",
+      "status": 404,
+      "continue": true
+    },
+    {
+      "src": "/404/?",
+      "status": 404,
+      "continue": true,
+      "missing": [
+        {
+          "type": "header",
+          "key": "x-prerender-revalidate"
+        }
+      ]
+    },
+    {
+      "src": "/500",
+      "status": 500,
+      "continue": true
+    },
+    {
+      "src": "/(?<path>.+?)(?:/)?$",
+      "dest": "/$path.segments/$segmentPath.segment.rsc",
+      "has": [
+        {
+          "type": "header",
+          "key": "rsc",
+          "value": "1"
+        },
+        {
+          "type": "header",
+          "key": "next-router-prefetch",
+          "value": "1"
+        },
+        {
+          "type": "header",
+          "key": "next-router-segment-prefetch",
+          "value": "/(?<segmentPath>.+)"
+        }
+      ],
+      "continue": true,
+      "override": true
+    },
+    {
+      "src": "^/?$",
+      "dest": "/index.segments/$segmentPath.segment.rsc",
+      "has": [
+        {
+          "type": "header",
+          "key": "rsc",
+          "value": "1"
+        },
+        {
+          "type": "header",
+          "key": "next-router-prefetch",
+          "value": "1"
+        },
+        {
+          "type": "header",
+          "key": "next-router-segment-prefetch",
+          "value": "/(?<segmentPath>.+)"
+        }
+      ],
+      "continue": true,
+      "override": true
+    },
+    {
+      "src": "^/?",
+      "has": [
+        {
+          "type": "header",
+          "key": "rsc",
+          "value": "1"
+        }
+      ],
+      "dest": "/index.rsc",
+      "headers": {
+        "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch"
+      },
+      "continue": true,
+      "override": true
+    },
+    {
+      "src": "^/((?!.+\\.rsc).+?)(?:/)?$",
+      "has": [
+        {
+          "type": "header",
+          "key": "rsc",
+          "value": "1"
+        }
+      ],
+      "dest": "/$1.rsc",
+      "headers": {
+        "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch"
+      },
+      "continue": true,
+      "override": true
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/index(\\.action|\\.rsc)",
+      "dest": "/",
+      "continue": true
+    },
+    {
+      "src": "/\\.prefetch\\.rsc$",
+      "dest": "/__index.prefetch.rsc",
+      "check": true
+    },
+    {
+      "src": "/(.+)/\\.prefetch\\.rsc$",
+      "dest": "/$1.prefetch.rsc",
+      "check": true
+    },
+    {
+      "src": "/\\.rsc$",
+      "dest": "/index.rsc",
+      "check": true
+    },
+    {
+      "src": "/(.+)/\\.rsc$",
+      "dest": "/$1.rsc",
+      "check": true
+    },
+    {
+      "handle": "resource"
+    },
+    {
+      "src": "/.*",
+      "status": 404
+    },
+    {
+      "handle": "miss"
+    },
+    {
+      "src": "/_next/static/.+",
+      "status": 404,
+      "check": true,
+      "dest": "/_next/static/not-found.txt",
+      "headers": {
+        "content-type": "text/plain; charset=utf-8"
+      }
+    },
+    {
+      "src": "^/(?<path>.+)(?<rscSuffix>\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/$path.rsc",
+      "check": true
+    },
+    {
+      "handle": "rewrite"
+    },
+    {
+      "src": "^/(?<path>.+)(?<rscSuffix>\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/$path.rsc",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/channels/[id]$rscSuffix?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)(?:/)?$",
+      "dest": "/api/channels/[id]?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)/messages(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/channels/[id]/messages$rscSuffix?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)/messages(?:/)?$",
+      "dest": "/api/channels/[id]/messages?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)/messages/(?<nxtPmessageId>[^/]+?)/pin(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/channels/[id]/messages/[messageId]/pin$rscSuffix?nxtPid=$nxtPid&nxtPmessageId=$nxtPmessageId",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)/messages/(?<nxtPmessageId>[^/]+?)/pin(?:/)?$",
+      "dest": "/api/channels/[id]/messages/[messageId]/pin?nxtPid=$nxtPid&nxtPmessageId=$nxtPmessageId",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)/pins(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/channels/[id]/pins$rscSuffix?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)/pins(?:/)?$",
+      "dest": "/api/channels/[id]/pins?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)/read(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/channels/[id]/read$rscSuffix?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)/read(?:/)?$",
+      "dest": "/api/channels/[id]/read?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)/voice/join(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/channels/[id]/voice/join$rscSuffix?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/channels/(?<nxtPid>[^/]+?)/voice/join(?:/)?$",
+      "dest": "/api/channels/[id]/voice/join?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/dms/(?<nxtPid>[^/]+?)/call/join(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/dms/[id]/call/join$rscSuffix?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/dms/(?<nxtPid>[^/]+?)/call/join(?:/)?$",
+      "dest": "/api/dms/[id]/call/join?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/dms/(?<nxtPid>[^/]+?)/call/start(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/dms/[id]/call/start$rscSuffix?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/dms/(?<nxtPid>[^/]+?)/call/start(?:/)?$",
+      "dest": "/api/dms/[id]/call/start?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/messages/(?<nxtPid>[^/]+?)/reactions(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/messages/[id]/reactions$rscSuffix?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/messages/(?<nxtPid>[^/]+?)/reactions(?:/)?$",
+      "dest": "/api/messages/[id]/reactions?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/servers/(?<nxtPid>[^/]+?)(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/servers/[id]$rscSuffix?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/servers/(?<nxtPid>[^/]+?)(?:/)?$",
+      "dest": "/api/servers/[id]?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/servers/(?<nxtPid>[^/]+?)/channels(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/servers/[id]/channels$rscSuffix?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/servers/(?<nxtPid>[^/]+?)/channels(?:/)?$",
+      "dest": "/api/servers/[id]/channels?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/servers/(?<nxtPid>[^/]+?)/modules(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/api/servers/[id]/modules$rscSuffix?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/api/servers/(?<nxtPid>[^/]+?)/modules(?:/)?$",
+      "dest": "/api/servers/[id]/modules?nxtPid=$nxtPid",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/developers/(?<nxtPslug>[^/]+?)(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/developers/[slug]$rscSuffix?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/developers/(?<nxtPslug>[^/]+?)(?:/)?$",
+      "dest": "/developers/[slug]?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/events/(?<nxtPslug>[^/]+?)(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/events/[slug]$rscSuffix?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/events/(?<nxtPslug>[^/]+?)(?:/)?$",
+      "dest": "/events/[slug]?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/legal/(?<nxtPslug>[^/]+?)(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/legal/[slug]$rscSuffix?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/legal/(?<nxtPslug>[^/]+?)(?:/)?$",
+      "dest": "/legal/[slug]?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/product/(?<nxtPslug>[^/]+?)(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/product/[slug]$rscSuffix?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/product/(?<nxtPslug>[^/]+?)(?:/)?$",
+      "dest": "/product/[slug]?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/projects/(?<nxtPslug>[^/]+?)(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/projects/[slug]$rscSuffix?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/projects/(?<nxtPslug>[^/]+?)(?:/)?$",
+      "dest": "/projects/[slug]?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/spaces/demo(?:/(?<nxtPslug>.+?))?(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/spaces/demo/[[...slug]]$rscSuffix?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/spaces/demo(?:/(?<nxtPslug>.+?))?(?:/)?$",
+      "dest": "/spaces/demo/[[...slug]]?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/spaces(?:/(?<nxtPslug>.+?))?(?<rscSuffix>\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)(?:/)?$",
+      "dest": "/spaces/[[...slug]]$rscSuffix?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "src": "^/spaces(?:/(?<nxtPslug>.+?))?(?:/)?$",
+      "dest": "/spaces/[[...slug]]?nxtPslug=$nxtPslug",
+      "check": true,
+      "override": true
+    },
+    {
+      "handle": "hit"
+    },
+    {
+      "src": "/_next/static/(?:[^/]+/pages|pages|chunks|runtime|css|image|media|AB0Xbg1vjxYCaJs5kECXW)/.+",
+      "headers": {
+        "cache-control": "public,max-age=31536000,immutable"
+      },
+      "continue": true,
+      "important": true
+    },
+    {
+      "src": "/index(?:/)?",
+      "headers": {
+        "x-matched-path": "/"
+      },
+      "continue": true,
+      "important": true
+    },
+    {
+      "src": "/((?!index$).*?)(?:/)?",
+      "headers": {
+        "x-matched-path": "/$1"
+      },
+      "continue": true,
+      "important": true
+    },
+    {
+      "handle": "error"
+    },
+    {
+      "src": "/.*",
+      "dest": "/404",
+      "status": 404,
+      "headers": {
+        "x-next-error-status": "404"
+      }
+    },
+    {
+      "src": "/.*",
+      "dest": "/500",
+      "status": 500,
+      "headers": {
+        "x-next-error-status": "500"
+      }
+    }
+  ],
+  "overrides": {
+    "404.html": {
+      "path": "404",
+      "contentType": "text/html; charset=utf-8"
+    },
+    "500.html": {
+      "path": "500",
+      "contentType": "text/html; charset=utf-8"
+    },
+    "404.rsc.json": {
+      "path": "404.rsc",
+      "contentType": "application/json"
+    },
+    "404.segments/_tree.segment.rsc.json": {
+      "path": "404.segments/_tree.segment.rsc",
+      "contentType": "application/json"
+    },
+    "500.rsc.json": {
+      "path": "500.rsc",
+      "contentType": "application/json"
+    },
+    "500.segments/_tree.segment.rsc.json": {
+      "path": "500.segments/_tree.segment.rsc",
+      "contentType": "application/json"
+    },
+    "favicon.ico": {
+      "contentType": "image/x-icon"
+    },
+    "_next/static/not-found.txt": {
+      "contentType": "text/plain"
+    }
+  },
+  "framework": {
+    "slug": "nextjs",
+    "version": "16.2.7"
+  },
+  "crons": []
+}

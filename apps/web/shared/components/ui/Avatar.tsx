@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { cn } from "@corvus/ui";
 
 /**
@@ -21,7 +24,7 @@ export function Avatar({
   shape?: "square" | "circle";
   className?: string;
 }) {
-  // Default radius derived from size (~1/4) unless explicitly given.
+  const [imgError, setImgError] = useState(false);
   const r = shape === "circle" ? 9999 : radius ?? Math.round(size / 4);
   const initial = (name?.trim()?.[0] ?? "?").toUpperCase();
 
@@ -39,11 +42,11 @@ export function Avatar({
       }}
     >
       <span aria-hidden>{initial}</span>
-      {src && (
+      {src && !imgError && (
         <img
           src={src}
           alt={name ?? ""}
-          onError={(event) => { event.currentTarget.style.display = "none"; }}
+          onError={() => setImgError(true)}
           className="absolute inset-0 h-full w-full object-cover"
         />
       )}

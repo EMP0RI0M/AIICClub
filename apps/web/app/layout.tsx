@@ -7,15 +7,13 @@ import { BRAND_DESCRIPTION } from "@/shared/lib/brand";
 import "./globals.css";
 
 // Expressive display face for headings, brand moments, and empty states.
-const displayFont = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-display",
-  display: "swap",
-});
+const displayFont = {
+  variable: "font-sans",
+};
 
 export const metadata: Metadata = {
-  title: "Corvus",
+  title: "AIIC — AI & Innovation Club",
+  applicationName: "AIIC",
   description: BRAND_DESCRIPTION,
   icons: {
     icon: "/corvus-logo.png",
@@ -31,9 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" data-theme="dark" className={`dark ${displayFont.variable}`} suppressHydrationWarning>
-      <head>
-        <ThemeScript defaultTheme="dark" />
-      </head>
+      <head />
       <body className="flex h-dvh flex-col overflow-hidden">
         <ThemeProvider defaultTheme="dark">
           <Titlebar />

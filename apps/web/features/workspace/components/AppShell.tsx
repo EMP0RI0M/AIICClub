@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@corvus/ui";
 import { NavRail } from "./NavRail";
 import { SpacePanel } from "./SpacePanel";
 import { DMPanel } from "./DMPanel";
@@ -28,6 +29,8 @@ import {
     type SpaceTemplate,
 } from "./CreateDialogs";
 import { ToastViewport } from "@/shared/components/ui/Toast";
+
+
 import type { ChannelType } from "@/shared/components/ui";
 import { useToastStore } from "@/shared/stores/toast-store";
 import { useWorkspaceStore } from "@/features/workspace/store/workspace-store";
@@ -74,10 +77,14 @@ import {
     joinDMCall,
     leaveDMCall,
     declineDMCall,
+    type MessageData,
 } from "@/shared/lib/api";
-import type { MessageData } from "@/shared/lib/api";
-import { encodeAttachmentContent, type SharedAttachment } from "@/shared/lib/attachments";
+
+
+import { encodeAttachmentContent, formatAttachmentSize, type SharedAttachment } from "@/shared/lib/attachments";
+import { usePermissionStore, usePermissions } from "@/shared/lib/permissions";
 import { notifyEvent, ringIncoming } from "@/shared/lib/notify";
+
 import type {
     BoardData,
     ChannelSection,
@@ -140,44 +147,6 @@ function statusToPresence(status: string | undefined): Presence {
     }
 }
 
-/** Demo feed for freshly-connected GitHub channels (the realtime seam). */
-function seedPRs(): PullRequest[] {
-    const t = Date.now();
-    return [
-        {
-            id: `pr-${t}-1`,
-            number: 128,
-            title: "Wire presence updates through the gateway",
-            repo: "corvus/web",
-            author: "maya",
-            updatedAt: "just now",
-            status: "review",
-            ciStatus: "passing",
-            reviewCount: 2,
-        },
-        {
-            id: `pr-${t}-2`,
-            number: 127,
-            title: "Fix reconnect backoff jitter",
-            repo: "corvus/gateway",
-            author: "alex",
-            updatedAt: "1h ago",
-            status: "open",
-            ciStatus: "pending",
-        },
-        {
-            id: `pr-${t}-3`,
-            number: 125,
-            title: "Board column reorder + drag affordances",
-            repo: "corvus/web",
-            author: "jun",
-            updatedAt: "3h ago",
-            status: "merged",
-            ciStatus: "passing",
-            reviewCount: 3,
-        },
-    ];
-}
 
 export interface AppShellData {
     me: MemberRef & { statusText?: string };
@@ -271,7 +240,7 @@ export function AppShell({
     const [showMembers, setShowMembers] = useState(false);
     const [threadParentId, setThreadParentId] = useState<string | null>(null);
     const [showPins, setShowPins] = useState(false);
-    const [showSettings, setShowSettings] = useState(false);
+    const [showSettings, setShowSettings] = useState<boolean | { mode: "user" | "space"; section?: string }>(false);
     const [showSearch, setShowSearch] = useState(false);
     const [recording, setRecording] = useState(false);
     const [call, setCall] = useState<ActiveCall | null>(null);
@@ -298,7 +267,10 @@ export function AppShell({
     const appStore = useAppStore();
     const chatStore = useChatStore();
     const isLive = !!authUser;
+    const { role: myRole, isTeamLeader } = usePermissions();
+    const canCreateSpace = isTeamLeader || ["president_admin", "admin", "president", "vice_president"].includes(myRole);
     const demoPlayed = useRef(false);
+
     const hydrated = useRef(false);
     // Locally-echoed messages (sends, clips) layered over the prop-driven feed.
     const [localEcho, setLocalEcho] = useState<Record<string, ChatMessage[]>>({});
@@ -315,7 +287,14 @@ export function AppShell({
     const activeChannel = allChannels.find((c) => c.id === activeChannelId) ?? firstText;
     const space = data.spaces.find((s) => s.id === activeSpaceId);
 
+    useEffect(() => {
+        if (activeSpaceId && isLive) {
+            void usePermissionStore.getState().fetchPermissions(activeSpaceId);
+        }
+    }, [activeSpaceId, isLive]);
+
     const refreshModules = async (spaceId: string) => {
+
         const modules = await fetchWorkspaceModules(spaceId);
         appStore.setWorkspaceModules(spaceId, modules);
     };
@@ -436,6 +415,13 @@ export function AppShell({
                 });
             }
 
+            if (detail.event === "call_accepted") {
+                const conversationId = payload.conversationId as string | undefined;
+                if (call?.conversationId === conversationId) {
+                    setCall((prev) => (prev ? { ...prev, status: "connected" } : null));
+                }
+            }
+
             if (detail.event === "call_declined") {
                 const conversationId = payload.conversationId as string | undefined;
                 if (call?.conversationId === conversationId) {
@@ -448,11 +434,17 @@ export function AppShell({
                 }
             }
 
+            if (detail.event === "call_cancelled") {
+                const conversationId = payload.conversationId as string | undefined;
+                if (incoming?.conversationId === conversationId) setIncoming(null);
+            }
+
             if (detail.event === "call_ended") {
                 const conversationId = payload.conversationId as string | undefined;
                 if (call?.conversationId === conversationId) setCall(null);
                 if (incoming?.conversationId === conversationId) setIncoming(null);
             }
+
         };
 
         window.addEventListener("corvus:realtime", handleRealtime);
@@ -590,6 +582,12 @@ export function AppShell({
             ).values(),
         ]
             .filter((m) => !deletedIds.has(m.id))
+            .sort((a, b) => {
+                const ta = new Date(a.at || 0).getTime();
+                const tb = new Date(b.at || 0).getTime();
+                if (ta !== tb) return ta - tb;
+                return (a.id || "").localeCompare(b.id || "");
+            })
             .map((m) => {
                 let out = m;
                 if (editOv[m.id] !== undefined) out = { ...out, text: editOv[m.id], edited: true };
@@ -611,6 +609,7 @@ export function AppShell({
                 }
                 return { ...out, reactions: merged.length ? merged : undefined };
             });
+
 
     const togglePin = (targetId: string) => async (msgId: string) => {
         const msg = messagesFor(targetId).find((m) => m.id === msgId);
@@ -737,7 +736,30 @@ export function AppShell({
             attachments?: ChatMessage["attachments"],
             replyTo?: ChatMessage["replyTo"],
         ) => {
+            const clientAt = new Date().toISOString();
+            const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
             const isDmTarget = data.dmConversations?.some((c) => c.id === targetId);
+
+            // Create immediate optimistic message with local preview
+            const optimisticAttachments = (attachments ?? []).map((att) => ({
+                kind: att.kind,
+                name: att.name,
+                size: att.size || (att.file ? formatAttachmentSize(att.file.size) : undefined),
+                url: att.url || (att.file && typeof URL !== "undefined" ? URL.createObjectURL(att.file) : undefined),
+            }));
+
+            const optimisticMsg: ChatMessage = {
+                id: tempId,
+                author: data.me,
+                at: clientAt,
+                text,
+                attachments: optimisticAttachments.length > 0 ? optimisticAttachments : undefined,
+                replyTo,
+            };
+
+            // Display immediately in UI without any network delay
+            setLocalEcho((m) => ({ ...m, [targetId]: [...(m[targetId] ?? []), optimisticMsg] }));
+
             if (isLive) {
                 void (async () => {
                     try {
@@ -774,12 +796,22 @@ export function AppShell({
                                       content,
                                       replyToId: index === 0 ? replyTo?.id : undefined,
                                   });
+
+                            // Reconcile: remove optimistic temp and insert confirmed server message
+                            setLocalEcho((m) => ({
+                                ...m,
+                                [targetId]: (m[targetId] ?? []).filter((msg) => msg.id !== tempId),
+                            }));
                             chatStore.addMessage(
                                 targetId,
                                 response.message as unknown as MessageData,
                             );
                         }
                     } catch (err) {
+                        setLocalEcho((m) => ({
+                            ...m,
+                            [targetId]: (m[targetId] ?? []).filter((msg) => msg.id !== tempId),
+                        }));
                         useToastStore.getState().addToast({
                             title: "Message failed",
                             body:
@@ -790,23 +822,14 @@ export function AppShell({
                         });
                     }
                 })();
-                return;
             }
-            const msg: ChatMessage = {
-                id: `local${Date.now()}`,
-                author: data.me,
-                at: new Date().toISOString(),
-                text,
-                attachments,
-                replyTo,
-            };
-            setLocalEcho((m) => ({ ...m, [targetId]: [...(m[targetId] ?? []), msg] }));
         };
+
 
     const channelMessages = activeChannel ? messagesFor(activeChannel.id) : [];
     const dmConversation = data.dmConversations?.find((c) => c.id === activeDmId);
     const dmMessages = activeDmId ? messagesFor(activeDmId) : [];
-    const threadParent = channelMessages.find((m) => m.id === threadParentId) ?? null;
+    const threadParent = (dmsActive ? dmMessages : channelMessages).find((m) => m.id === threadParentId) ?? null;
 
     const loadOlder = (targetId: string) => async () => {
         if (!isLive || chatStore.loadingChannels.has(targetId) || !chatStore.hasMore[targetId])
@@ -835,24 +858,56 @@ export function AppShell({
     };
 
     // Stop recording → a clip message lands in the current channel.
-    const finishClip = (duration: string) => {
+    const finishClip = async (duration: string, file?: File) => {
         setRecording(false);
         const targetId = dmsActive ? activeDmId : activeChannel?.id;
         if (!targetId) return;
-        const msg: ChatMessage = {
-            id: `clip${Date.now()}`,
-            author: data.me,
-            at: new Date().toISOString(),
-            text: "",
-            clip: { duration, size: "4.2 MB" },
-        };
-        setLocalEcho((m) => ({ ...m, [targetId]: [...(m[targetId] ?? []), msg] }));
+
+        let clipUrl = "";
+        let clipSize = "2 MB";
+
+        if (file) {
+            try {
+                const res = await uploadAttachment(file);
+                if (res.attachment?.url) {
+                    clipUrl = res.attachment.url;
+                    clipSize = formatAttachmentSize(file.size);
+                }
+            } catch (err) {
+                console.warn("[CLIP] Upload notice:", err);
+            }
+        }
+
+        const clipPayload = `clip:${encodeURIComponent(JSON.stringify({ duration, size: clipSize, url: clipUrl }))}`;
+
+        if (isLive) {
+            try {
+                const isDmTarget = data.dmConversations?.some((c) => c.id === targetId);
+                const response = isDmTarget
+                    ? await sendDMMessage(targetId, clipPayload)
+                    : await sendChannelMessageApi(targetId, { content: clipPayload });
+                chatStore.addMessage(targetId, response.message as unknown as MessageData);
+            } catch (err) {
+                console.error("[CLIP] Send error:", err);
+            }
+        } else {
+            const msg: ChatMessage = {
+                id: `clip${Date.now()}`,
+                author: data.me,
+                at: new Date().toISOString(),
+                text: "",
+                clip: { duration, size: clipSize, url: clipUrl },
+            };
+            setLocalEcho((m) => ({ ...m, [targetId]: [...(m[targetId] ?? []), msg] }));
+        }
+
         useToastStore.getState().addToast({
             title: "Clip posted",
             body: `${duration} clip shared in the current conversation.`,
             variant: "success",
         });
     };
+
 
     // Everything searchable in the active space (brief §Search).
     const searchCorpus: SearchCorpus = useMemo(() => {
@@ -901,8 +956,11 @@ export function AppShell({
                     peers,
                     video,
                     name: conversation.name,
+                    isCaller: true,
+                    status: "calling",
                     transport,
                 });
+
             } catch (error) {
                 useToastStore.getState().addToast({
                     title: "Call could not start",
@@ -1325,16 +1383,18 @@ export function AppShell({
 
     const addChannel = (name: string, type: ChannelType) => {
         if (!addChannelTarget) return;
+        const target = addChannelTarget;
+        setAddChannelTarget(null);
+
         if (isLive) {
-            createChannelApi(addChannelTarget.spaceId, {
+            createChannelApi(target.spaceId, {
                 name: toApiChannelName(name),
                 type,
-                category: addChannelTarget.sectionName,
+                category: target.sectionName,
             })
                 .then(async ({ channel }) => {
                     appStore.addChannel(channel);
-                    await refreshModules(addChannelTarget.spaceId);
-                    setAddChannelTarget(null);
+                    await refreshModules(target.spaceId).catch(() => {});
                     selectChannel(channel.id);
                 })
                 .catch((err) => {
@@ -1466,9 +1526,12 @@ export function AppShell({
                                 avatar: g.avatar,
                             }))}
                             dm={{
+                                peerId: dmConversation.peerId,
+                                avatar: dmConversation.avatar,
                                 onVoiceCall: () => startCall(false),
                                 onVideoCall: () => startCall(true),
                             }}
+
                             onOpenThread={setThreadParentId}
                             onOpenSearch={() => setShowSearch(true)}
                             onOpenPins={() => setShowPins((v) => !v)}
@@ -1482,6 +1545,7 @@ export function AppShell({
                             loading={chatStore.loadingChannels.has(dmConversation.id)}
                             hasMore={chatStore.hasMore[dmConversation.id]}
                             onLoadOlder={loadOlder(dmConversation.id)}
+                            onBack={() => setMobileView("channels")}
                         />
                     </div>
                 )
@@ -1493,8 +1557,10 @@ export function AppShell({
             case "voice":
                 return (
                     <VoiceView
+                        channelId={activeChannel.id}
                         channelName={activeChannel.name}
                         previewEnabled={!isLive}
+                        onBack={() => setMobileView("channels")}
                         participants={
                             data.voiceByChannel?.[activeChannel.id] ??
                             (activeChannel.participants ?? []).map((p) => ({
@@ -1509,19 +1575,21 @@ export function AppShell({
                 return (
                     <StageView
                         channelName={activeChannel.name}
+                        onBack={() => setMobileView("channels")}
                         participants={data.voiceByChannel?.[activeChannel.id] ?? []}
                     />
                 );
             case "board": {
-                const board = data.boardsByChannel?.[activeChannel.id];
                 const channelId = activeChannel.id;
-                return board ? (
+                const board = data.boardsByChannel?.[channelId] ?? emptyBoard(channelId, activeChannel.name);
+                return (
                     <BoardView
                         key={channelId}
                         board={board}
+                        onBack={() => setMobileView("channels")}
                         onChange={(b) => updateBoardState(channelId, b)}
                     />
-                ) : null;
+                );
             }
             case "docs": {
                 const channelId = activeChannel.id;
@@ -1530,23 +1598,18 @@ export function AppShell({
                         key={channelId}
                         docs={data.docsByChannel?.[channelId] ?? []}
                         me={data.me}
+                        onBack={() => setMobileView("channels")}
                         onChangeDocs={(docs) => updateDocsState(channelId, docs)}
                     />
                 );
             }
             case "github": {
-                const channelId = activeChannel.id;
                 return (
                     <GitHubView
-                        prs={data.prsByChannel?.[channelId] ?? []}
-                        onConnect={() => {
-                            connectGitHubState(channelId, seedPRs());
-                            useToastStore.getState().addToast({
-                                title: "GitHub connected",
-                                body: "corvus/web and corvus/gateway now route PRs to this channel.",
-                                variant: "success",
-                            });
-                        }}
+                        key={activeChannel.id}
+                        channelId={activeChannel.id}
+                        serverId={activeSpaceId}
+                        onBack={() => setMobileView("channels")}
                     />
                 );
             }
@@ -1556,21 +1619,23 @@ export function AppShell({
                         key={activeChannel.id}
                         channelName={activeChannel.name}
                         storageKey={activeChannel.id}
+                        onBack={() => setMobileView("channels")}
                     />
                 );
             case "incident": {
-                const incident = data.incidentsByChannel?.[activeChannel.id];
                 const channelId = activeChannel.id;
-                return incident ? (
+                const incident = data.incidentsByChannel?.[channelId] ?? newIncident();
+                return (
                     <IncidentView
                         channelName={activeChannel.name}
                         incident={incident}
                         messages={channelMessages}
                         me={data.me}
+                        onBack={() => setMobileView("channels")}
                         onUpdate={(meta) => updateIncidentState(channelId, meta)}
                         onSend={sendMessage(channelId)}
                     />
-                ) : null;
+                );
             }
             default:
                 return (
@@ -1595,84 +1660,172 @@ export function AppShell({
                         loading={chatStore.loadingChannels.has(activeChannel.id)}
                         hasMore={chatStore.hasMore[activeChannel.id]}
                         onLoadOlder={loadOlder(activeChannel.id)}
+                        onBack={() => setMobileView("channels")}
                     />
                 );
         }
     };
 
+    const [mobileView, setMobileView] = useState<"channels" | "chat">("channels");
+
+    const selectChannelAndShowChat = (channelId: string) => {
+        selectChannel(channelId);
+        setMobileView("chat");
+    };
+
+    const openDMsAndShowChat = (conversationId?: string) => {
+        openDMs(conversationId);
+        if (conversationId) {
+            setMobileView("chat");
+        } else {
+            setMobileView("channels");
+        }
+    };
+
+    const handleSelectSpace = (id: string) => {
+        selectSpace(id);
+        setMobileView("channels");
+    };
+
+    const renderMainContent = () => {
+        return renderMain();
+    };
+
     return (
-        <div className="relative flex h-full min-h-0 w-full overflow-hidden pb-14 md:pb-0">
-            <NavRail
-                spaces={data.spaces}
-                activeSpaceId={activeSpaceId}
-                homeActive={homeActive}
-                dmsActive={dmsActive}
-                onOpenHome={openHome}
-                onSelectSpace={selectSpace}
-                onOpenDMs={() => openDMs()}
-                onAddSpace={() => setShowCreateSpace(true)}
-                onOpenSettings={() => setShowSettings(true)}
-                homeHref={control?.hrefs?.home}
-                dmsHref={control?.hrefs?.dms}
-                spaceHref={control?.hrefs?.space}
-            />
+        <div className="relative flex h-full min-h-0 w-full overflow-hidden bg-[#090c12] text-text-primary">
+            {/* Ambient Background Depth Glows */}
+            <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+                <div className="absolute -top-40 right-1/3 h-[500px] w-[600px] rounded-full bg-accent/4 blur-[140px]" />
+                <div className="absolute -bottom-20 left-1/4 h-[400px] w-[500px] rounded-full bg-accent/3 blur-[120px]" />
+            </div>
+            {/* Space rail: visible on desktop, or on mobile when in channels view */}
+            <div className={cn("relative z-10 h-full shrink-0", mobileView === "chat" && !homeActive ? "hidden md:flex" : "flex")}>
+                <NavRail
+                    spaces={data.spaces}
+                    activeSpaceId={activeSpaceId}
+                    homeActive={homeActive}
+                    dmsActive={dmsActive}
+                    canAccessAdminBoard={["president_admin", "admin", "president"].includes(myRole)}
 
-            {/* Home is a full-bleed surface — no second sidebar. */}
-            {!homeActive &&
-                (dmsActive ? (
-                    <DMPanel
-                        conversations={data.dmConversations ?? []}
-                        activeId={activeDmId}
-                        onSelect={openDMs}
-                        onNewConversation={() => setShowNewGroup(true)}
-                        conversationHref={control?.hrefs?.dm}
-                        me={data.me}
-                        muted={dockMuted}
-                        deafened={dockDeafened}
-                        onToggleMute={() => setDockMuted((v) => !v)}
-                        onToggleDeafen={() => {
-                            if (!dockDeafened) setDockMuted(true);
-                            setDockDeafened((v) => !v);
-                        }}
-                        onOpenSettings={() => setShowSettings(true)}
-                        onSetStatus={setMyStatus}
-                    />
-                ) : (
-                    <SpacePanel
-                        spaceName={space?.name ?? "Space"}
-                        sections={sections}
-                        activeChannelId={activeChannel?.id}
-                        me={data.me}
-                        onSelectChannel={selectChannel}
-                        onOpenSpaceSettings={() => setShowSettings(true)}
-                        onAddChannel={openAddChannel}
-                        onAddSection={() => setShowAddSection(true)}
-                        channelHref={control?.hrefs?.channel}
-                        muted={dockMuted}
-                        deafened={dockDeafened}
-                        onToggleMute={() => setDockMuted((v) => !v)}
-                        onToggleDeafen={() => {
-                            // Deafening implies muting — undeafening leaves mute as-is.
-                            if (!dockDeafened) setDockMuted(true);
-                            setDockDeafened((v) => !v);
-                        }}
-                        onSetStatus={setMyStatus}
-                    />
-                ))}
+                    onOpenHome={openHome}
+                    onSelectSpace={handleSelectSpace}
+                    onOpenDMs={() => openDMsAndShowChat()}
+                    onAddSpace={canCreateSpace ? () => setShowCreateSpace(true) : undefined}
+                    onOpenSettings={() => setShowSettings({ mode: "user", section: "My Account" })}
+                    homeHref={control?.hrefs?.home}
+                    dmsHref={control?.hrefs?.dms}
+                    spaceHref={control?.hrefs?.space}
+                />
 
-            {renderMain()}
+            </div>
+
+            {/* Channels / DM list panel: visible on desktop, or on mobile when in channels view */}
+            {!homeActive && (
+                <div
+                    className={cn(
+                        "h-full min-w-0 flex-1 md:flex-initial md:w-[248px] shrink-0",
+                        mobileView === "chat" ? "hidden md:flex" : "flex"
+                    )}
+                >
+                    {dmsActive ? (
+                        <DMPanel
+                            conversations={data.dmConversations ?? []}
+                            activeId={activeDmId}
+                            onSelect={(id) => openDMsAndShowChat(id)}
+                            onNewConversation={() => setShowNewGroup(true)}
+                            conversationHref={control?.hrefs?.dm}
+                            me={data.me}
+                            muted={dockMuted}
+                            deafened={dockDeafened}
+                            onToggleMute={() => setDockMuted((v) => !v)}
+                            onToggleDeafen={() => {
+                                if (!dockDeafened) setDockMuted(true);
+                                setDockDeafened((v) => !v);
+                            }}
+                            onOpenSettings={() => setShowSettings({ mode: "user", section: "Profile" })}
+                            onSetStatus={setMyStatus}
+                        />
+                    ) : (
+                        <SpacePanel
+                            spaceName={space?.name ?? "Space"}
+                            sections={sections}
+                            activeChannelId={activeChannel?.id}
+                            me={data.me}
+                            onSelectChannel={selectChannelAndShowChat}
+                            onOpenSpaceSettings={() => setShowSettings({ mode: "space", section: "Space profile" })}
+                            onAddChannel={openAddChannel}
+                            onAddSection={() => setShowAddSection(true)}
+                            channelHref={control?.hrefs?.channel}
+                            muted={dockMuted}
+                            deafened={dockDeafened}
+                            onToggleMute={() => setDockMuted((v) => !v)}
+                            onToggleDeafen={() => {
+                                if (!dockDeafened) setDockMuted(true);
+                                setDockDeafened((v) => !v);
+                            }}
+                            onSetStatus={setMyStatus}
+                        />
+                    )}
+                </div>
+            )}
+
+            {/* Chat / Message view / Main content: visible on desktop, or on mobile when in chat view */}
+            <div
+                className={cn(
+                    "h-full min-w-0 flex-1 flex-col overflow-hidden",
+                    !homeActive && mobileView === "channels" ? "hidden md:flex" : "flex"
+                )}
+            >
+                {renderMainContent()}
+            </div>
 
             {threadParent && !showSearch && !showPins && (
                 <ThreadPanel
                     parent={threadParent}
-                    replies={[]}
+                    replies={(dmsActive ? dmMessages : channelMessages).filter(
+                        (m) => m.replyTo?.id === threadParent.id,
+                    )}
+                    meId={data.me.id}
+                    onSend={(text, attachments, replyTo) => {
+                        const targetId = dmsActive ? activeDmId : activeChannel?.id;
+                        if (targetId) sendMessage(targetId)(text, attachments, replyTo);
+                    }}
+                    onReact={(msgId, emoji) => {
+                        const targetId = dmsActive ? activeDmId : activeChannel?.id;
+                        if (targetId) toggleReaction(targetId)(msgId, emoji);
+                    }}
+                    onPin={(msgId) => {
+                        const targetId = dmsActive ? activeDmId : activeChannel?.id;
+                        if (targetId) togglePin(targetId)(msgId);
+                    }}
+                    onEdit={(msgId, text) => {
+                        const targetId = dmsActive ? activeDmId : activeChannel?.id;
+                        if (targetId) void editMessage(targetId)(msgId, text);
+                    }}
+                    onDelete={(msgId) => {
+                        const targetId = dmsActive ? activeDmId : activeChannel?.id;
+                        if (targetId) void deleteMessage(targetId)(msgId);
+                    }}
                     onClose={() => setThreadParentId(null)}
                 />
             )}
 
             {showSearch && (
-                <SearchPanel corpus={searchCorpus} onClose={() => setShowSearch(false)} />
+                <SearchPanel
+                    corpus={searchCorpus}
+                    spaceId={activeSpaceId}
+                    onSelectMessage={(channelId) => {
+                        if (channelId) {
+                            selectChannel(channelId);
+                            setShowSearch(false);
+                        }
+                    }}
+                    onClose={() => setShowSearch(false)}
+                />
             )}
+
+
+
 
             {showPins && !showSearch && !homeActive && (
                 <PinnedPanel
@@ -1719,8 +1872,10 @@ export function AppShell({
                                     peers: [caller],
                                     video,
                                     name: caller.name,
+                                    status: "connected",
                                     transport,
                                 });
+
                                 openDMs(conversationId);
                                 setIncoming(null);
                             } catch (error) {
@@ -1756,9 +1911,12 @@ export function AppShell({
 
             {showSettings && (
                 <SettingsView
+                    spaceId={typeof showSettings === "object" && showSettings.mode === "user" ? undefined : activeSpaceId}
                     spaceName={space?.name}
                     sections={sections}
                     members={data.membersBySpace[activeSpaceId]}
+                    mode={typeof showSettings === "object" ? showSettings.mode : "all"}
+                    initialSection={typeof showSettings === "object" ? showSettings.section : undefined}
                     onClose={() => setShowSettings(false)}
                     onRenameSpace={(name) => {
                         if (!isLive) {

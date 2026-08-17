@@ -27,7 +27,7 @@ export function SelfHostSection() {
                     </h2>
                     <p className="mt-5 max-w-[58ch] text-[15px] leading-7 text-text-secondary">
                         Inspect the code, adapt the product and choose the infrastructure around
-                        your team. Corvus is open source under AGPL-3.0 and its desktop application
+                        your team. AIIC is open source under AGPL-3.0 and its desktop application
                         uses Tauri rather than Electron.
                     </p>
                     <div className="mt-8 rounded-lg border-l-2 border-warning bg-warning/10 p-4">

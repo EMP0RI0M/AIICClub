@@ -1,6 +1,6 @@
 const integrations = [
   { name: "GitHub", detail: "OAuth app · 2 repositories connected", connected: true },
-  { name: "SMTP relay", detail: "Outbound mail via smtp.corvus.app", connected: true },
+  { name: "SMTP relay", detail: "Outbound mail via smtp.aiic.club", connected: true },
   { name: "S3-compatible storage", detail: "Offload attachments to object storage", connected: false },
 ];
 

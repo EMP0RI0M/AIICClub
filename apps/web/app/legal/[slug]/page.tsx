@@ -5,14 +5,14 @@ const PAGES: Record<string, MarketingPageContent> = {
   terms: {
     eyebrow: "Legal · Terms",
     title: "Terms of Service.",
-    lede: "The agreement between you and Corvus when you use the hosted service or run your own instance.",
+    lede: "The agreement between you and AIIC when you use the hosted service or run your own instance.",
     updated: "Last updated June 10, 2026",
     blocks: [
       { kind: "h2", text: "1. The service" },
       {
         kind: "p",
         text:
-          "Corvus provides a team workspace — messaging, voice and video, project boards, documents, and integrations — as a hosted service at corvus.app and as software you can deploy on your own infrastructure. These terms cover both, except where a section says otherwise.",
+          "AIIC provides a team workspace — messaging, voice and video, project boards, documents, and integrations — as a hosted service and as software you can deploy on your own infrastructure. These terms cover both, except where a section says otherwise.",
       },
       { kind: "h2", text: "2. Your account" },
       {
@@ -27,7 +27,7 @@ const PAGES: Record<string, MarketingPageContent> = {
       {
         kind: "p",
         text:
-          "Don't use Corvus to break the law, to harass people, to distribute malware, or to disrupt the service or other users. We may suspend accounts that do. On self-hosted instances, the instance owner sets and enforces their own acceptable-use rules.",
+          "Don't use AIIC to break the law, to harass people, to distribute malware, or to disrupt the service or other users. We may suspend accounts that do. On self-hosted instances, the instance owner sets and enforces their own acceptable-use rules.",
       },
       { kind: "h2", text: "4. Your content" },
       {
@@ -39,7 +39,7 @@ const PAGES: Record<string, MarketingPageContent> = {
       {
         kind: "p",
         text:
-          "When you run Corvus on your own hardware, you are the data controller. We have no access to your instance, its users, or its content. The software is provided under the Corvus License (see the License page); these terms apply to your use of our update servers, downloads, and trademarks.",
+          "When you run AIIC on your own hardware, you are the data controller. We have no access to your instance, its users, or its content. The software is provided under the AIIC License (see the License page); these terms apply to your use of our update servers, downloads, and trademarks.",
       },
       { kind: "h2", text: "6. Termination" },
       {
@@ -118,14 +118,14 @@ const PAGES: Record<string, MarketingPageContent> = {
   license: {
     eyebrow: "Legal · License",
     title: "License.",
-    lede: "How you may use, deploy, and modify the Corvus software.",
+    lede: "How you may use, deploy, and modify the AIIC software.",
     updated: "Last updated June 10, 2026",
     blocks: [
       { kind: "h2", text: "The grant" },
       {
         kind: "p",
         text:
-          "Corvus is open-source software licensed under AGPL-3.0. Your rights and obligations are defined by the license text included in the repository.",
+          "AIIC is open-source software licensed under AGPL-3.0. Your rights and obligations are defined by the license text included in the repository.",
       },
       { kind: "h2", text: "What you may do" },
       {
@@ -134,37 +134,37 @@ const PAGES: Record<string, MarketingPageContent> = {
           "Run and modify the software subject to the AGPL-3.0 license and the requirements of its current service dependencies.",
           "Modify the software and run your modified version internally.",
           "Inspect and modify the source under the terms of AGPL-3.0.",
-          "Use Corvus commercially inside your organization or community.",
+          "Use AIIC commercially inside your organization or community.",
         ],
       },
       { kind: "h2", text: "What you may not do" },
       {
         kind: "ul",
         items: [
-          "Use or distribute Corvus in ways that do not comply with AGPL-3.0.",
+          "Use or distribute AIIC in ways that do not comply with AGPL-3.0.",
           "Remove license notices or misrepresent the software's origin.",
-          "Use the Corvus name or logo to imply endorsement of a modified distribution.",
+          "Use the AIIC name or logo to imply endorsement of a modified distribution.",
         ],
       },
       { kind: "h2", text: "Contributions" },
       {
         kind: "p",
         text:
-          "Contributions to the Corvus repositories are accepted under a contributor license agreement that lets us ship your change in both the self-hosted and hosted editions, with credit preserved in the commit history.",
+          "Contributions to the AIIC repositories are accepted under a contributor license agreement that lets us ship your change in both the self-hosted and hosted editions, with credit preserved in the commit history.",
       },
       { kind: "h2", text: "Third-party software" },
       {
         kind: "p",
         text:
-          "Corvus bundles open-source components, each under its own license (MIT, Apache-2.0, BSD, and similar). The complete list with license texts ships in every release at /licenses and in the THIRD_PARTY file of the source tree.",
+          "AIIC bundles open-source components, each under its own license (MIT, Apache-2.0, BSD, and similar). The complete list with license texts ships in every release at /licenses and in the THIRD_PARTY file of the source tree.",
       },
-      { kind: "note", text: "Commercial hosting or OEM licensing: sales@corvus.app." },
+      { kind: "note", text: "Commercial hosting or OEM licensing: sales@aiic.club." },
     ],
   },
   security: {
     eyebrow: "Legal · Security",
     title: "Security.",
-    lede: "How Corvus protects your data, and how to tell us when we got something wrong.",
+    lede: "How AIIC protects your data, and how to tell us when we got something wrong.",
     updated: "Last updated June 10, 2026",
     blocks: [
       { kind: "h2", text: "Architecture" },

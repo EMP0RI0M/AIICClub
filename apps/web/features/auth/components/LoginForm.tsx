@@ -40,7 +40,7 @@ export function LoginForm() {
     if (!validate()) return;
     try {
       await login(email.trim(), password);
-      // AuthGuard handles the redirect into /app.
+      window.location.href = "/spaces";
     } catch (err) {
       setFormError(
         err instanceof Error && err.message

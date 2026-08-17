@@ -6,13 +6,12 @@ import { Avatar, ChannelGlyph } from "@/shared/components/ui";
 import { FriendsView } from "./FriendsView";
 import type { FriendSearchResult } from "@/shared/lib/api";
 import type { AppShellData } from "./AppShell";
+import { Radio, Users, Sparkles, MessageSquare, Hash, Volume2 } from "lucide-react";
 
 type HomeTab = "overview" | "friends";
 
 /**
- * Home (brief §Home Screen) — no hero card, no gradient blob, no colored stat
- * icons. A single unified bordered stat row with mono numbers, then plain
- * typographic lists: jump back in, active now.
+ * Home (Discord + Linear + Raycast + AIIC Amber Glass Dashboard).
  */
 export function HomeView({
   data,
@@ -44,50 +43,55 @@ export function HomeView({
   const unread = allChannels.filter((c) => c.unread);
   const dmUnread = (data.dmConversations ?? []).reduce((n, c) => n + (c.unreadCount ?? 0), 0);
 
-  const recent = allChannels.filter((c) => c.type !== "voice").slice(0, 5);
+  const recent = allChannels.filter((c) => c.type !== "voice").slice(0, 6);
   const voiceActive = Object.entries(data.voiceByChannel ?? {}).flatMap(([channelId, parts]) => {
     const ch = allChannels.find((c) => c.id === channelId);
     return ch && parts.length > 0 ? [{ channel: ch, parts }] : [];
   });
 
   const stats = [
-    { value: String(unread.length), label: "Unread channels" },
-    { value: String(dmUnread), label: "DM mentions" },
-    { value: String(friendsOnline), label: "Friends online" },
-    { value: String(data.spaces.length), label: "Spaces" },
+    { value: String(unread.length), label: "Unread channels", icon: Hash },
+    { value: String(dmUnread), label: "DM mentions", icon: MessageSquare },
+    { value: String(friendsOnline), label: "Friends online", icon: Users },
+    { value: String(data.spaces.length), label: "AIIC Spaces", icon: Sparkles },
   ];
 
   return (
-    <section className="flex h-full min-w-0 flex-1 flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
-        <h1 className="text-[15px] font-semibold text-text-primary">Home</h1>
-        <span className="font-mono text-[11px] text-text-muted">
-          {new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
-        </span>
-      </header>
+    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-[#0b0e14] overflow-hidden">
+      {/* ─── Floating Glass Header ─── */}
+      <div className="relative z-10 px-3 pt-3 sm:px-4 sm:pt-4">
+        <header className="flex h-13 shrink-0 items-center justify-between rounded-[20px] border border-white/[0.08] bg-[#121722]/75 px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <div className="flex items-center gap-3">
+            <h1 className="text-[15px] font-bold text-text-primary">Home Overview</h1>
+            <span className="font-mono text-[11px] text-accent uppercase tracking-wider hidden sm:inline">
+              {new Date().toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
+            </span>
+          </div>
 
-      <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-2">
-        {(
-          [
-            { id: "overview", label: "Overview" },
-            { id: "friends", label: "Friends" },
-          ] as { id: HomeTab; label: string }[]
-        ).map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            data-active={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "h-7 rounded px-3 text-[13px] transition-colors",
-              tab === t.id
-                ? "bg-surface-overlay text-text-primary"
-                : "text-text-secondary hover:bg-hover-row hover:text-text-primary"
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+          <div className="flex items-center gap-1.5">
+            {(
+              [
+                { id: "overview", label: "Overview" },
+                { id: "friends", label: "Friends" },
+              ] as { id: HomeTab; label: string }[]
+            ).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                data-active={tab === t.id}
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  "h-7 rounded-xl px-3 font-mono text-[11px] font-semibold transition-all active:scale-95",
+                  tab === t.id
+                    ? "border border-accent/40 bg-accent/20 text-accent shadow-sm"
+                    : "border border-transparent text-text-muted hover:bg-white/[0.04] hover:text-text-primary"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </header>
       </div>
 
       {tab === "friends" ? (
@@ -102,89 +106,101 @@ export function HomeView({
           onDecline={onDeclineFriend}
         />
       ) : (
-        <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[760px] px-6 py-8">
-            {/* Unified stat row */}
-            <dl className="grid grid-cols-2 border-y border-border sm:grid-cols-4">
-              {stats.map((s, i) => (
-                <div
-                  key={s.label}
-                  className={[
-                    "px-5 py-5",
-                    i < stats.length - 1 ? "sm:border-r sm:border-border" : "",
-                    i % 2 === 0 ? "border-r border-border sm:border-r" : "",
-                    i < 2 ? "border-b border-border sm:border-b-0" : "",
-                  ].join(" ")}
-                >
-                  <dt className="font-mono text-[20px] leading-none text-text-primary">{s.value}</dt>
-                  <dd className="mt-2 text-[12px] tracking-[0.04em] text-text-muted">{s.label}</dd>
-                </div>
-              ))}
-            </dl>
-
-            {/* Jump back in */}
-            <p className="pt-10 font-mono text-[11px] uppercase tracking-[0.08em] text-text-muted">
-              Jump back in
-            </p>
-            <div className="mt-2">
-              {recent.map((ch) => {
-                const space = data.spaces.find((s) => s.id === ch.spaceId);
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin scrollbar-thumb-white/10">
+          <div className="mx-auto max-w-[800px] space-y-6">
+            {/* Unified Stat Grid */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {stats.map((s) => {
+                const Icon = s.icon;
                 return (
-                  <button
-                    key={ch.id}
-                    type="button"
-                    onClick={() => onOpenChannel?.(ch.spaceId, ch.id)}
-                    className="flex h-10 w-full items-center gap-3 border-b border-border px-1 text-left transition-colors hover:bg-hover-row"
+                  <div
+                    key={s.label}
+                    className="rounded-[22px] border border-white/[0.08] bg-[#121622]/80 p-4 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.25)] transition-all hover:border-accent/30"
                   >
-                    <ChannelGlyph type={ch.type} size={13} />
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 truncate text-[14px]",
-                        ch.unread ? "font-medium text-text-primary" : "text-text-secondary"
-                      )}
-                    >
-                      {ch.name}
-                    </span>
-                    <span className="font-mono text-[11px] text-text-faint">{space?.name}</span>
-                    {ch.unread && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
-                  </button>
+                    <div className="flex items-center justify-between text-accent/80 mb-2">
+                      <Icon size={16} />
+                    </div>
+                    <div className="font-mono text-2xl font-bold tracking-tight text-text-primary">
+                      {s.value}
+                    </div>
+                    <div className="mt-1 font-mono text-[10.5px] uppercase tracking-wider text-text-muted">
+                      {s.label}
+                    </div>
+                  </div>
                 );
               })}
             </div>
 
-            {/* Active now */}
-            <p className="pt-10 font-mono text-[11px] uppercase tracking-[0.08em] text-text-muted">
-              Active now
-            </p>
-            {voiceActive.length === 0 ? (
-              <p className="mt-2 text-[13px] text-text-muted">
-                No voice channels are live. When friends hop in, they&apos;ll show up here.
-              </p>
-            ) : (
-              <div className="mt-2">
-                {voiceActive.map(({ channel, parts }) => (
-                  <button
-                    key={channel.id}
-                    type="button"
-                    onClick={() => onOpenChannel?.(channel.spaceId, channel.id)}
-                    className="flex h-12 w-full items-center gap-3 border-b border-border px-1 text-left transition-colors hover:bg-hover-row"
-                  >
-                    <ChannelGlyph type="voice" size={13} />
-                    <span className="min-w-0 flex-1 truncate text-[14px] text-text-primary">
-                      {channel.name}
-                    </span>
-                    <div className="flex items-center">
-                      {parts.slice(0, 4).map((p, i) => (
-                        <div key={p.id} className={cn(i > 0 && "-ml-1.5")}>
-                          <Avatar src={p.avatar} name={p.name} size={22} radius={5} />
-                        </div>
-                      ))}
-                    </div>
-                    <span className="font-mono text-[11px] text-status-online">live</span>
-                  </button>
-                ))}
+            {/* Jump Back In */}
+            <div>
+              <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-accent flex items-center gap-1.5 mb-2.5">
+                <Hash size={13} /> Jump Back In
+              </h2>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {recent.map((ch) => {
+                  const space = data.spaces.find((s) => s.id === ch.spaceId);
+                  return (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      onClick={() => onOpenChannel?.(ch.spaceId, ch.id)}
+                      className="flex h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.06] bg-[#131824]/75 px-3.5 text-left transition-all hover:border-accent/40 hover:bg-[#181e2e]/85 active:scale-[0.98]"
+                    >
+                      <ChannelGlyph type={ch.type} size={15} />
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-[13.5px] font-bold text-text-primary">
+                          {ch.name}
+                        </span>
+                        <span className="block font-mono text-[10px] text-text-muted truncate">
+                          {space?.name}
+                        </span>
+                      </div>
+                      {ch.unread && <span className="h-2 w-2 rounded-full bg-accent ring-2 ring-accent/30" />}
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
+
+            {/* Active Now */}
+            <div>
+              <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-status-online flex items-center gap-1.5 mb-2.5">
+                <Volume2 size={13} /> Active Voice &amp; Teams
+              </h2>
+              {voiceActive.length === 0 ? (
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 text-center font-mono text-xs text-text-muted/70">
+                  No active voice lounges right now. Hop into any voice room to chat with your teammates.
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {voiceActive.map(({ channel, parts }) => (
+                    <button
+                      key={channel.id}
+                      type="button"
+                      onClick={() => onOpenChannel?.(channel.spaceId, channel.id)}
+                      className="flex h-13 w-full items-center gap-3 rounded-2xl border border-status-online/30 bg-status-online/5 px-3.5 text-left transition-all hover:border-status-online/50 hover:bg-status-online/10 active:scale-[0.98]"
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-status-online/20 text-status-online">
+                        <Volume2 size={15} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-[13.5px] font-bold text-text-primary">
+                          {channel.name}
+                        </span>
+                        <span className="block font-mono text-[10px] text-status-online">
+                          {parts.length} in call
+                        </span>
+                      </div>
+                      <div className="flex items-center -space-x-2">
+                        {parts.slice(0, 3).map((p) => (
+                          <Avatar key={p.id} src={p.avatar} name={p.name} size={22} shape="circle" />
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

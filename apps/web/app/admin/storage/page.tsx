@@ -11,7 +11,7 @@ export default function AdminStorage() {
     <>
       <h1 className="text-[24px] font-semibold text-text-primary">Storage</h1>
       <p className="mt-2 font-mono text-[13px] text-text-secondary">
-        847 MB used · local volume <span className="text-text-muted">/var/lib/corvus/data</span>
+        847 MB used · local volume <span className="text-text-muted">/var/lib/aiic/data</span>
       </p>
       <div className="mt-6 flex flex-col">
         {rows.map((r) => (

@@ -5,3 +5,4 @@ export { Input, type InputProps } from "./Input";
 export { Modal, ConfirmModal } from "./Modal";
 export { ToastViewport } from "./Toast";
 export { Toggle } from "./Toggle";
+export { NavBar, type NavItem, type NavBarProps } from "./tubelight-navbar";

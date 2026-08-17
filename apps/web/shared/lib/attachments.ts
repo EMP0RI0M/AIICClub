@@ -1,4 +1,4 @@
-export type AttachmentKind = "image" | "video" | "document";
+export type AttachmentKind = "image" | "video" | "document" | "file" | "gif" | "audio";
 
 export interface SharedAttachment {
     url: string;
@@ -70,32 +70,62 @@ export function encodeAttachmentContent(attachment: SharedAttachment): string {
 }
 
 export function parseAttachmentContent(content: string): SharedAttachment | null {
+    if (!content) return null;
     const trimmed = content.trim();
-    if (!trimmed.startsWith(ATTACHMENT_CONTENT_PREFIX)) return null;
 
-    const raw = trimmed.slice(ATTACHMENT_CONTENT_PREFIX.length);
+    let raw = "";
+    if (trimmed.startsWith(ATTACHMENT_CONTENT_PREFIX)) {
+        raw = trimmed.slice(ATTACHMENT_CONTENT_PREFIX.length);
+    } else if (
+        trimmed.includes("application%2F") ||
+        trimmed.includes("%22url%22") ||
+        trimmed.startsWith("%7B%22url%22") ||
+        trimmed.startsWith('{"url"')
+    ) {
+        raw = trimmed;
+    } else {
+        return null;
+    }
+
     if (!raw) return null;
 
     try {
-        const decoded = decodeURIComponent(raw);
-        const parsed = JSON.parse(decoded) as Partial<SharedAttachment>;
-        if (
-            !parsed ||
-            typeof parsed.url !== "string" ||
-            typeof parsed.name !== "string" ||
-            typeof parsed.size !== "number" ||
-            typeof parsed.mimeType !== "string" ||
-            (parsed.kind !== "image" && parsed.kind !== "video" && parsed.kind !== "document")
-        ) {
+        let parsed: any = null;
+        if (raw.startsWith("{")) {
+            parsed = JSON.parse(raw);
+        } else {
+            const decoded = decodeURIComponent(raw);
+            parsed = JSON.parse(decoded);
+        }
+
+        if (!parsed || typeof parsed.url !== "string") {
             return null;
         }
-        return parsed as SharedAttachment;
+
+        const mime = (parsed.mimeType || "").toLowerCase();
+        let kind: AttachmentKind = "file";
+        if (parsed.kind === "image" || parsed.kind === "gif" || mime.startsWith("image/")) {
+            kind = parsed.kind === "gif" || mime === "image/gif" ? "gif" : "image";
+        } else if (parsed.kind === "video" || mime.startsWith("video/")) {
+            kind = "video";
+        } else if (parsed.kind === "audio" || mime.startsWith("audio/")) {
+            kind = "audio";
+        }
+
+        return {
+            url: parsed.url,
+            name: parsed.name || "Attachment",
+            size: typeof parsed.size === "number" ? parsed.size : 0,
+            mimeType: parsed.mimeType || "application/octet-stream",
+            kind,
+        };
     } catch {
         return null;
     }
 }
 
 export function formatAttachmentSize(bytes: number): string {
+    if (!bytes || bytes <= 0) return "";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;

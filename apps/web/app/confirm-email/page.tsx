@@ -102,7 +102,7 @@ function ConfirmEmailContent() {
                             <ol className="space-y-2.5">
                                 {[
                                     "Open your email inbox",
-                                    "Click the confirmation link from Corvus",
+                                    "Click the confirmation link from AIIC",
                                     "You’ll be signed in automatically",
                                 ].map((step, i) => (
                                     <li key={i} className="flex items-start gap-3">
@@ -164,7 +164,7 @@ export default function ConfirmEmailPage() {
                 <div className="h-full bg-background flex items-center justify-center">
                     <img
                         src="/corvus-logo.png"
-                        alt="Corvus"
+                        alt="AIIC"
                         className="w-10 h-10 rounded-full shadow-glow animate-pulse"
                     />
                 </div>

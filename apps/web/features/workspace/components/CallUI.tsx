@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { cn } from "@corvus/ui";
-import { Phone, Minus, Mic, MicOff, Maximize2, PhoneOff } from "lucide-react";
+import { Phone, PhoneOff, Mic, MicOff, Maximize2, Video, VideoOff, VolumeX, Headphones, MonitorUp, PenLine, X } from "lucide-react";
 import { Avatar } from "@/shared/components/ui";
-import { ringOutgoing } from "@/shared/lib/notify";
+import { ringOutgoing, ringIncoming } from "@/shared/lib/notify";
+
 import type { VoiceParticipant } from "./types";
-import { Room, RoomEvent, Track } from "livekit-client";
+import { Room, RoomEvent, Track, RemoteTrack } from "livekit-client";
 import {
     CallControls,
     ConnectionPill,
@@ -16,6 +16,15 @@ import {
     WhiteboardLayer,
     useCallControls,
 } from "./CallSurface";
+
+export type CallStatus =
+    | "calling"
+    | "ringing"
+    | "connecting"
+    | "connected"
+    | "declined"
+    | "cancelled"
+    | "ended";
 
 export interface CallPeer {
     id: string;
@@ -29,68 +38,329 @@ export interface ActiveCall {
     peers: CallPeer[];
     video?: boolean;
     name?: string;
+    isCaller?: boolean;
+    status?: CallStatus;
     /** LiveKit credentials minted by the call API for this participant. */
     transport?: { token: string; url: string; roomName: string };
 }
 
 /**
- * One live call session (brief §Voice). The session component stays mounted
- * for the call's whole life — when you're viewing the conversation it portals
- * an inline panel above the messages (no popup); anywhere else it collapses
- * to a floating pill. Timer, mic, camera, and screenshare survive navigation.
+ * WhatsApp / Discord inspired Voice Call Interface.
+ * Centered participant avatar with speaking glow, prominent timer, and floating controls.
+ */
+function VoiceCallUI({
+    peer,
+    me,
+    timer,
+    status,
+    state,
+    onToggle,
+    onEnd,
+}: {
+    peer: CallPeer;
+    me: CallPeer;
+    timer: string;
+    status: CallStatus;
+    state: any;
+    onToggle: (key: any) => void;
+    onEnd: () => void;
+}) {
+    const isConnectingOrRinging = status === "calling" || status === "ringing" || status === "connecting";
+
+    return (
+        <div className="relative flex h-full min-h-[380px] sm:min-h-[460px] w-full flex-col items-center justify-between rounded-[32px] border border-white/[0.08] bg-gradient-to-b from-[#141a28]/95 via-[#0e121b]/95 to-[#090c12]/95 p-6 sm:p-8 backdrop-blur-2xl shadow-2xl overflow-hidden">
+            {/* Ambient Background Glow */}
+            <div className="pointer-events-none absolute -top-24 left-1/2 h-[320px] w-[380px] -translate-x-1/2 rounded-full bg-accent/15 blur-[100px]" />
+            <div className="pointer-events-none absolute -bottom-24 left-1/2 h-[280px] w-[340px] -translate-x-1/2 rounded-full bg-emerald-500/10 blur-[90px]" />
+
+            {/* Top Status Row */}
+            <div className="relative z-10 flex w-full items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className={cn(
+                        "h-2.5 w-2.5 rounded-full",
+                        isConnectingOrRinging ? "bg-amber-400 animate-pulse" : "bg-emerald-400 animate-pulse"
+                    )} />
+                    <span className="font-mono text-xs uppercase tracking-wider text-text-muted">
+                        {status === "calling" || status === "ringing"
+                            ? "Calling..."
+                            : status === "connecting"
+                            ? "Connecting..."
+                            : "Voice Call"}
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <ConnectionPill />
+                </div>
+            </div>
+
+            {/* Center: Glowing Avatar & Caller Details */}
+            <div className="relative z-10 flex flex-col items-center text-center my-auto">
+                <div className="relative flex items-center justify-center">
+                    {/* Pulsing ring when ringing or speaking */}
+                    <div
+                        className={cn(
+                            "absolute h-32 w-32 sm:h-36 sm:w-36 rounded-full transition-all duration-500",
+                            isConnectingOrRinging
+                                ? "bg-accent/20 animate-ping opacity-60"
+                                : !state.deafened
+                                ? "bg-emerald-500/20 animate-ping opacity-75"
+                                : "opacity-0"
+                        )}
+                    />
+                    <div className="relative flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full border-2 border-emerald-500/40 bg-[#151c2c] shadow-[0_0_40px_rgba(16,185,129,0.25)]">
+                        <Avatar
+                            src={peer.avatar}
+                            name={peer.name}
+                            size={88}
+                            radius={44}
+                        />
+                    </div>
+                </div>
+
+                <h2 className="mt-4 text-xl sm:text-2xl font-bold tracking-tight text-text-primary">
+                    {peer.name}
+                </h2>
+
+                <div className="mt-1 flex items-center gap-1.5 font-mono text-sm font-semibold tracking-wider text-emerald-400">
+                    <span>
+                        {status === "calling" || status === "ringing"
+                            ? "Calling..."
+                            : status === "connecting"
+                            ? "Connecting..."
+                            : timer}
+                    </span>
+                </div>
+            </div>
+
+            {/* Bottom: Floating Rounded Controls Capsule */}
+            <div className="relative z-10 flex items-center justify-center gap-3 rounded-full border border-white/[0.1] bg-[#161c2b]/90 px-4 py-2 backdrop-blur-xl shadow-lg">
+                <CallControls
+                    state={state}
+                    onToggle={onToggle}
+                    onLeave={onEnd}
+                    compact
+                />
+            </div>
+        </div>
+    );
+}
+
+/**
+ * WhatsApp / FaceTime inspired Video Call Interface.
+ */
+function VideoCallUI({
+    peer,
+    me,
+    timer,
+    status,
+    state,
+    onToggle,
+    onEnd,
+    localStream,
+    remoteStream,
+}: {
+    peer: CallPeer;
+    me: CallPeer;
+    timer: string;
+    status: CallStatus;
+    state: any;
+    onToggle: (key: any) => void;
+    onEnd: () => void;
+    localStream: MediaStream | null;
+    remoteStream: MediaStream | null;
+}) {
+    const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+    const localVideoRef = useRef<HTMLVideoElement | null>(null);
+
+    useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [remoteStream]);
+
+    useEffect(() => {
+        if (localVideoRef.current && localStream) {
+            localVideoRef.current.srcObject = localStream;
+        }
+    }, [localStream]);
+
+    return (
+        <div className="relative flex h-full min-h-[420px] sm:min-h-[500px] w-full flex-col justify-between rounded-[32px] border border-white/[0.08] bg-[#0c0f17] backdrop-blur-2xl shadow-2xl overflow-hidden">
+            {/* Main Stage: Remote Participant Video / Avatar */}
+            <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0d111a]">
+                {remoteStream ? (
+                    <video
+                        ref={remoteVideoRef}
+                        autoPlay
+                        playsInline
+                        className="h-full w-full object-cover"
+                    />
+                ) : (
+                    <div className="flex flex-col items-center text-center p-6">
+                        <div className="flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full border border-white/[0.12] bg-[#161c2c] shadow-xl">
+                            <Avatar src={peer.avatar} name={peer.name} size={84} radius={42} />
+                        </div>
+                        <h3 className="mt-3 text-base font-bold text-text-primary">{peer.name}</h3>
+                        <span className="font-mono text-xs text-text-muted mt-0.5">
+                            {status === "calling" || status === "ringing"
+                                ? "Calling..."
+                                : "Camera is off"}
+                        </span>
+                    </div>
+                )}
+            </div>
+
+            {/* Top Bar Overlay */}
+            <div className="relative z-10 flex w-full items-center justify-between p-4 sm:p-6 bg-gradient-to-b from-black/70 via-black/30 to-transparent">
+                <div className="flex items-center gap-2.5">
+                    <span className="font-semibold text-sm text-white drop-shadow">{peer.name}</span>
+                    <span className="font-mono text-xs text-emerald-400 drop-shadow">
+                        {status === "calling" || status === "ringing"
+                            ? "Calling..."
+                            : status === "connecting"
+                            ? "Connecting..."
+                            : timer}
+                    </span>
+                </div>
+                <ConnectionPill />
+            </div>
+
+            {/* Floating Picture-in-Picture (PiP) for Local User (Bottom Right) */}
+            <div className="absolute bottom-20 right-4 sm:right-6 z-20 h-28 w-24 sm:h-36 sm:w-28 rounded-2xl border border-white/[0.15] bg-[#121622]/90 shadow-2xl overflow-hidden backdrop-blur-md">
+                {state.camera && localStream ? (
+                    <video
+                        ref={localVideoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="h-full w-full object-cover scale-x-[-1]"
+                    />
+                ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center">
+                        <Avatar src={me.avatar} name={me.name} size={32} radius={16} />
+                        <span className="font-mono text-[9px] text-text-muted mt-1 truncate max-w-full">
+                            Camera Off
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => onToggle("camera")}
+                            className="mt-1.5 px-2 py-0.5 rounded-full bg-accent/20 border border-accent/40 text-[9px] font-mono text-accent hover:bg-accent/30 active:scale-95 transition-all cursor-pointer"
+                        >
+                            Enable
+                        </button>
+                    </div>
+                )}
+
+            </div>
+
+            {/* Bottom Controls Overlay */}
+            <div className="relative z-10 flex w-full items-center justify-center p-4 sm:p-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                <div className="flex items-center justify-center gap-3 rounded-full border border-white/[0.12] bg-[#161c2b]/90 px-4 py-2 backdrop-blur-xl shadow-lg">
+                    <CallControls
+                        state={state}
+                        onToggle={onToggle}
+                        onLeave={onEnd}
+                        compact
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * One live call session. Stays mounted for the whole call lifecycle.
+ * Renders as a dedicated full-screen or modal call overlay.
  */
 export function CallSession({
     call,
     me,
-    inlineHost,
-    initialMuted,
-    initialDeafened,
     onJump,
     onEnd,
+    initialMuted,
+    initialDeafened,
+    inlineHost,
 }: {
     call: ActiveCall;
     me: CallPeer;
-    /** Mount point above the conversation's messages — null when not in view. */
-    inlineHost: HTMLElement | null;
     initialMuted?: boolean;
     initialDeafened?: boolean;
-    /** Navigate back to the call's conversation (pill click). */
+    inlineHost?: HTMLElement | null;
     onJump?: () => void;
-    /** Called with the connected duration in seconds (0 = never connected). */
     onEnd: (elapsedSeconds: number) => void;
 }) {
-    const [seconds, setSeconds] = useState(-3); // negative = ringing
+    const [status, setStatus] = useState<CallStatus>(call.status || "calling");
+    const [seconds, setSeconds] = useState(0);
     const [connectionError, setConnectionError] = useState<string | null>(null);
     const roomRef = useRef<Room | null>(null);
     const audioHostRef = useRef<HTMLDivElement | null>(null);
+    const [remoteVideoStream, setRemoteVideoStream] = useState<MediaStream | null>(null);
+
     const { state, toggle, camStream, screenStream } = useCallControls({
         camera: Boolean(call.video),
         muted: initialMuted,
         deafened: initialDeafened,
     });
 
+
+    // Update internal status when call prop changes
     useEffect(() => {
+        if (call.status) setStatus(call.status);
+    }, [call.status]);
+
+    // Timer only ticks once connected
+    useEffect(() => {
+        if (status !== "connected") return;
         const t = setInterval(() => setSeconds((s) => s + 1), 1000);
         return () => clearInterval(t);
-    }, []);
+    }, [status]);
 
-    // Connect the LiveKit room returned by the call API. Remote audio tracks are
-    // attached to a hidden host while Corvus keeps its own call controls/layout.
+    // Outgoing ringtone while in calling / ringing state
+    const isCalling = status === "calling" || status === "ringing";
+    useEffect(() => {
+        if (!isCalling) return;
+        const ring = ringOutgoing();
+        return () => ring.stop();
+    }, [isCalling]);
+
+    // Auto-timeout after 45 seconds if no answer
+    useEffect(() => {
+        if (!isCalling) return;
+        const timeout = setTimeout(() => {
+            onEnd(0);
+        }, 45000);
+        return () => clearTimeout(timeout);
+    }, [isCalling, onEnd]);
+
+    // Connect to LiveKit Room once accepted or connected
     useEffect(() => {
         if (!call.transport) return;
+        // DO NOT connect to LiveKit media room while still in calling / ringing state!
+        if (status === "calling" || status === "ringing") return;
+
         const room = new Room({ adaptiveStream: true, dynacast: true });
         const audioHost = audioHostRef.current;
         roomRef.current = room;
         let disposed = false;
 
-        room.on(RoomEvent.TrackSubscribed, (track) => {
-            if (track.kind !== Track.Kind.Audio) return;
-            const element = track.attach();
-            element.autoplay = true;
-            audioHost?.appendChild(element);
+        room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
+            if (track.kind === Track.Kind.Audio) {
+                const element = track.attach();
+                element.autoplay = true;
+                audioHost?.appendChild(element);
+            }
+            if (track.kind === Track.Kind.Video && track.mediaStreamTrack) {
+                setRemoteVideoStream(new MediaStream([track.mediaStreamTrack]));
+            }
         });
-        room.on(RoomEvent.TrackUnsubscribed, (track) => {
-            for (const element of track.detach()) element.remove();
+
+        room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
+            if (track.kind === Track.Kind.Audio) {
+                for (const element of track.detach()) element.remove();
+            }
+            if (track.kind === Track.Kind.Video) {
+                setRemoteVideoStream(null);
+            }
         });
 
         void room
@@ -100,12 +370,12 @@ export function CallSession({
                 await room.startAudio().catch(() => undefined);
                 await room.localParticipant.setMicrophoneEnabled(!state.muted);
                 if (call.video) await room.localParticipant.setCameraEnabled(true);
-                setSeconds(0);
+                setStatus("connected");
             })
             .catch((error) => {
                 if (!disposed) {
                     setConnectionError(
-                        error instanceof Error ? error.message : "Could not connect to the call.",
+                        error instanceof Error ? error.message : "Could not connect to call.",
                     );
                 }
             });
@@ -115,10 +385,10 @@ export function CallSession({
             room.disconnect();
             roomRef.current = null;
             audioHost?.replaceChildren();
+            setRemoteVideoStream(null);
         };
-        // The server issues a new room name for each call lifecycle.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [call.transport?.roomName]);
+    }, [call.transport?.roomName, call.transport?.token, status]);
+
 
     useEffect(() => {
         const room = roomRef.current;
@@ -134,206 +404,81 @@ export function CallSession({
         }
     }, [state.camera]);
 
-    const ringing = seconds < 0;
-
-    // Outgoing ringback while the call is ringing.
-    useEffect(() => {
-        if (!ringing) return;
-        const ring = ringOutgoing();
-        return () => ring.stop();
-    }, [ringing]);
-
-    const mm = String(Math.floor(Math.max(seconds, 0) / 60)).padStart(2, "0");
-    const ss = String(Math.max(seconds, 0) % 60).padStart(2, "0");
-    const timer = connectionError ? "connection failed" : ringing ? "ringing…" : `${mm}:${ss}`;
+    const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+    const ss = String(seconds % 60).padStart(2, "0");
+    const timer = connectionError ? "failed" : isCalling ? "Calling..." : `${mm}:${ss}`;
     const audioHost = <div ref={audioHostRef} className="hidden" aria-hidden />;
 
-    const tiles: VoiceParticipant[] = [
-        ...call.peers.map((p, i) => ({
-            id: p.id,
-            name: p.name,
-            avatar: p.avatar,
-            speaking: !ringing && i === 0,
-        })),
-        {
-            id: me.id,
-            name: me.name,
-            avatar: me.avatar,
-            muted: state.muted,
-            deafened: state.deafened,
-        },
-    ];
+    const primaryPeer = call.peers[0] || {
+        id: "peer",
+        name: call.name || "AIIC Member",
+        avatar: null,
+    };
 
-    // In view → inline panel above the messages. Capped so the conversation
-    // below always keeps room. With a stage (screenshare or whiteboard) the
-    // panel becomes stage + participant rail; otherwise a centered tile grid.
-    if (inlineHost) {
-        const stageActive = state.sharing || state.whiteboard;
-        return createPortal(
-            <div className="flex max-h-[55vh] flex-col border-b border-border bg-surface-raised">
-                {audioHost}
-                <div
-                    className={cn(
-                        "mx-auto flex min-h-0 w-full flex-col gap-3 px-4 py-4",
-                        stageActive ? "max-w-[1100px]" : "max-w-[860px]",
-                    )}
-                >
-                    {/* Status row */}
-                    <div className="flex shrink-0 items-center gap-3">
-                        <span className="min-w-0 truncate text-[14px] font-medium text-text-primary">
-                            {call.name ?? call.peers[0]?.name}
-                        </span>
-                        {call.peers.length > 1 && (
-                            <span className="font-mono text-[11px] text-text-muted">
-                                {tiles.length} in call
-                            </span>
-                        )}
-                        <div className="ml-auto flex items-center gap-2">
-                            {!ringing && <ConnectionPill />}
-                            <span
-                                className={cn(
-                                    "font-mono text-[12px]",
-                                    ringing ? "text-text-muted" : "text-status-online",
-                                )}
-                            >
-                                {timer}
-                            </span>
-                        </div>
-                    </div>
+    const isVideoMode = Boolean(call.video || state.camera || remoteVideoStream);
 
-                    {stageActive ? (
-                        <div className="flex h-[clamp(220px,34vh,420px)] min-h-0 gap-2.5">
-                            {/* Stage — the whiteboard takes it when open; else the share. */}
-                            {state.whiteboard ? (
-                                <div className="relative min-w-0 flex-1 overflow-hidden rounded-lg border border-border">
-                                    <WhiteboardLayer
-                                        storageKey={`call-${call.conversationId}`}
-                                        onClose={() => toggle("whiteboard")}
-                                    />
-                                </div>
-                            ) : (
-                                <ScreenShareStage
-                                    className="aspect-auto h-full min-w-0 flex-1"
-                                    presenterName="you"
-                                    self
-                                    stream={screenStream}
-                                    onStop={() => toggle("sharing")}
-                                />
-                            )}
-
-                            {/* Participant rail */}
-                            <div className="flex w-[168px] shrink-0 flex-col gap-2 overflow-y-auto">
-                                {state.whiteboard && state.sharing && (
-                                    <ScreenShareStage
-                                        className="shrink-0"
-                                        presenterName="you"
-                                        self
-                                        stream={screenStream}
-                                        onStop={() => toggle("sharing")}
-                                    />
-                                )}
-                                {tiles.map((p) => (
-                                    <ParticipantTile
-                                        key={p.id}
-                                        participant={p}
-                                        size={26}
-                                        className="shrink-0"
-                                        stream={
-                                            p.id === me.id && state.camera ? camStream : undefined
-                                        }
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    ) : (
-                        <div
-                            className={cn(
-                                "grid min-h-0 gap-2.5 overflow-y-auto",
-                                tiles.length <= 3
-                                    ? "grid-cols-[repeat(auto-fit,minmax(180px,220px))] justify-center"
-                                    : "grid-cols-3",
-                            )}
-                        >
-                            {tiles.map((p) => (
-                                <ParticipantTile
-                                    key={p.id}
-                                    participant={p}
-                                    size={48}
-                                    stream={p.id === me.id && state.camera ? camStream : undefined}
-                                />
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Controls */}
-                    <div className="flex shrink-0 items-center justify-center gap-2 pt-1">
-                        <CallControls
-                            state={state}
-                            onToggle={toggle}
-                            onLeave={() => onEnd(Math.max(seconds, 0))}
-                            compact
+    // Dedicated Full-Screen / Modal Call Experience
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4 sm:p-6 animate-in fade-in duration-200">
+            {audioHost}
+            <div className="relative flex h-full max-h-[640px] w-full max-w-[840px] flex-col">
+                {state.whiteboard ? (
+                    <div className="relative h-full w-full overflow-hidden rounded-[32px] border border-border bg-[#0b0e14]">
+                        <WhiteboardLayer
+                            storageKey={`call-${call.conversationId}`}
+                            onClose={() => toggle("whiteboard")}
                         />
                     </div>
-                </div>
-            </div>,
-            inlineHost,
-        );
-    }
-
-    // Elsewhere in the app → a quiet floating pill; the call keeps running.
-    return (
-        <div
-            className="fixed right-5 top-5 z-[160] flex items-center gap-2.5 rounded-[10px] border border-border bg-surface-overlay py-2 pl-3.5 pr-2"
-            style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
-        >
-            {audioHost}
-            <span
-                className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    ringing ? "bg-status-idle" : "bg-status-online",
+                ) : state.sharing ? (
+                    <div className="relative flex h-full w-full flex-col gap-3">
+                        <ScreenShareStage
+                            className="h-full w-full flex-1"
+                            presenterName="you"
+                            self
+                            stream={screenStream}
+                            onStop={() => toggle("sharing")}
+                        />
+                        <div className="flex justify-center">
+                            <CallControls
+                                state={state}
+                                onToggle={toggle}
+                                onLeave={() => onEnd(seconds)}
+                                compact
+                            />
+                        </div>
+                    </div>
+                ) : isVideoMode ? (
+                    <VideoCallUI
+                        peer={primaryPeer}
+                        me={me}
+                        timer={timer}
+                        status={status}
+                        state={state}
+                        onToggle={toggle}
+                        onEnd={() => onEnd(seconds)}
+                        localStream={camStream}
+                        remoteStream={remoteVideoStream}
+                    />
+                ) : (
+                    <VoiceCallUI
+                        peer={primaryPeer}
+                        me={me}
+                        timer={timer}
+                        status={status}
+                        state={state}
+                        onToggle={toggle}
+                        onEnd={() => onEnd(seconds)}
+                    />
                 )}
-            />
-            <button type="button" onClick={onJump} className="min-w-0 text-left">
-                <span className="block max-w-[140px] truncate text-[13px] font-medium text-text-primary">
-                    {call.name ?? call.peers[0]?.name}
-                </span>
-                <span className="font-mono text-[10px] text-text-muted">{timer}</span>
-            </button>
-            <button
-                type="button"
-                aria-label={state.muted ? "Unmute" : "Mute"}
-                onClick={() => toggle("muted")}
-                className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-md border transition-colors",
-                    state.muted
-                        ? "border-danger/40 bg-danger/10 text-danger"
-                        : "border-border bg-surface-raised text-text-primary hover:bg-hover-row",
-                )}
-            >
-                {state.muted ? <MicOff size={14} /> : <Mic size={14} />}
-            </button>
-            <button
-                type="button"
-                aria-label="Back to call"
-                title="Back to the conversation"
-                onClick={onJump}
-                className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface-raised text-text-secondary transition-colors hover:bg-hover-row hover:text-text-primary"
-            >
-                <Maximize2 size={13} />
-            </button>
-            <button
-                type="button"
-                aria-label="End call"
-                onClick={() => onEnd(Math.max(seconds, 0))}
-                className="flex h-8 w-8 items-center justify-center rounded-md border border-danger/30 bg-danger/15 text-danger transition-colors hover:bg-danger/25"
-            >
-                <PhoneOff size={14} />
-            </button>
+            </div>
         </div>
     );
 }
 
-/** Incoming call — a quiet corner card, not a takeover. */
+/**
+ * Incoming Call Modal / Overlay.
+ * Explicit Accept and Decline action with pulsing ring and clear caller info.
+ */
 export function IncomingCallCard({
     caller,
     video,
@@ -345,34 +490,56 @@ export function IncomingCallCard({
     onAccept: () => void;
     onDecline: () => void;
 }) {
+    useEffect(() => {
+        const ring = ringIncoming();
+        return () => ring.stop();
+    }, []);
+
     return (
-        <div
-            className="fixed right-5 top-5 z-[160] flex w-[320px] items-center gap-3 rounded-[10px] border border-border bg-surface-overlay p-3.5"
-            style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
-        >
-            <Avatar src={caller.avatar} name={caller.name} size={40} radius={10} />
-            <div className="min-w-0 flex-1 leading-tight">
-                <p className="truncate text-[14px] font-medium text-text-primary">{caller.name}</p>
-                <p className="font-mono text-[11px] text-text-muted">
-                    incoming {video ? "video" : "voice"} call
-                </p>
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200">
+
+            <div className="relative flex w-full max-w-[360px] flex-col items-center justify-between rounded-[32px] border border-white/[0.12] bg-gradient-to-b from-[#161c2c]/98 to-[#0d111a]/98 p-6 text-center backdrop-blur-2xl shadow-[0_16px_48px_rgba(0,0,0,0.6)]">
+                {/* Ambient Glow */}
+                <div className="pointer-events-none absolute -top-16 left-1/2 h-[200px] w-[200px] -translate-x-1/2 rounded-full bg-accent/20 blur-[80px]" />
+
+                {/* Top Badge */}
+                <span className="rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-accent">
+                    Incoming {video ? "Video" : "Voice"} Call
+                </span>
+
+                {/* Caller Avatar with Pulsing Ring */}
+                <div className="relative my-6 flex items-center justify-center">
+                    <div className="absolute h-28 w-28 rounded-full bg-emerald-500/25 animate-ping" />
+                    <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-2 border-emerald-400/50 bg-[#1a2236] shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                        <Avatar src={caller.avatar} name={caller.name} size={80} radius={40} />
+                    </div>
+                </div>
+
+                <h3 className="text-xl font-bold tracking-tight text-text-primary">
+                    {caller.name}
+                </h3>
+                <p className="mt-0.5 text-xs text-text-muted">is calling you...</p>
+
+                {/* Action Buttons: Decline / Accept */}
+                <div className="mt-8 flex w-full items-center justify-center gap-6">
+                    <button
+                        type="button"
+                        aria-label="Decline call"
+                        onClick={onDecline}
+                        className="flex h-14 w-14 items-center justify-center rounded-full border border-danger/40 bg-danger/20 text-danger transition-all hover:scale-110 active:scale-95 shadow-lg"
+                    >
+                        <PhoneOff size={22} />
+                    </button>
+                    <button
+                        type="button"
+                        aria-label="Accept call"
+                        onClick={onAccept}
+                        className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/50 bg-emerald-500 text-white transition-all hover:scale-110 active:scale-95 shadow-[0_0_25px_rgba(16,185,129,0.4)] animate-bounce"
+                    >
+                        <Phone size={22} />
+                    </button>
+                </div>
             </div>
-            <button
-                type="button"
-                aria-label="Decline"
-                onClick={onDecline}
-                className="flex h-9 w-9 items-center justify-center rounded-md border border-danger/30 bg-danger/15 text-danger transition-colors hover:bg-danger/25"
-            >
-                <Minus size={16} />
-            </button>
-            <button
-                type="button"
-                aria-label="Accept"
-                onClick={onAccept}
-                className="flex h-9 w-9 items-center justify-center rounded-md border border-success/30 bg-success/15 text-success transition-colors hover:bg-success/25"
-            >
-                <Phone size={16} />
-            </button>
         </div>
     );
 }

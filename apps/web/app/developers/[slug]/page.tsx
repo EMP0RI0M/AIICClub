@@ -7,18 +7,18 @@ const PAGES: Record<string, MarketingPageContent> = {
   api: {
     eyebrow: "Developers · Current API",
     title: "Follow the API that exists today.",
-    lede: "Corvus uses a Hono API with route modules for authentication, spaces, channels, messages, direct messages, attachments, calls, voice and workspace data.",
+    lede: "AIIC uses a modular API with route handlers for authentication, spaces, channels, messages, direct messages, attachments, calls, voice and workspace data.",
     blocks: [
       { kind: "h2", text: "Repository-first documentation" },
-      { kind: "p", text: "The current API is implemented in apps/api/src/routes and consumed by the web application through its typed API helpers. A stable public API contract and published OpenAPI specification are not advertised as available yet." },
-      { kind: "code", title: "Inspect the route modules", code: `git clone ${repo}.git\ncd Corvus\nls apps/api/src/routes` },
+      { kind: "p", text: "The current API is implemented in apps/web/app/api and consumed by the web application through its typed API helpers. A stable public API contract and published OpenAPI specification are not advertised as available yet." },
+      { kind: "code", title: "Inspect the route modules", code: `git clone ${repo}.git\ncd Corvus\nls apps/web/app/api` },
       { kind: "note", text: "Use the repository and issue tracker for current behaviour. Do not build against an assumed /api/v1 contract from older marketing material." },
     ],
   },
   sdk: {
     eyebrow: "Developers · SDK status",
     title: "No fictional SDK surface.",
-    lede: "Corvus does not currently publish React, Node, Python or Go SDK packages.",
+    lede: "AIIC does not currently publish React, Node, Python or Go SDK packages.",
     blocks: [
       { kind: "h2", text: "Contribute against the monorepo" },
       { kind: "p", text: "The supported developer path today is the source repository: Next.js for the web client, Hono for the API, Supabase for data and realtime, LiveKit for media, and Tauri for desktop packaging." },

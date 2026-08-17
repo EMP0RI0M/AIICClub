@@ -28,7 +28,7 @@ export function FinalCTA() {
                         className="inline-flex h-11 items-center gap-2 rounded-md bg-surface-raised px-5 text-sm font-medium shadow-e1 hover:bg-surface-overlay"
                     >
                         <GitBranch size={16} />
-                        View Corvus on GitHub
+                        View AIIC on GitHub
                     </a>
                 </div>
                 <a

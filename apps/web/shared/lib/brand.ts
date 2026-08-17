@@ -1,11 +1,13 @@
-export const BRAND_NAME = "Corvus";
+export const BRAND_NAME = "AIIC";
+export const BRAND_FULL_NAME = "AI & Innovation Club";
 
 // Short motto for headers, badges, and compact spaces.
-export const BRAND_MOTTO = "Fly Fast. Speak Secure.";
+export const BRAND_MOTTO = "AI & Innovation Club";
 
 // Expanded tagline for marketing and descriptive copy.
 export const BRAND_TAGLINE =
-  "The raven messenger constellation for modern squads.";
+  "The premier AI & Innovation Club platform for modern squads and researchers.";
 
 export const BRAND_DESCRIPTION =
-  "Corvus delivers secure voice, video, and real-time chat at constellation scale.";
+  "AIIC — AI & Innovation Club delivers secure voice, video, and real-time collaboration.";
+

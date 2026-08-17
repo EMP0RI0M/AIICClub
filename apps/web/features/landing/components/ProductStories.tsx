@@ -20,7 +20,7 @@ export function ProductStories() {
                         A calmer place for the work that begins in conversation.
                     </h2>
                     <p className="mt-5 max-w-[65ch] text-base leading-7 text-text-secondary">
-                        Corvus keeps channels, direct messages and calls understandable, then gives
+                        AIIC keeps channels, direct messages and calls understandable, then gives
                         the surrounding work a clear place to live.
                     </p>
                 </div>

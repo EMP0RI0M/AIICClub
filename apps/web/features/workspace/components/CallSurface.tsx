@@ -48,6 +48,71 @@ export interface CallControlsState {
   whiteboard: boolean;
 }
 
+function parseMediaError(err: any): { title: string; body: string } {
+  const name = err?.name || "";
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return {
+      title: "Camera permission blocked",
+      body: "Camera access was denied. Please enable camera permission in your browser or device settings.",
+    };
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return {
+      title: "No camera detected",
+      body: "No camera hardware was found on this device.",
+    };
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return {
+      title: "Camera in use",
+      body: "The camera is currently being used by another application or browser tab.",
+    };
+  }
+  if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError") {
+    return {
+      title: "Camera resolution unsupported",
+      body: "The requested camera configuration is not supported by this device.",
+    };
+  }
+  if (name === "SecurityError") {
+    return {
+      title: "Security policy restriction",
+      body: "Camera access is restricted by your browser security context.",
+    };
+  }
+  return {
+    title: "Camera unavailable",
+    body: err?.message || "Check browser and device permissions to share video.",
+  };
+}
+
+async function acquireCameraStream(): Promise<MediaStream> {
+  if (typeof window === "undefined" || !navigator?.mediaDevices?.getUserMedia) {
+    throw new Error("Media devices are not supported in this browser environment.");
+  }
+
+  try {
+    // Try preferred mobile constraints: facingMode "user" with standard resolution
+    return await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: "user",
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    });
+  } catch (e: any) {
+    // If overconstrained on mobile, fallback to baseline video: true
+    if (
+      e?.name === "OverconstrainedError" ||
+      e?.name === "ConstraintNotSatisfiedError" ||
+      e?.name === "TypeError"
+    ) {
+      return await navigator.mediaDevices.getUserMedia({ video: true });
+    }
+    throw e;
+  }
+}
+
 function mediaToast(title: string, body: string) {
   useToastStore.getState().addToast({ title, body, variant: "error" });
 }
@@ -98,7 +163,10 @@ export function useCallControls(initial?: Partial<CallControlsState>, mediaEnabl
         session.setEnabled(!mutedRef.current);
         micRef.current = session;
       })
-      .catch(() => mediaToast("Microphone unavailable", "Check browser permissions to talk."));
+      .catch((err) => {
+        const parsed = parseMediaError(err);
+        mediaToast(parsed.title, parsed.body);
+      });
     return () => {
       cancelled = true;
       micRef.current?.dispose();
@@ -111,12 +179,12 @@ export function useCallControls(initial?: Partial<CallControlsState>, mediaEnabl
   useEffect(() => {
     if (!wantsInitialCamera.current) return;
     wantsInitialCamera.current = false;
-    navigator.mediaDevices
-      ?.getUserMedia({ video: true })
+    acquireCameraStream()
       .then(setCamStream)
-      .catch(() => {
+      .catch((err) => {
         setState((s) => ({ ...s, camera: false }));
-        mediaToast("Camera unavailable", "Check browser permissions to share video.");
+        const parsed = parseMediaError(err);
+        mediaToast(parsed.title, parsed.body);
       });
   }, []);
 
@@ -127,38 +195,73 @@ export function useCallControls(initial?: Partial<CallControlsState>, mediaEnabl
   const toggle = (key: keyof CallControlsState) => {
     if (key === "camera") {
       if (state.camera) {
+        if (camStream) {
+          camStream.getTracks().forEach((t) => t.stop());
+        }
         setCamStream(null);
         setState((s) => ({ ...s, camera: false }));
       } else {
-        navigator.mediaDevices
-          ?.getUserMedia({ video: true })
+        acquireCameraStream()
           .then((s) => {
             setCamStream(s);
             setState((st) => ({ ...st, camera: true }));
           })
-          .catch(() => mediaToast("Camera unavailable", "Check browser permissions to share video."));
+          .catch((err) => {
+            setState((st) => ({ ...st, camera: false }));
+            const parsed = parseMediaError(err);
+            mediaToast(parsed.title, parsed.body);
+          });
       }
       return;
     }
 
     if (key === "sharing") {
+
       if (state.sharing) {
+        if (screenStream) {
+          screenStream.getTracks().forEach((t) => t.stop());
+        }
         setScreenStream(null);
         setState((s) => ({ ...s, sharing: false }));
       } else {
+        if (
+          typeof window === "undefined" ||
+          !navigator?.mediaDevices ||
+          typeof navigator.mediaDevices.getDisplayMedia !== "function" ||
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        ) {
+          // Mobile browsers do not support getDisplayMedia — graceful no-op
+          return;
+        }
+
         navigator.mediaDevices
-          ?.getDisplayMedia({ video: true })
+          .getDisplayMedia({
+            video: true,
+            audio: false,
+          })
           .then((s) => {
-            // Browser "stop sharing" bar ends the track — mirror it in state.
-            s.getVideoTracks()[0]?.addEventListener("ended", () => {
-              setScreenStream(null);
-              setState((st) => ({ ...st, sharing: false }));
-            });
+            const track = s.getVideoTracks()[0];
+            if (track) {
+              track.addEventListener("ended", () => {
+                setScreenStream(null);
+                setState((st) => ({ ...st, sharing: false }));
+              });
+            }
             setScreenStream(s);
             setState((st) => ({ ...st, sharing: true }));
           })
-          .catch(() => {
-            /* user cancelled the picker — nothing to do */
+          .catch((err) => {
+            if (
+              err?.name === "NotAllowedError" ||
+              err?.name === "AbortError" ||
+              err?.name === "PermissionDeniedError"
+            ) {
+              return;
+            }
+            mediaToast(
+              "Screen share failed",
+              err?.message || "Could not start screen sharing."
+            );
           });
       }
       return;
@@ -173,6 +276,7 @@ export function useCallControls(initial?: Partial<CallControlsState>, mediaEnabl
       micRef.current?.setEnabled(!next.muted);
       return next;
     });
+
   };
 
   return { state, toggle, camStream, screenStream };
@@ -367,6 +471,19 @@ export function WhiteboardLayer({
 
 /* ── Control bar — the one set of call controls everywhere ──────────── */
 
+function useIsScreenShareSupported() {
+  const [supported, setSupported] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+    const hasApi = typeof navigator?.mediaDevices?.getDisplayMedia === "function";
+    setSupported(!isMobileDevice && hasApi);
+  }, []);
+  return supported;
+}
+
 export function CallControls({
   state,
   onToggle,
@@ -380,6 +497,8 @@ export function CallControls({
   compact?: boolean;
 }) {
   const size = compact ? "h-10 w-10" : "h-11 w-11";
+  const canShareScreen = useIsScreenShareSupported();
+
   return (
     <>
       <ControlButton
@@ -411,10 +530,17 @@ export function CallControls({
       <ControlButton
         size={size}
         active={state.sharing}
-        label={state.sharing ? "Stop sharing" : "Share screen"}
-        onClick={() => onToggle("sharing")}
+        disabled={!canShareScreen}
+        label={
+          !canShareScreen
+            ? "Screen share (Desktop only)"
+            : state.sharing
+              ? "Stop sharing"
+              : "Share screen"
+        }
+        onClick={canShareScreen ? () => onToggle("sharing") : undefined}
       >
-        <MonitorUp size={18} />
+        <MonitorUp size={18} className={!canShareScreen ? "opacity-35" : undefined} />
       </ControlButton>
       <ControlButton
         size={size}
@@ -439,6 +565,7 @@ export function CallControls({
     </>
   );
 }
+
 
 /** In-call noise-suppression picker — same engine the dock controls. */
 export function NoiseSuppressionMenu({ size = "h-10 w-10" }: { size?: string }) {
@@ -499,6 +626,7 @@ function ControlButton({
   size,
   active,
   danger,
+  disabled,
   label,
   onClick,
   children,
@@ -506,6 +634,7 @@ function ControlButton({
   size: string;
   active?: boolean;
   danger?: boolean;
+  disabled?: boolean;
   label: string;
   onClick?: () => void;
   children: React.ReactNode;
@@ -515,19 +644,23 @@ function ControlButton({
       type="button"
       aria-label={label}
       aria-pressed={active}
+      aria-disabled={disabled}
       title={label}
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
       className={cn(
         size,
         "flex items-center justify-center rounded-md border transition-colors",
-        danger
-          ? "border-danger/40 bg-danger/10 text-danger hover:bg-danger/20"
-          : active
-            ? "border-accent-muted bg-accent-soft text-text-primary"
-            : "border-border bg-surface-overlay text-text-primary hover:bg-hover-row"
+        disabled
+          ? "border-border/30 bg-surface-overlay/30 text-text-muted/30 cursor-not-allowed opacity-50"
+          : danger
+            ? "border-danger/40 bg-danger/10 text-danger hover:bg-danger/20"
+            : active
+              ? "border-accent-muted bg-accent-soft text-text-primary"
+              : "border-border bg-surface-overlay text-text-primary hover:bg-hover-row"
       )}
     >
       {children}
     </button>
   );
 }
+

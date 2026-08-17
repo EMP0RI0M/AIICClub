@@ -1,0 +1,21 @@
+{
+  "name": "AIIC — AI & Innovation Club",
+  "short_name": "AIIC",
+  "description": "AIIC — AI & Innovation Club delivers secure voice, video, and real-time collaboration.",
+  "start_url": "/spaces",
+  "display": "standalone",
+  "background_color": "#0c0d10",
+  "theme_color": "#0c0d10",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

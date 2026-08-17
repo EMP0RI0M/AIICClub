@@ -47,7 +47,7 @@ export function Waitlist() {
                         <Mail size={16} />
                     </span>
                     <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">
-                        Follow Corvus as it takes shape.
+                        Follow AIIC as it takes shape.
                     </h2>
                     <p className="mt-3 max-w-[52ch] text-[13px] leading-6 text-text-secondary">
                         Join early access for product updates and invitations. The live demo and

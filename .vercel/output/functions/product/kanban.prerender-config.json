@@ -1,0 +1,40 @@
+{
+  "type": "Prerender",
+  "expiration": false,
+  "sourcePath": "/product/[slug]",
+  "isDynamicRoute": false,
+  "htmlSize": 26153,
+  "group": 31,
+  "bypassToken": "424152db7ef1202dc96a6baa1404a57b",
+  "experimentalBypassFor": [
+    {
+      "type": "header",
+      "key": "next-action"
+    },
+    {
+      "type": "header",
+      "key": "content-type",
+      "value": "multipart/form-data;.*"
+    }
+  ],
+  "fallback": {
+    "type": "FileFsRef",
+    "mode": 33188,
+    "fsPath": "kanban.prerender-fallback.html"
+  },
+  "initialHeaders": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/product/layout,_N_T_/product/[slug]/layout,_N_T_/product/[slug]/page,_N_T_/product/kanban",
+    "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch"
+  },
+  "allowQuery": [],
+  "allowHeader": [
+    "host",
+    "x-matched-path",
+    "x-prerender-revalidate",
+    "x-prerender-revalidate-if-generated",
+    "x-next-revalidated-tags",
+    "x-next-revalidate-tag-token"
+  ]
+}

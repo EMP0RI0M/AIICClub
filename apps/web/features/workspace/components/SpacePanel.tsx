@@ -4,14 +4,13 @@ import { useState } from "react";
 import { cn } from "@corvus/ui";
 import { ChevronDown, Plus } from "lucide-react";
 import { Avatar, ChannelGlyph } from "@/shared/components/ui";
+import { usePermissions } from "@/shared/lib/permissions";
 import { ItemLink } from "./ItemLink";
 import { UserDock } from "./UserDock";
 import type { ChannelSection, ChannelSummary, MemberRef, Presence } from "./types";
 
 /**
- * 260px space sidebar (brief §SpacePanel). Real header + typographic section
- * labels + channel rows with monospace type glyphs. Footer is the personal
- * dock (the one circular avatar).
+ * 260px Space Sidebar (Premium Glass Channel Panel).
  */
 export function SpacePanel({
   spaceName,
@@ -49,41 +48,51 @@ export function SpacePanel({
   /** Presence + custom status from the dock's status card. */
   onSetStatus?: (presence: Presence, text?: string) => void;
 }) {
+  const { can } = usePermissions();
+  const canManageSpace = can("SPACE_MANAGE_SETTINGS") || can("ORG_MANAGE_ROLES") || can("CHANNEL_CREATE_TEXT") || can("INVITE_CREATE") || can("SPACE_VIEW_AUDIT_LOGS");
+
   return (
-    <aside className="hidden h-full w-[248px] shrink-0 flex-col overflow-hidden bg-channel-sidebar shadow-[inset_-1px_0_rgb(var(--c-border-subtle))] md:flex">
+    <aside className="flex h-full min-w-0 flex-1 md:flex-initial md:w-[244px] shrink-0 flex-col overflow-hidden bg-[#0e121a]/85 border-r border-white/[0.06] backdrop-blur-xl shadow-[inset_-1px_0_rgba(255,255,255,0.03)]">
       {/* Header */}
-      <button
-        type="button"
-        onClick={onOpenSpaceSettings}
-        className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4 text-left transition-colors hover:bg-hover-row"
-      >
-        <span className="truncate text-[15px] font-semibold text-text-primary">{spaceName}</span>
-        <ChevronDown size={16} className="text-text-faint" />
-      </button>
+      {canManageSpace ? (
+        <button
+          type="button"
+          onClick={onOpenSpaceSettings}
+          className="flex h-13 shrink-0 items-center justify-between border-b border-white/[0.06] px-4 text-left transition-colors hover:bg-white/[0.04] active:scale-[0.99]"
+        >
+          <span className="truncate text-[14.5px] font-bold text-text-primary">{spaceName}</span>
+          <ChevronDown size={15} className="text-text-muted" />
+        </button>
+      ) : (
+        <div className="flex h-13 shrink-0 items-center border-b border-white/[0.06] px-4">
+          <span className="truncate text-[14.5px] font-bold text-text-primary">{spaceName}</span>
+        </div>
+      )}
 
       {/* Channels */}
-      <div className="flex-1 overflow-y-auto py-2">
+      <div className="flex-1 overflow-y-auto px-2 py-2.5 scrollbar-thin scrollbar-thumb-white/10">
         {sections.map((section) => (
           <Section
             key={section.id}
             section={section}
             activeChannelId={activeChannelId}
             onSelect={onSelectChannel}
-            onAddChannel={onAddChannel}
+            onAddChannel={can("CHANNEL_CREATE_TEXT") ? onAddChannel : undefined}
             hrefFor={channelHref}
           />
         ))}
-        {onAddSection && (
+        {onAddSection && can("CHANNEL_MANAGE_CATEGORIES") && (
           <button
             type="button"
             onClick={onAddSection}
-            className="mx-2 mt-2 flex h-8 w-[calc(100%-16px)] items-center gap-2 rounded-sm px-2 text-[13px] text-text-faint transition-colors hover:bg-hover-row hover:text-text-primary"
+            className="mt-2 flex h-8 w-full items-center gap-2 rounded-xl px-2.5 text-[12.5px] font-medium text-text-muted transition-all hover:bg-white/[0.05] hover:text-text-primary active:scale-[0.98]"
           >
             <Plus size={13} />
-            Add section
+            Add Section
           </button>
         )}
       </div>
+
 
       {/* Footer — personal dock */}
       <UserDock
@@ -114,12 +123,12 @@ function Section({
 }) {
   const [collapsed, setCollapsed] = useState(false);
   return (
-    <div className="mb-1">
-      <div className="group flex items-center justify-between px-2.5 pb-1 pt-4">
+    <div className="mb-1.5">
+      <div className="group flex items-center justify-between px-2 pb-1 pt-3">
         <button
           type="button"
           onClick={() => setCollapsed((v) => !v)}
-          className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text-muted transition-colors hover:text-text-secondary"
+          className="font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-text-muted/80 transition-colors hover:text-text-primary"
         >
           {section.name}
         </button>
@@ -128,20 +137,21 @@ function Section({
           aria-label={`Add channel to ${section.name}`}
           title="Add channel"
           onClick={() => onAddChannel?.(section.id)}
-          className="text-text-faint opacity-0 transition-opacity hover:text-text-primary group-hover:opacity-100"
+          className="text-text-muted opacity-0 transition-opacity hover:text-text-primary group-hover:opacity-100"
         >
-          <Plus size={14} />
+          <Plus size={13} />
         </button>
       </div>
-      {!collapsed && section.channels.map((ch) => (
-        <ChannelRow
-          key={ch.id}
-          channel={ch}
-          active={ch.id === activeChannelId}
-          onSelect={onSelect}
-          href={hrefFor?.(ch.id)}
-        />
-      ))}
+      {!collapsed &&
+        section.channels.map((ch) => (
+          <ChannelRow
+            key={ch.id}
+            channel={ch}
+            active={ch.id === activeChannelId}
+            onSelect={onSelect}
+            href={hrefFor?.(ch.id)}
+          />
+        ))}
     </div>
   );
 }
@@ -158,39 +168,39 @@ function ChannelRow({
   href?: string;
 }) {
   return (
-    <div className="relative">
-      {channel.unread && !active && (
-        <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r bg-accent" />
-      )}
+    <div className="relative my-0.5">
       <ItemLink
         href={href}
         onPress={() => onSelect?.(channel.id)}
         active={active}
         current={active}
         className={cn(
-          "mx-2 flex h-[30px] w-[calc(100%-16px)] items-center gap-2 rounded-sm px-2 text-[14px] transition-colors duration-100",
+          "flex h-9 md:h-[34px] w-full items-center gap-2 rounded-xl px-2.5 text-[13.5px] font-medium transition-all duration-150 active:scale-[0.98]",
           active
-            ? "bg-surface-overlay font-medium text-text-primary"
+            ? "border border-accent/30 bg-accent/15 text-text-primary font-semibold shadow-sm"
             : channel.unread
-              ? "font-medium text-text-primary hover:bg-hover-row"
-              : "text-text-secondary hover:bg-hover-row hover:text-text-primary"
+            ? "font-semibold text-text-primary hover:bg-white/[0.05]"
+            : "text-text-secondary hover:bg-white/[0.04] hover:text-text-primary"
         )}
       >
-        <ChannelGlyph type={channel.type} size={14} />
+        <ChannelGlyph type={channel.type} size={15} />
         <span className="truncate">{channel.name}</span>
+        {channel.unread && !active && (
+          <span className="ml-auto h-2 w-2 rounded-full bg-accent" />
+        )}
       </ItemLink>
 
       {/* Voice participants inline */}
       {channel.type === "voice" && channel.participants && channel.participants.length > 0 && (
-        <div className="mb-1 ml-7 mt-0.5 flex flex-col gap-1">
+        <div className="mb-1 ml-6 mt-1 flex flex-col gap-1">
           {channel.participants.slice(0, 3).map((p) => (
             <div key={p.id} className="flex items-center gap-2">
-              <Avatar src={p.avatar} name={p.name} size={16} radius={4} />
-              <span className="truncate font-mono text-[11px] text-text-muted">{p.name}</span>
+              <Avatar src={p.avatar} name={p.name} size={16} shape="circle" />
+              <span className="truncate font-mono text-[10.5px] text-text-muted">{p.name}</span>
             </div>
           ))}
           {channel.participants.length > 3 && (
-            <span className="ml-[26px] font-mono text-[11px] text-text-faint">
+            <span className="ml-[24px] font-mono text-[10px] text-text-faint">
               +{channel.participants.length - 3} more
             </span>
           )}
@@ -199,4 +209,3 @@ function ChannelRow({
     </div>
   );
 }
-

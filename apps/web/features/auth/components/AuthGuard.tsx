@@ -102,7 +102,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             <div className="h-full bg-background flex items-center justify-center">
                 <img
                     src="/corvus-logo.png"
-                    alt="Corvus"
+                    alt="AIIC"
                     className="w-10 h-10 rounded-full shadow-glow animate-pulse"
                 />
             </div>

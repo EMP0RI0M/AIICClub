@@ -4,15 +4,15 @@
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "dev": "turbo dev --filter=!@corvus/desktop",
-    "build": "turbo build --filter=!@corvus/desktop",
+    "dev": "turbo dev",
+    "build": "turbo build",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "dev:web": "turbo dev --filter=@corvus/web",
-    "dev:desktop": "turbo dev --filter=@corvus/desktop",
+    "dev:api": "turbo dev --filter=@corvus/api",
     "build:web": "turbo build --filter=@corvus/web",
-    "build:desktop": "turbo build --filter=@corvus/desktop"
+    "build:api": "turbo build --filter=@corvus/api"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

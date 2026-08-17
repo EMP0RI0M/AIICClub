@@ -235,20 +235,42 @@ export function RoutedAppShell({ isDemo = false }: { isDemo?: boolean }) {
         };
     }, [isAuthenticated, setFriends, user?.id]);
 
-    // Load the active space's channels when we don't have them cached.
+    // Load the active space's channels and listen for realtime updates.
     useEffect(() => {
         if (!isAuthenticated || !activeSpaceId) return;
-        if (channelsByServer[activeSpaceId]?.length) return;
         let cancelled = false;
         fetchChannels(activeSpaceId)
             .then((r) => {
                 if (!cancelled) setChannels(r.channels);
             })
             .catch(() => {});
+
+        const supabase = getSupabaseClient();
+        const channelSub = supabase
+            .channel(`channels:${activeSpaceId}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "channels",
+                    filter: `server_id=eq.${activeSpaceId}`,
+                },
+                () => {
+                    fetchChannels(activeSpaceId)
+                        .then((r) => {
+                            if (!cancelled) setChannels(r.channels);
+                        })
+                        .catch(() => {});
+                }
+            )
+            .subscribe();
+
         return () => {
             cancelled = true;
+            void supabase.removeChannel(channelSub);
         };
-    }, [isAuthenticated, activeSpaceId, channelsByServer, setChannels]);
+    }, [isAuthenticated, activeSpaceId, setChannels]);
 
     useEffect(() => {
         if (!isAuthenticated || !activeSpaceId) return;
@@ -428,7 +450,60 @@ export function RoutedAppShell({ isDemo = false }: { isDemo?: boolean }) {
                         .channel(`${target.kind}:${target.id}`, realtimeChannelOptions)
                         .on("broadcast", { event: "*" }, ({ event, payload }) => {
                             applyEvent(target.id, event, payload);
+                            window.dispatchEvent(
+                                new CustomEvent("corvus:realtime", { detail: { event, payload } }),
+                            );
                         })
+
+                        .on(
+                            "postgres_changes",
+                            {
+                                event: "*",
+                                schema: "public",
+                                table: "messages",
+                                filter: `channel_id=eq.${target.id}`,
+                            },
+                            async (payload) => {
+                                if (payload.eventType === "INSERT") {
+                                    const row = payload.new as any;
+                                    // Fetch author details
+                                    const { data: authorData } = await supabase
+                                        .from("users")
+                                        .select("id, username, display_name, avatar_url")
+                                        .eq("id", row.author_id)
+                                        .maybeSingle();
+
+                                    const formatted: MessageData = {
+                                        id: row.id,
+                                        channelId: row.channel_id,
+                                        authorId: row.author_id,
+                                        content: row.content,
+                                        type: "DEFAULT",
+                                        replyToId: row.reply_to_id,
+                                        pinned: row.pinned || false,
+                                        createdAt: row.created_at,
+                                        updatedAt: row.created_at,
+                                        reactions: [],
+                                        attachments: [],
+                                        author: {
+                                            id: authorData?.id || row.author_id,
+                                            username: authorData?.username || "unknown",
+                                            displayName: authorData?.display_name || authorData?.username || "User",
+                                            avatarUrl: authorData?.avatar_url || null,
+                                        },
+                                    } as any;
+                                    addMessage(target.id, formatted);
+                                } else if (payload.eventType === "UPDATE") {
+                                    const row = payload.new as any;
+                                    updateMessage(target.id, row.id, {
+                                        content: row.content,
+                                    });
+                                } else if (payload.eventType === "DELETE") {
+                                    const row = payload.old as any;
+                                    deleteMessage(target.id, row.id);
+                                }
+                            }
+                        )
                         .subscribe();
                     subscriptions.push(channel);
                 }

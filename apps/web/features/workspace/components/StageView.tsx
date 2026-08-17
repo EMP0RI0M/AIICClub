@@ -16,10 +16,12 @@ export function StageView({
   channelName,
   participants,
   onLeave,
+  onBack,
 }: {
   channelName: string;
   participants: VoiceParticipant[];
   onLeave?: () => void;
+  onBack?: () => void;
 }) {
   const [handRaised, setHandRaised] = useState(false);
 
@@ -29,6 +31,16 @@ export function StageView({
   return (
     <section className="flex h-full min-w-0 flex-1 flex-col bg-background">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to channels"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-text-secondary hover:bg-hover-row hover:text-text-primary md:hidden"
+          >
+            ←
+          </button>
+        )}
         <ChannelGlyph type="stage" size={14} />
         <h1 className="text-[15px] font-semibold text-text-primary">{channelName}</h1>
         <span className="flex items-center gap-1.5 rounded-[3px] border border-live/40 px-2 py-px font-mono text-[10px] uppercase tracking-[0.08em] text-live">

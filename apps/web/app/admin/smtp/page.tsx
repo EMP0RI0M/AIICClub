@@ -23,7 +23,7 @@ export default function AdminSmtp() {
         </div>
         <div className="col-span-2">
           <label className={LABEL}>Username</label>
-          <input className={FIELD} placeholder="corvus@example.com" />
+          <input className={FIELD} placeholder="aiic@example.com" />
         </div>
         <div className="col-span-2">
           <label className={LABEL}>Password</label>
@@ -31,7 +31,7 @@ export default function AdminSmtp() {
         </div>
         <div className="col-span-2">
           <label className={LABEL}>From address</label>
-          <input className={FIELD} placeholder="Corvus <no-reply@example.com>" />
+          <input className={FIELD} placeholder="AIIC <no-reply@example.com>" />
         </div>
         <div className="col-span-2 mt-2 flex gap-3">
           <button

@@ -300,7 +300,7 @@ export function ProductFrame({
                 <span className="h-2 w-2 rounded-full bg-warning/70" />
                 <span className="h-2 w-2 rounded-full bg-live/70" />
                 <span className="mx-auto font-mono text-[8px] tracking-wider text-text-faint">
-                    CORVUS / NORTHSTAR
+                    AIIC PLATFORM
                 </span>
                 <MoreHorizontal size={13} className="text-text-faint" />
             </div>
@@ -308,7 +308,7 @@ export function ProductFrame({
                 <aside className="flex flex-col items-center gap-3 bg-bg-deep py-3">
                     <img src="/corvus-logo-small.png" alt="" className="h-7 w-7 rounded-md" />
                     <span className="h-px w-6 bg-border-subtle" />
-                    {["N", "D", "O"].map((x, i) => (
+                    {["A", "P", "R"].map((x, i) => (
                         <span
                             key={x}
                             className={cn(
@@ -323,11 +323,11 @@ export function ProductFrame({
                     ))}
                 </aside>
                 <aside className="overflow-hidden bg-channel-sidebar px-2 py-3">
-                    <p className="truncate px-2 text-[11px] font-semibold">Northstar</p>
+                    <p className="truncate px-2 text-[11px] font-semibold">AI Research</p>
                     <p className="mt-4 px-2 text-[9px] font-semibold text-text-faint">
                         CONVERSATIONS
                     </p>
-                    {["general", "desktop", "release-notes"].map((x, i) => (
+                    {["general", "ai-research", "projects"].map((x, i) => (
                         <div
                             key={x}
                             className={cn(
@@ -356,7 +356,7 @@ export function ProductFrame({
                     <div className="flex h-11 items-center border-b border-border-subtle px-4">
                         <Hash size={14} className="text-text-muted" />
                         <span className="ml-2 text-[12px] font-semibold">
-                            {mode === "messages" ? "desktop" : mode}
+                            {mode === "messages" ? "ai-research" : mode}
                         </span>
                         <span className="ml-auto flex gap-3 text-text-faint">
                             <Search size={14} />

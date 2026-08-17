@@ -15,12 +15,14 @@ export function DocsView({
   docs,
   me,
   onChangeDocs,
+  onBack,
 }: {
   docs: DocContent[];
   /** Author for newly created docs. */
   me?: MemberRef;
   /** Persist creations, edits, and deletions. */
   onChangeDocs?: (docs: DocContent[]) => void;
+  onBack?: () => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -64,6 +66,16 @@ export function DocsView({
   return (
     <section className="flex h-full min-w-0 flex-1 flex-col bg-background">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to channels"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-text-secondary hover:bg-hover-row hover:text-text-primary md:hidden"
+          >
+            ←
+          </button>
+        )}
         <ChannelGlyph type="docs" size={16} />
         <h1 className="text-[15px] font-semibold text-text-primary">Docs</h1>
         <button

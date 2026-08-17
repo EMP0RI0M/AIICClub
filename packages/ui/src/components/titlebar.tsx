@@ -140,9 +140,9 @@ export function Titlebar({ className }: TitlebarProps) {
     >
       {/* Left: Logo + Wordmark */}
       <div className="flex items-center gap-2 pl-3 pointer-events-none" data-tauri-drag-region>
-        <img src="/corvus-logo.png" alt="Corvus" className="h-4 w-4 rounded-full" />
+        <img src="/corvus-logo.png" alt="AIIC" className="h-4 w-4 rounded-full" />
         <span className="text-micro text-text-muted font-semibold tracking-wide">
-          Corvus
+          AIIC
         </span>
       </div>
 

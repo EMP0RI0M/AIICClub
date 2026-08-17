@@ -122,58 +122,16 @@ async function findAvailableUsername(
     email: string,
     displayName: string
 ): Promise<string> {
-    const candidates = [
-        preferredUsername ?? "",
-        normalizeUsernameCandidate(displayName),
-        normalizeUsernameCandidate(email.split("@")[0] ?? ""),
-        "user",
-    ];
+    const supabase = (await import("../lib/supabase.js")).getSupabaseAdmin();
+    const candidate = normalizeUsernameCandidate(preferredUsername || displayName || email.split("@")[0]) || "user";
+    
+    // Quick check for primary candidate
+    const { data: existing } = await supabase.from("users").select("username").eq("username", candidate).maybeSingle();
+    if (!existing) return candidate;
 
-    const seen = new Set<string>();
-    const candidateList: string[] = [];
-
-    for (const candidate of candidates) {
-        if (!candidate || candidate.length < 3 || seen.has(candidate)) {
-            continue;
-        }
-        seen.add(candidate);
-        candidateList.push(candidate);
-    }
-
-    if (candidateList.length > 0) {
-        const existingUsers = await prisma.user.findMany({
-            where: { username: { in: candidateList } },
-            select: { username: true },
-        });
-        const existingUsernames = new Set(existingUsers.map((u) => u.username));
-
-        for (const candidate of candidateList) {
-            if (!existingUsernames.has(candidate)) {
-                return candidate;
-            }
-        }
-    }
-
-    const base = normalizeUsernameCandidate(preferredUsername ?? displayName) || "user";
-
-    // Batch suffix checks: generate 10 candidate suffixes at once to avoid multiple sequential round-trips
-    const suffixes = Array.from({ length: 10 }, () =>
-        Math.floor(Math.random() * 10000).toString().padStart(4, "0")
-    );
-    const randomCandidates = suffixes.map((suffix) => `${base.slice(0, 25)}_${suffix}`);
-    const existingRandom = await prisma.user.findMany({
-        where: { username: { in: randomCandidates } },
-        select: { username: true },
-    });
-    const existingRandomUsernames = new Set(existingRandom.map((u) => u.username));
-
-    for (const candidate of randomCandidates) {
-        if (!existingRandomUsernames.has(candidate)) {
-            return candidate;
-        }
-    }
-
-    return `${base.slice(0, 20)}_${Date.now().toString(36)}`;
+    // Fast random suffix
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    return `${candidate.slice(0, 20)}_${randomSuffix}`;
 }
 
 // ─── POST /auth/session/exchange ───────────────────────────────

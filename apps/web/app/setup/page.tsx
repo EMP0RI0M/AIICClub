@@ -42,12 +42,12 @@ export default function SetupWizard() {
         )}
 
         {step === 2 && (
-          <StepFrame title="Instance config" sub="How your Corvus instance presents itself.">
+          <StepFrame title="Instance config" sub="How your AIIC instance presents itself.">
             <Field label="Instance name">
               <input className={FIELD} placeholder="Acme HQ" />
             </Field>
             <Field label="URL">
-              <input className={`${FIELD} font-mono text-[13px]`} placeholder="https://corvus.acme.com" />
+              <input className={`${FIELD} font-mono text-[13px]`} placeholder="https://aiic.acme.com" />
             </Field>
             <button
               type="button"
@@ -81,13 +81,13 @@ export default function SetupWizard() {
               </Field>
             </div>
             <Field label="Username">
-              <input className={FIELD} placeholder="corvus@example.com" />
+              <input className={FIELD} placeholder="aiic@example.com" />
             </Field>
             <Field label="Password">
               <input className={FIELD} type="password" placeholder="••••••••" />
             </Field>
             <Field label="From address">
-              <input className={FIELD} placeholder="Corvus <no-reply@example.com>" />
+              <input className={FIELD} placeholder="AIIC <no-reply@example.com>" />
             </Field>
             <div className="mt-6 flex items-center gap-3">
               <PrimaryBtn onClick={() => setStep(4)}>Continue →</PrimaryBtn>
@@ -103,13 +103,13 @@ export default function SetupWizard() {
         )}
 
         {step === 4 && (
-          <StepFrame title="Your Corvus instance is ready." sub="Sign in with the admin account to get started.">
+          <StepFrame title="Your AIIC instance is ready." sub="Sign in with the admin account to get started.">
             <div className="mt-2">
               <Link
                 href="/login"
                 className="inline-block rounded-md bg-accent px-5 py-2.5 text-[14px] font-medium text-on-accent transition-colors hover:bg-accent-violet-bright"
               >
-                Open Corvus →
+                Open AIIC →
               </Link>
             </div>
           </StepFrame>

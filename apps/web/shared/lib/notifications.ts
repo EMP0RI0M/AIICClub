@@ -3,7 +3,7 @@ import { playNotification, type NotificationKind } from "@/shared/lib/sounds";
 
 export type NotificationSoundKind = NotificationKind;
 
-const APP_TITLE = "Corvus";
+const APP_TITLE = "AIIC";
 const overlayIconCache = new Map<string, ReturnType<typeof createOverlayIcon>>();
 
 /**

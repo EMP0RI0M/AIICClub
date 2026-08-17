@@ -5,13 +5,29 @@ function getToken(): string | null {
     if (typeof window === "undefined") return null;
     try {
         const stored = localStorage.getItem("corvus-auth");
-        if (!stored) return null;
-        const parsed = JSON.parse(stored);
-        return parsed?.state?.token || null;
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed?.state?.token) return parsed.state.token;
+        }
+
+        // Fallback: check Supabase auth storage in localStorage
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith("sb-") || key.includes("supabase")) && key.endsWith("-auth-token")) {
+                const sbRaw = localStorage.getItem(key);
+                if (sbRaw) {
+                    const sbParsed = JSON.parse(sbRaw);
+                    if (sbParsed?.access_token) return sbParsed.access_token;
+                }
+            }
+        }
+
+        return null;
     } catch {
         return null;
     }
 }
+
 
 export interface CustomRequestInit extends RequestInit {
     timeoutMs?: number;
@@ -108,7 +124,11 @@ export async function api<T>(path: string, options: CustomRequestInit = {}): Pro
 
     if (!res.ok) {
         const errObj = data as { error?: string; message?: string; details?: string } | null;
-        const baseMessage = errObj?.error || errObj?.message || `Request failed (${res.status})`;
+        let baseMessage = errObj?.error || errObj?.message || `Request failed (${res.status})`;
+
+        if (typeof baseMessage === "string" && (baseMessage.includes("<!DOCTYPE") || baseMessage.includes("<html"))) {
+            baseMessage = `Request failed (${res.status})`;
+        }
 
         throw new Error(errObj?.details ? `${baseMessage}: ${errObj.details}` : baseMessage);
     }
@@ -463,15 +483,46 @@ export function saveGitHubState(
     });
 }
 
-export function fetchUserSettings() {
-    return api<{ settings: Record<string, unknown> }>("/users/me/settings");
+export async function fetchUserSettings(): Promise<{ settings: Record<string, unknown> }> {
+    try {
+        const { getSupabaseClient } = await import("@/shared/supabase/client");
+        const supabase = getSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return { settings: {} };
+
+        const { data, error } = await supabase
+            .from("user_settings")
+            .select("settings")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+        if (error || !data) return { settings: {} };
+        return { settings: (data.settings || {}) as Record<string, unknown> };
+    } catch {
+        return { settings: {} };
+    }
 }
 
-export function saveUserSettings(settings: Record<string, unknown>) {
-    return api<{ settings: Record<string, unknown> }>("/users/me/settings", {
-        method: "PUT",
-        body: JSON.stringify({ settings }),
-    });
+export async function saveUserSettings(settings: Record<string, unknown>): Promise<{ settings: Record<string, unknown> }> {
+    try {
+        const { getSupabaseClient } = await import("@/shared/supabase/client");
+        const supabase = getSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return { settings };
+
+        await supabase
+            .from("user_settings")
+            .upsert({
+                user_id: user.id,
+                settings,
+                updated_at: new Date().toISOString(),
+            }, { onConflict: "user_id" });
+
+        return { settings };
+    } catch (err) {
+        console.error("Failed to save user settings to Supabase:", err);
+        return { settings };
+    }
 }
 
 export function fetchServerSettings(serverId: string) {
@@ -561,7 +612,31 @@ export function fetchLinkPreview(url: string) {
     return api<{ embed: UnfurledEmbedData | null }>(`/unfurl?url=${encodeURIComponent(url)}`);
 }
 
+export interface SearchApiResults {
+    messages: Array<{
+        id: string;
+        text: string;
+        content?: string;
+        channelId: string;
+        channel: string;
+        at: string;
+        createdAt: string;
+        author: { id: string; name: string; avatar?: string | null };
+    }>;
+    cards: Array<{ id: string; title: string; description?: string; column: string }>;
+    docs: Array<{ id: string; title: string; preview?: string; channelId?: string }>;
+    files: Array<{ id: string; name: string; url?: string; channel: string; author: string; createdAt: string }>;
+    prs: Array<{ id: string; number: number; title: string; author?: string }>;
+}
+
+export function searchWorkspace(query: string, type: string = "all", spaceId?: string) {
+    const params = new URLSearchParams({ q: query, type });
+    if (spaceId) params.set("spaceId", spaceId);
+    return api<SearchApiResults>(`/search?${params.toString()}`);
+}
+
 // ─── Reaction API ───────────────────────────────────────────────
+
 
 export function addReaction(messageId: string, emoji: string) {
     return api<{ message: string }>(`/messages/${messageId}/reactions`, {
@@ -572,18 +647,26 @@ export function addReaction(messageId: string, emoji: string) {
 
 export function removeReaction(messageId: string, emoji: string) {
     return api<{ message: string }>(
-        `/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
+        `/messages/${messageId}/reactions?emoji=${encodeURIComponent(emoji)}`,
         {
             method: "DELETE",
         },
     );
 }
 
+
 // ─── Invite API ─────────────────────────────────────────────────
+
+export interface CreateInviteInput {
+    label?: string;
+    code?: string;
+    maxUses?: number;
+    expiresInHours?: number;
+}
 
 export function createInvite(
     serverId: string,
-    data?: { maxUses?: number; expiresInHours?: number },
+    data?: CreateInviteInput,
 ) {
     return api<{ invite: InviteData }>(`/servers/${serverId}/invites`, {
         method: "POST",
@@ -595,13 +678,13 @@ export function fetchInvites(serverId: string) {
     return api<{ invites: InviteData[] }>(`/servers/${serverId}/invites`);
 }
 
-export function revokeInvite(id: string) {
-    return api<{ message: string }>(`/invites/${id}`, { method: "DELETE" });
+export function revokeInvite(codeOrId: string) {
+    return api<{ message: string }>(`/invites/${codeOrId}`, { method: "DELETE" });
 }
 
 export function joinInvite(code: string) {
-    return api<{ message: string; server: { id: string; name: string; iconUrl: string | null } }>(
-        `/invites/${code}/join`,
+    return api<{ message: string; alreadyMember?: boolean; server: { id: string; name: string; iconUrl: string | null } }>(
+        `/invites/${encodeURIComponent(code)}/join`,
         { method: "POST" },
     );
 }
@@ -846,12 +929,13 @@ export function addDMReaction(conversationId: string, messageId: string, emoji: 
 
 export function removeDMReaction(conversationId: string, messageId: string, emoji: string) {
     return api<{ message: string }>(
-        `/dms/${conversationId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
+        `/dms/${conversationId}/messages/${messageId}/reactions?emoji=${encodeURIComponent(emoji)}`,
         {
             method: "DELETE",
         },
     );
 }
+
 
 // ─── Voice API ──────────────────────────────────────────────────────────────────
 

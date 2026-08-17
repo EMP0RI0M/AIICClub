@@ -129,50 +129,63 @@ function SignedOutNote() {
   );
 }
 
+import { AccountSettings } from "@/features/profile/components/AccountSettings";
+
 /* ── My Account — identity, sign-in & security ──────────────────────── */
+export const MyAccountSettings = AccountSettings;
 
-const STATUS_OPTIONS: { id: User["status"]; label: string; dot: string }[] = [
-  { id: "online", label: "Online", dot: "bg-status-online" },
-  { id: "idle", label: "Idle", dot: "bg-status-idle" },
-  { id: "dnd", label: "Do not disturb", dot: "bg-status-dnd" },
-  { id: "invisible", label: "Invisible", dot: "bg-text-faint" },
-];
+/* ── Profile — public identity ──────────────────────────────────────── */
 
-export function MyAccountSettings() {
+export function ProfileSettings() {
   const user = useAuthStore((s) => s.user);
-  const setStatus = useAuthStore((s) => s.setStatus);
-  const changeUsername = useAuthStore((s) => s.changeUsername);
+  const updateUser = useAuthStore((s) => s.updateUser);
   const checkUsername = useAuthStore((s) => s.checkUsername);
-  const logout = useAuthStore((s) => s.logout);
 
+  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [username, setUsername] = useState(user?.username ?? "");
+  const [bio, setBio] = useState(user?.bio ?? "");
+  const [avatar, setAvatar] = useState(user?.avatar ?? "");
+  const [classYear, setClassYear] = useState(user?.classYear ?? "");
+  const [section, setSection] = useState(user?.section ?? "");
+  const [githubUrl, setGithubUrl] = useState(user?.githubUrl ?? "");
+  const [linkedinUrl, setLinkedinUrl] = useState(user?.linkedinUrl ?? "");
+  const [websiteUrl, setWebsiteUrl] = useState(user?.websiteUrl ?? "");
+  const [interestsText, setInterestsText] = useState((user?.interests || []).join(", "));
+  const [skillsText, setSkillsText] = useState((user?.skills || []).join(", "));
+
   const [availability, setAvailability] = useState<null | "checking" | "available" | "taken" | "invalid">(null);
-  const [usernameState, setUsernameState] = useState<"idle" | "busy" | "done" | "error">("idle");
-  const [usernameError, setUsernameError] = useState("");
-
-  const [email, setEmail] = useState(user?.email ?? "");
-  const [emailState, setEmailState] = useState<"idle" | "busy" | "sent" | "error">("idle");
-
-  const [resetState, setResetState] = useState<"idle" | "busy" | "sent">("idle");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const checkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (user) {
-      setUsername(user.username);
-      setEmail(user.email);
+      setDisplayName(user.displayName || "");
+      setUsername(user.username || "");
+      setBio(user.bio ?? "");
+      setAvatar(user.avatar ?? "");
+      setClassYear(user.classYear ?? "");
+      setSection(user.section ?? "");
+      setGithubUrl(user.githubUrl ?? "");
+      setLinkedinUrl(user.linkedinUrl ?? "");
+      setWebsiteUrl(user.websiteUrl ?? "");
+      setInterestsText((user.interests || []).join(", "));
+      setSkillsText((user.skills || []).join(", "));
     }
   }, [user]);
 
   if (!user) return <SignedOutNote />;
 
-  // Debounced availability check against the API (mono, inline — no icons).
-  const onUsernameInput = (next: string) => {
-    setUsername(next);
-    setUsernameState("idle");
-    setUsernameError("");
+  const onUsernameChange = (val: string) => {
+    setUsername(val);
+    setErrorMessage(null);
     if (checkTimer.current) clearTimeout(checkTimer.current);
-    const normalized = next.trim().toLowerCase();
-    if (normalized === user.username) {
+
+    const normalized = val.trim().toLowerCase();
+    if (normalized === user.username.toLowerCase()) {
       setAvailability(null);
       return;
     }
@@ -180,6 +193,7 @@ export function MyAccountSettings() {
       setAvailability("invalid");
       return;
     }
+
     setAvailability("checking");
     checkTimer.current = setTimeout(async () => {
       const free = await checkUsername(normalized);
@@ -187,227 +201,276 @@ export function MyAccountSettings() {
     }, 350);
   };
 
-  const saveUsername = async () => {
-    setUsernameState("busy");
+  const dirty =
+    displayName !== (user.displayName || "") ||
+    username.trim().toLowerCase() !== user.username.toLowerCase() ||
+    bio !== (user.bio ?? "") ||
+    avatar !== (user.avatar ?? "") ||
+    classYear !== (user.classYear ?? "") ||
+    section !== (user.section ?? "") ||
+    githubUrl !== (user.githubUrl ?? "") ||
+    linkedinUrl !== (user.linkedinUrl ?? "") ||
+    websiteUrl !== (user.websiteUrl ?? "") ||
+    interestsText !== (user.interests || []).join(", ") ||
+    skillsText !== (user.skills || []).join(", ");
+
+  const save = async () => {
+    setSaving(true);
+    setErrorMessage(null);
+
+    const normalizedUsername = username.trim().toLowerCase();
+    if (!/^[a-zA-Z0-9_]{3,30}$/.test(normalizedUsername)) {
+      setErrorMessage("Username must be 3–30 characters using letters, numbers, or underscores.");
+      setSaving(false);
+      return;
+    }
+
+    const interestsArray = interestsText
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const skillsArray = skillsText
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
     try {
-      await changeUsername(username);
-      setUsernameState("done");
-      setAvailability(null);
+      const token = useAuthStore.getState().token;
+      const res = await fetch("/api/auth/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          displayName: displayName.trim() || user.displayName,
+          username: normalizedUsername,
+          bio: bio.trim() || null,
+          avatar: avatar.trim() || null,
+          classYear: classYear.trim() || null,
+          section: section.trim() || null,
+          githubUrl: githubUrl.trim() || null,
+          linkedinUrl: linkedinUrl.trim() || null,
+          websiteUrl: websiteUrl.trim() || null,
+          interests: interestsArray,
+          skills: skillsArray,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to update profile.");
+      }
+
+      if (json.user) {
+        updateUser(json.user);
+      }
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to save profile.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const { uploadImage } = await import("@/shared/lib/api");
+      const url = await uploadImage(file, "avatar");
+      if (url) {
+        setAvatar(url);
+        updateUser({ avatar: url });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 1500);
+      }
     } catch (err) {
-      setUsernameState("error");
-      setUsernameError(err instanceof Error ? err.message : "Could not change username.");
-    }
-  };
-
-  const saveEmail = async () => {
-    setEmailState("busy");
-    try {
-      await updateEmail(email.trim());
-      setEmailState("sent");
-    } catch {
-      setEmailState("error");
-    }
-  };
-
-  const sendReset = async () => {
-    setResetState("busy");
-    try {
-      await requestPasswordReset(user.email);
-      setResetState("sent");
-    } catch {
-      setResetState("idle");
+      console.error("Avatar upload error:", err);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   return (
-    <div className="mt-6 flex flex-col gap-7">
-      {/* Status */}
+    <div className="mt-6 flex flex-col gap-6">
+      {/* Live Preview Card */}
       <div>
-        <p className={cn(LABEL, "mb-2")}>Status</p>
-        <div className="flex flex-wrap gap-1.5">
-          {STATUS_OPTIONS.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              data-active={user.status === s.id}
-              onClick={() => setStatus(s.id)}
-              className={cn(
-                "flex h-7 items-center gap-2 rounded px-3 font-mono text-[11px] tracking-[0.04em] transition-colors",
-                user.status === s.id
-                  ? "border border-accent-muted bg-accent-soft text-accent"
-                  : "border border-border text-text-secondary hover:border-border-active"
+        <p className={cn(LABEL, "mb-2")}>Live Profile Card Preview</p>
+        <div className="flex flex-col sm:flex-row items-start gap-4 rounded-xl border border-border bg-surface-raised p-4 shadow-sm">
+          <Avatar src={avatar || null} name={displayName || username || user.username} size={54} radius={14} />
+          <div className="min-w-0 flex-1 leading-tight space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="truncate text-[16px] font-bold text-text-primary">
+                {displayName || username || user.username}
+              </p>
+              {(classYear || section) && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-accent/15 text-accent border border-accent/20">
+                  {[classYear, section].filter(Boolean).join(" · ")}
+                </span>
               )}
-            >
-              <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} />
-              {s.label}
-            </button>
-          ))}
+            </div>
+            <p className="font-mono text-[12px] text-text-muted">@{username || user.username}</p>
+            {bio && <p className="mt-1 text-[13px] leading-[1.5] text-text-secondary">{bio}</p>}
+
+            {(githubUrl || linkedinUrl || websiteUrl) && (
+              <div className="mt-2 pt-2 border-t border-border/50 flex flex-wrap items-center gap-3 text-xs font-mono text-accent">
+                {githubUrl && <span>GitHub: {githubUrl}</span>}
+                {linkedinUrl && <span>LinkedIn: {linkedinUrl}</span>}
+                {websiteUrl && <span>Web: {websiteUrl}</span>}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Username */}
-      <div>
-        <p className={cn(LABEL, "mb-1.5")}>Username</p>
-        <div className="flex gap-2">
-          <Input value={username} onChange={(e) => onUsernameInput(e.target.value)} />
-          {username.trim().toLowerCase() !== user.username && availability === "available" && (
-            <SaveButton onClick={saveUsername} busy={usernameState === "busy"} done={usernameState === "done"} />
-          )}
+      {errorMessage && (
+        <div className="p-3 rounded-xl border border-danger/30 bg-danger/10 text-danger text-xs font-mono">
+          {errorMessage}
         </div>
-        <p
-          className={cn(
-            "mt-1.5 h-4 font-mono text-[11px]",
-            availability === "available"
-              ? "text-success"
-              : availability === "taken" || availability === "invalid" || usernameState === "error"
+      )}
+
+      {/* Basic Identity */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Field label="Display Name" hint="Shown on your messages, posts, and member directories.">
+          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="e.g. Maya Chen" />
+        </Field>
+
+        <div>
+          <Field label="Username" hint="Unique handle across AIIC (@handle).">
+            <Input value={username} onChange={(e) => onUsernameChange(e.target.value)} placeholder="e.g. mayachen" />
+          </Field>
+          <p
+            className={cn(
+              "mt-1 min-h-[16px] truncate font-mono text-[11px]",
+              availability === "available"
+                ? "text-success"
+                : availability === "taken" || availability === "invalid"
                 ? "text-danger"
                 : "text-text-muted"
-          )}
-        >
-          {usernameState === "error"
-            ? usernameError
-            : availability === "checking"
-              ? "checking…"
+            )}
+          >
+            {availability === "checking"
+              ? "checking availability…"
               : availability === "available"
-                ? `@${username.trim().toLowerCase()} is available`
-                : availability === "taken"
-                  ? `@${username.trim().toLowerCase()} is taken`
-                  : availability === "invalid"
-                    ? "3–30 characters · letters, numbers, underscores"
-                    : `@${user.username}`}
-        </p>
+              ? `@${username.trim().toLowerCase()} is available`
+              : availability === "taken"
+              ? `@${username.trim().toLowerCase()} is already taken`
+              : availability === "invalid"
+              ? "3–30 characters · letters, numbers, underscores"
+              : `@${user.username}`}
+          </p>
+        </div>
       </div>
 
-      {/* Email */}
+      {/* Avatar */}
       <div>
-        <p className={cn(LABEL, "mb-1.5")}>Email</p>
-        <div className="flex gap-2">
-          <Input value={email} type="email" onChange={(e) => { setEmail(e.target.value); setEmailState("idle"); }} />
-          {email.trim() !== user.email && (
-            <SaveButton onClick={saveEmail} busy={emailState === "busy"} done={emailState === "sent"}>
-              Update
-            </SaveButton>
-          )}
-        </div>
-        <p className={cn("mt-1.5 h-4 font-mono text-[11px]", emailState === "error" ? "text-danger" : "text-text-muted")}>
-          {emailState === "sent"
-            ? "verification sent — check both inboxes"
-            : emailState === "error"
-              ? "could not update email"
-              : "used for sign-in and recovery"}
-        </p>
-      </div>
-
-      {/* Password */}
-      <div className="flex items-center justify-between border-y border-border py-4">
-        <div className="pr-6">
-          <div className="text-[14px] text-text-primary">Password</div>
-          <div className="mt-0.5 text-[12px] text-text-muted">
-            We&apos;ll email {user.email} a secure reset link.
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={sendReset}
-          disabled={resetState !== "idle"}
-          className={cn(
-            "h-8 shrink-0 rounded-md border px-3 text-[13px] transition-colors",
-            resetState === "sent"
-              ? "border-success/40 text-success"
-              : "border-border text-text-secondary hover:border-border-active hover:text-text-primary"
-          )}
-        >
-          {resetState === "sent" ? "Email sent" : resetState === "busy" ? "Sending…" : "Send reset email"}
-        </button>
-      </div>
-
-      {/* Session */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={logout}
-          className="h-9 rounded-md border border-border px-4 text-[13px] text-text-secondary transition-colors hover:border-border-active hover:text-text-primary"
-        >
-          Sign out
-        </button>
-        <span className="text-[12px] text-text-muted">
-          Account deletion is handled by your instance admin.
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ── Profile — public identity ──────────────────────────────────────── */
-
-export function ProfileSettings() {
-  const user = useAuthStore((s) => s.user);
-  const updateUser = useAuthStore((s) => s.updateUser);
-
-  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
-  const [bio, setBio] = useState(user?.bio ?? "");
-  const [avatar, setAvatar] = useState(user?.avatar ?? "");
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName);
-      setBio(user.bio ?? "");
-      setAvatar(user.avatar ?? "");
-    }
-  }, [user]);
-
-  if (!user) return <SignedOutNote />;
-
-  const dirty =
-    displayName !== user.displayName || bio !== (user.bio ?? "") || avatar !== (user.avatar ?? "");
-
-  const save = () => {
-    updateUser({
-      displayName: displayName.trim() || user.displayName,
-      bio: bio.trim() || null,
-      avatar: avatar.trim() || null,
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  };
-
-  return (
-    <div className="mt-6 flex flex-col gap-7">
-      {/* Live preview — how others see you */}
-      <div>
-        <p className={cn(LABEL, "mb-2")}>Preview</p>
-        <div className="flex items-start gap-3.5 rounded-[10px] border border-border bg-surface-raised p-4">
-          <Avatar src={avatar || null} name={displayName || user.username} size={48} radius={12} />
-          <div className="min-w-0 leading-tight">
-            <p className="truncate text-[15px] font-semibold text-text-primary">
-              {displayName || user.username}
-            </p>
-            <p className="font-mono text-[11px] text-text-muted">@{user.username}</p>
-            {bio && <p className="mt-1.5 text-[13px] leading-[1.5] text-text-secondary">{bio}</p>}
-          </div>
+        <p className={cn(LABEL, "mb-1.5")}>Avatar Picture</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input value={avatar} placeholder="https://…" onChange={(e) => setAvatar(e.target.value)} />
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept="image/*"
+            className="hidden"
+          />
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="h-9 shrink-0 rounded-md border border-border px-3 text-[13px] font-medium text-text-secondary transition-colors hover:border-border-active hover:text-text-primary"
+          >
+            {uploading ? "Uploading…" : "Upload file"}
+          </button>
         </div>
       </div>
 
-      <Field label="Display name" hint="Shown next to your messages — your username stays the handle.">
-        <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-      </Field>
-
-      <Field label="Avatar URL" hint="Square images work best. Leave empty for the letter mark.">
-        <Input value={avatar} placeholder="https://…" onChange={(e) => setAvatar(e.target.value)} />
-      </Field>
-
+      {/* Bio */}
       <Field label="Bio" hint="Up to 190 characters, shown on your profile card.">
         <textarea
           value={bio}
           maxLength={190}
           rows={3}
           onChange={(e) => setBio(e.target.value)}
+          placeholder="A brief introduction about your focus, background, and projects..."
           className="w-full resize-none rounded-md border border-border bg-surface-input px-3 py-2.5 text-[14px] leading-[1.5] text-text-primary outline-none transition-colors placeholder:text-text-faint focus:border-border-active"
         />
       </Field>
 
-      {dirty && <SaveButton onClick={save} done={saved} />}
+      {/* Academic / Section Info */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Field label="Class Year" hint="e.g. 2026, 2027, or Alumni">
+          <Input value={classYear} onChange={(e) => setClassYear(e.target.value)} placeholder="e.g. 2026" />
+        </Field>
+
+        <Field label="Section" hint="e.g. Section A, AI Batch 1">
+          <Input value={section} onChange={(e) => setSection(e.target.value)} placeholder="e.g. Section B" />
+        </Field>
+      </div>
+
+      {/* Social & Professional Links */}
+      <div className="space-y-3 pt-2 border-t border-border/60">
+        <span className={cn(LABEL, "block")}>Social &amp; Professional Links</span>
+
+        <Field label="GitHub Profile URL" hint="Direct link to your GitHub profile.">
+          <Input
+            value={githubUrl}
+            onChange={(e) => setGithubUrl(e.target.value)}
+            placeholder="https://github.com/your-username"
+          />
+        </Field>
+
+        <Field label="LinkedIn Profile URL" hint="Direct link to your LinkedIn profile.">
+          <Input
+            value={linkedinUrl}
+            onChange={(e) => setLinkedinUrl(e.target.value)}
+            placeholder="https://linkedin.com/in/your-profile"
+          />
+        </Field>
+
+        <Field label="Personal Website / Portfolio URL" hint="Personal domain, blog, or portfolio.">
+          <Input
+            value={websiteUrl}
+            onChange={(e) => setWebsiteUrl(e.target.value)}
+            placeholder="https://yourwebsite.com"
+          />
+        </Field>
+      </div>
+
+      {/* Interests & Skills */}
+      <div className="space-y-3 pt-2 border-t border-border/60">
+        <span className={cn(LABEL, "block")}>Skills &amp; Interests</span>
+
+        <Field label="Skills" hint="Comma-separated skills (e.g. TypeScript, Next.js, PyTorch, DevOps)">
+          <Input
+            value={skillsText}
+            onChange={(e) => setSkillsText(e.target.value)}
+            placeholder="TypeScript, Next.js, PostgreSQL, Docker"
+          />
+        </Field>
+
+        <Field label="Interests" hint="Comma-separated interests (e.g. Machine Learning, WebRTC, Robotics, Distributed Systems)">
+          <Input
+            value={interestsText}
+            onChange={(e) => setInterestsText(e.target.value)}
+            placeholder="AI Agents, Cyber Security, Quantum Computing"
+          />
+        </Field>
+      </div>
+
+      {/* Save Action */}
+      <div className="pt-2">
+        <SaveButton onClick={save} busy={saving} done={saved}>
+          {saving ? "Saving Changes..." : "Save Profile Changes"}
+        </SaveButton>
+      </div>
     </div>
   );
 }
@@ -489,7 +552,7 @@ export function NotificationsSettings() {
         {permission === "granted" ? (
           <button
             type="button"
-            onClick={() => void showSystemNotification("Corvus", "Notifications are working.")}
+            onClick={() => void showSystemNotification("AIIC", "Notifications are working.")}
             className="h-8 rounded-md border border-border px-3 text-[13px] text-text-secondary transition-colors hover:border-border-active hover:text-text-primary"
           >
             Send test
@@ -584,6 +647,20 @@ export function AppearanceSettings() {
   const [compact, setCompact] = useLocalPref("corvus-appearance-compact", false);
   const [reduceMotion, setReduceMotion] = useLocalPref("corvus-appearance-reduce-motion", false);
 
+  const handleThemeChange = (newTheme: ThemePreference) => {
+    setTheme(newTheme);
+    void import("@/shared/lib/user-settings-supabase").then(({ saveUserAppearance }) => {
+      void saveUserAppearance({ theme: newTheme, compactMode: compact });
+    });
+  };
+
+  const handleCompactChange = (newCompact: boolean) => {
+    setCompact(newCompact);
+    void import("@/shared/lib/user-settings-supabase").then(({ saveUserAppearance }) => {
+      void saveUserAppearance({ theme, compactMode: newCompact });
+    });
+  };
+
   return (
     <div className="mt-6 flex flex-col gap-7">
       <div>
@@ -594,7 +671,7 @@ export function AppearanceSettings() {
               key={t.id}
               type="button"
               data-active={theme === t.id}
-              onClick={() => setTheme(t.id)}
+              onClick={() => handleThemeChange(t.id)}
               className={cn(
                 "rounded-[10px] border px-3 py-3 text-left transition-colors",
                 theme === t.id
@@ -616,7 +693,7 @@ export function AppearanceSettings() {
           label="Compact message layout"
           hint="Tighter spacing between messages."
           checked={compact}
-          onChange={setCompact}
+          onChange={handleCompactChange}
         />
         <ToggleRow
           label="Reduce motion"

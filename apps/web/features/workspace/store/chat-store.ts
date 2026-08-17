@@ -11,9 +11,19 @@ function trimMessages(messages: MessageData[]) {
 function dedupeMessages(messages: MessageData[]) {
     const seen = new Set<string>();
     return messages.filter((message) => {
+        if (!message || !message.id) return false;
         if (seen.has(message.id)) return false;
         seen.add(message.id);
         return true;
+    });
+}
+
+function sortMessagesChronologically(messages: MessageData[]) {
+    return dedupeMessages(messages).sort((a, b) => {
+        const ta = new Date(a.createdAt || 0).getTime();
+        const tb = new Date(b.createdAt || 0).getTime();
+        if (ta !== tb) return ta - tb;
+        return (a.id || "").localeCompare(b.id || "");
     });
 }
 
@@ -57,7 +67,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     setMessages: (channelId, messages, cursor, hasMore) =>
         set((state) => ({
-            messages: { ...state.messages, [channelId]: trimMessages(dedupeMessages(messages)) },
+            messages: { ...state.messages, [channelId]: trimMessages(sortMessagesChronologically(messages)) },
             cursors: { ...state.cursors, [channelId]: cursor },
             hasMore: { ...state.hasMore, [channelId]: hasMore },
         })),
@@ -66,10 +76,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set((state) => ({
             messages: {
                 ...state.messages,
-                [channelId]: dedupeMessages([
+                [channelId]: trimMessages(sortMessagesChronologically([
                     ...messages,
                     ...(state.messages[channelId] || []),
-                ]).slice(0, MAX_MESSAGES_PER_CHANNEL),
+                ])),
             },
             cursors: { ...state.cursors, [channelId]: cursor },
             hasMore: { ...state.hasMore, [channelId]: hasMore },
@@ -83,7 +93,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             return {
                 messages: {
                     ...state.messages,
-                    [channelId]: trimMessages([...existing, message]),
+                    [channelId]: trimMessages(sortMessagesChronologically([...existing, message])),
                 },
             };
         }),
@@ -109,121 +119,125 @@ export const useChatStore = create<ChatState>((set, get) => ({
         })),
 
     addReaction: (channelId, messageId, emoji, userId, currentUserId) =>
-        set((state) => ({
-            messages: {
-                ...state.messages,
-                [channelId]: (state.messages[channelId] || []).map((m) => {
-                    if (m.id !== messageId) return m;
-                    const existing = m.reactions.find((r) => r.emoji === emoji);
-                    if (existing) {
+        set((state) => {
+            const channelMsgs = state.messages[channelId] || [];
+            return {
+                messages: {
+                    ...state.messages,
+                    [channelId]: channelMsgs.map((m) => {
+                        if (m.id !== messageId) return m;
+                        const safeReactions = m.reactions || [];
+                        const existing = safeReactions.find((r) => r.emoji === emoji);
+                        if (existing) {
+                            return {
+                                ...m,
+                                reactions: safeReactions.map((r) =>
+                                    r.emoji === emoji
+                                        ? {
+                                              ...r,
+                                              count: r.count + 1,
+                                              reacted: r.reacted || userId === currentUserId,
+                                          }
+                                        : r
+                                ),
+                            };
+                        }
                         return {
                             ...m,
-                            reactions: m.reactions.map((r) =>
-                                r.emoji === emoji
-                                    ? {
-                                          ...r,
-                                          count: r.count + 1,
-                                          reacted: r.reacted || userId === currentUserId,
-                                      }
-                                    : r
-                            ),
+                            reactions: [
+                                ...safeReactions,
+                                {
+                                    emoji,
+                                    count: 1,
+                                    reacted: userId === currentUserId,
+                                },
+                            ],
                         };
-                    }
-                    return {
-                        ...m,
-                        reactions: [
-                            ...m.reactions,
-                            { emoji, count: 1, reacted: userId === currentUserId },
-                        ],
-                    };
-                }),
-            },
-        })),
+                    }),
+                },
+            };
+        }),
 
     removeReaction: (channelId, messageId, emoji, userId, currentUserId) =>
-        set((state) => ({
-            messages: {
-                ...state.messages,
-                [channelId]: (state.messages[channelId] || []).map((m) => {
-                    if (m.id !== messageId) return m;
-                    return {
-                        ...m,
-                        reactions: m.reactions
-                            .map((r) =>
-                                r.emoji === emoji
-                                    ? {
-                                          ...r,
-                                          count: r.count - 1,
-                                          reacted: userId === currentUserId ? false : r.reacted,
-                                      }
-                                    : r
-                            )
-                            .filter((r) => r.count > 0),
-                    };
-                }),
+        set((state) => {
+            const channelMsgs = state.messages[channelId] || [];
+            return {
+                messages: {
+                    ...state.messages,
+                    [channelId]: channelMsgs.map((m) => {
+                        if (m.id !== messageId) return m;
+                        const safeReactions = m.reactions || [];
+                        return {
+                            ...m,
+                            reactions: safeReactions
+                                .map((r) => {
+                                    if (r.emoji !== emoji) return r;
+                                    return {
+                                        ...r,
+                                        count: Math.max(0, r.count - 1),
+                                        reacted: userId === currentUserId ? false : r.reacted,
+                                    };
+                                })
+                                .filter((r) => r.count > 0),
+                        };
+                    }),
+                },
+            };
+        }),
+
+    setTyping: (channelId, userId, username) => {
+        const { typingUsers } = get();
+        const channelTyping = typingUsers[channelId] || [];
+        const existing = channelTyping.find((t) => t.userId === userId);
+
+        if (existing) {
+            clearTimeout(existing.timeout);
+        }
+
+        const timeout = setTimeout(() => {
+            get().clearTyping(channelId, userId);
+        }, 3000);
+
+        const filtered = channelTyping.filter((t) => t.userId !== userId);
+        set({
+            typingUsers: {
+                ...typingUsers,
+                [channelId]: [...filtered, { userId, username, timeout }],
             },
-        })),
+        });
+    },
 
-    setTyping: (channelId, userId, username) =>
-        set((state) => {
-            const current = state.typingUsers[channelId] || [];
-            // Clear existing timeout for this user
-            const existing = current.find((t) => t.userId === userId);
-            if (existing) clearTimeout(existing.timeout);
+    clearTyping: (channelId, userId) => {
+        const { typingUsers } = get();
+        const channelTyping = typingUsers[channelId] || [];
+        const user = channelTyping.find((t) => t.userId === userId);
+        if (user) clearTimeout(user.timeout);
 
-            // Auto-clear typing after 5 seconds
-            const timeout = setTimeout(() => {
-                get().clearTyping(channelId, userId);
-            }, 5000);
+        set({
+            typingUsers: {
+                ...typingUsers,
+                [channelId]: channelTyping.filter((t) => t.userId !== userId),
+            },
+        });
+    },
 
-            const filtered = current.filter((t) => t.userId !== userId);
-            return {
-                typingUsers: {
-                    ...state.typingUsers,
-                    [channelId]: [...filtered, { userId, username, timeout }],
-                },
-            };
-        }),
-
-    clearTyping: (channelId, userId) =>
-        set((state) => {
-            const current = state.typingUsers[channelId] || [];
-            const existing = current.find((t) => t.userId === userId);
-            if (existing) clearTimeout(existing.timeout);
-            return {
-                typingUsers: {
-                    ...state.typingUsers,
-                    [channelId]: current.filter((t) => t.userId !== userId),
-                },
-            };
-        }),
-
-    setLoading: (channelId, loading) =>
-        set((state) => {
-            const newSet = new Set(state.loadingChannels);
-            if (loading) newSet.add(channelId);
-            else newSet.delete(channelId);
-            return { loadingChannels: newSet };
-        }),
+    setLoading: (channelId, loading) => {
+        const { loadingChannels } = get();
+        const updated = new Set(loadingChannels);
+        if (loading) updated.add(channelId);
+        else updated.delete(channelId);
+        set({ loadingChannels: updated });
+    },
 
     clearChannel: (channelId) =>
         set((state) => {
-            for (const typingUser of state.typingUsers[channelId] || []) {
-                clearTimeout(typingUser.timeout);
-            }
-            const newMessages = { ...state.messages };
-            delete newMessages[channelId];
-            const newCursors = { ...state.cursors };
-            delete newCursors[channelId];
-            const newHasMore = { ...state.hasMore };
-            delete newHasMore[channelId];
-            const newTypingUsers = { ...state.typingUsers };
-            delete newTypingUsers[channelId];
+            const { [channelId]: _, ...restMessages } = state.messages;
+            const { [channelId]: __, ...restCursors } = state.cursors;
+            const { [channelId]: ___, ...restHasMore } = state.hasMore;
             return {
-                messages: newMessages,
-                cursors: newCursors,
-                hasMore: newHasMore,
-                typingUsers: newTypingUsers,
+                messages: restMessages,
+                cursors: restCursors,
+                hasMore: restHasMore,
             };
         }),
 }));

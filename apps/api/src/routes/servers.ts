@@ -58,123 +58,167 @@ servers.post("/", async (c) => {
         }))
         : [{ name: "general", type: "text" as const, category: "General", position: 0 }];
 
-    // Step 1: Create the server with member + channels in one call
-    let server;
+    // Step 1: Verify authenticated user exists in database
+    const supabase = (await import("../lib/supabase.js")).getSupabaseAdmin();
+    const { data: userExists, error: userCheckErr } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id", userId)
+        .maybeSingle();
+
+    if (userCheckErr || !userExists) {
+        console.error("CREATE_SPACE_ERROR: User does not exist or auth failed:", { userId, error: userCheckErr });
+        return c.json({ error: "User authentication record not found. Please log in again." }, 401);
+    }
+
+    // Step 2: Create the server record
+    let serverRecord;
     try {
-        server = await prisma.server.create({
-            data: {
+        const { data, error } = await supabase
+            .from("servers")
+            .insert({
                 name,
-                iconUrl: iconUrl ?? null,
+                icon_url: iconUrl ?? null,
                 description: description ?? null,
-                ownerId: userId,
-                members: { create: { userId, role: "owner" } },
-                channels: { create: channelsToCreate },
-            },
-            select: {
-                id: true,
-                name: true,
-                iconUrl: true,
-                description: true,
-                ownerId: true,
-                createdAt: true,
-                updatedAt: true,
-                channels: {
-                    select: {
-                        id: true,
-                        serverId: true,
-                        name: true,
-                        type: true,
-                        category: true,
-                        topic: true,
-                        position: true,
-                        createdAt: true,
-                    },
-                    orderBy: [{ category: "asc" }, { position: "asc" }],
-                },
-                _count: { select: { members: true } },
-            },
-        });
-    } catch (err) {
-        console.error("[POST /servers] Failed to create server record:", err);
-        return c.json({ error: "Could not create the server. Please try again." }, 500);
+                owner_id: userId,
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error("CREATE_SPACE_SERVER_INSERT_ERROR:", error);
+            return c.json({ error: "Could not create the space. Database constraint or permission issue." }, 500);
+        }
+        serverRecord = data;
+    } catch (err: any) {
+        console.error("CREATE_SPACE_SERVER_INSERT_ERROR (Exception):", err);
+        return c.json({ error: "Could not create the space." }, 500);
     }
 
-    // Step 2: Create default roles (non-blocking — server already exists)
+    const serverId = serverRecord.id;
+
+    // Step 3: Add owner membership
     try {
-        await ensureChannelModuleStates(server.channels);
+        const { error: memberError } = await supabase.from("server_members").insert({
+            server_id: serverId,
+            user_id: userId,
+            role: "owner",
+        });
+        if (memberError) {
+            console.error("CREATE_SPACE_MEMBERSHIP_ERROR:", memberError);
+        }
     } catch (err) {
-        console.error("[POST /servers] Failed to create module state for", server.id, err);
+        console.error("CREATE_SPACE_MEMBERSHIP_ERROR (Exception):", err);
     }
 
+    // Step 4: Insert initial channels
+    let createdChannels: any[] = [];
+    try {
+        const channelInserts = channelsToCreate.map((ch) => ({
+            server_id: serverId,
+            name: ch.name,
+            type: ch.type,
+            category: ch.category,
+            position: ch.position,
+        }));
+        const { data: insertedChs, error: channelError } = await supabase
+            .from("channels")
+            .insert(channelInserts)
+            .select();
+
+        if (channelError) {
+            console.error("CREATE_SPACE_CHANNEL_ERROR:", channelError);
+        }
+
+        createdChannels = (insertedChs || []).map((ch: any) => ({
+            id: ch.id,
+            serverId: ch.server_id,
+            name: ch.name,
+            type: ch.type,
+            category: ch.category,
+            topic: ch.topic,
+            position: ch.position,
+            createdAt: ch.created_at,
+        }));
+    } catch (err) {
+        console.error("CREATE_SPACE_CHANNEL_ERROR (Exception):", err);
+    }
+
+    // Step 4: Create default roles
     try {
         await Promise.all([
-            prisma.role.create({
-                data: {
-                    serverId: server.id,
-                    name: "@everyone",
-                    permissions: DEFAULT_MEMBER_PERMISSIONS,
-                    position: 0,
-                    isDefault: true,
-                },
+            supabase.from("roles").insert({
+                server_id: serverId,
+                name: "@everyone",
+                permissions: DEFAULT_MEMBER_PERMISSIONS,
+                position: 0,
+                is_default: true,
             }),
-            prisma.role.create({
-                data: {
-                    serverId: server.id,
-                    name: "Admin",
-                    color: "#7C3AED",
-                    permissions: ADMIN_PERMISSIONS,
-                    position: 100,
-                    isDefault: false,
-                },
+            supabase.from("roles").insert({
+                server_id: serverId,
+                name: "Admin",
+                color: "#7C3AED",
+                permissions: ADMIN_PERMISSIONS,
+                position: 100,
+                is_default: false,
             }),
         ]);
     } catch (err) {
-        // Roles failed but the server itself is usable — log and continue
-        console.error("[POST /servers] Failed to create default roles for", server.id, err);
+        console.error("[POST /servers] Failed to create roles:", err);
     }
 
-    // Step 3: Return a clean response matching the frontend ServerData + channels shape
-    const responseBody = {
+    return c.json({
         server: {
-            id: server.id,
-            name: server.name,
-            iconUrl: server.iconUrl,
-            description: server.description,
-            ownerId: server.ownerId,
-            memberCount: server._count.members,
+            id: serverRecord.id,
+            name: serverRecord.name,
+            iconUrl: serverRecord.icon_url,
+            description: serverRecord.description,
+            ownerId: serverRecord.owner_id,
+            memberCount: 1,
             role: "owner",
-            channels: server.channels,
+            channels: createdChannels,
         },
-    };
-    return c.json(responseBody, 201);
+    }, 201);
 });
 
 // ─── GET /servers — List user's servers ─────────────────────────
 
 servers.get("/", async (c) => {
     const userId = c.get("userId");
+    const supabase = (await import("../lib/supabase.js")).getSupabaseAdmin();
 
-    const memberships = await prisma.serverMember.findMany({
-        where: { userId },
-        include: {
-            server: {
-                include: {
-                    _count: { select: { members: true } },
-                },
-            },
-        },
-        orderBy: { joinedAt: "asc" },
-    });
+    const { data: memberships, error } = await supabase
+        .from("server_members")
+        .select(`
+            role,
+            joined_at,
+            servers (
+                id,
+                name,
+                icon_url,
+                description,
+                owner_id
+            )
+        `)
+        .eq("user_id", userId)
+        .order("joined_at", { ascending: true });
 
-    const serverList = memberships.map((m) => ({
-        id: m.server.id,
-        name: m.server.name,
-        iconUrl: m.server.iconUrl,
-        description: m.server.description,
-        ownerId: m.server.ownerId,
-        memberCount: m.server._count.members,
-        role: m.role,
-    }));
+    if (error) {
+        console.error("[GET /servers] Error fetching memberships:", error);
+        return c.json({ servers: [] });
+    }
+
+    const serverList = (memberships || [])
+        .filter((m: any) => m.servers)
+        .map((m: any) => ({
+            id: m.servers.id,
+            name: m.servers.name,
+            iconUrl: m.servers.icon_url,
+            description: m.servers.description,
+            ownerId: m.servers.owner_id,
+            memberCount: 1,
+            role: m.role,
+        }));
 
     return c.json({ servers: serverList });
 });

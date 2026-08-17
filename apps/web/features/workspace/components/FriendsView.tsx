@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@corvus/ui";
-import { MessageSquare, Phone, Check, X, UserPlus, Loader2 } from "lucide-react";
+import { MessageSquare, Phone, Check, X, UserPlus, Loader2, Search } from "lucide-react";
 import { Avatar } from "@/shared/components/ui";
 import type { FriendSearchResult } from "@/shared/lib/api";
 import type { FriendEntry, Presence } from "./types";
@@ -17,23 +17,21 @@ const TABS: { id: FriendsTab; label: string }[] = [
 ];
 
 const DOT: Record<Presence, string> = {
-  online: "bg-status-online",
-  idle: "bg-status-idle",
-  dnd: "bg-status-dnd",
+  online: "bg-status-online shadow-[0_0_6px_rgba(34,197,94,0.6)]",
+  idle: "bg-status-idle shadow-[0_0_6px_rgba(245,158,11,0.6)]",
+  dnd: "bg-status-dnd shadow-[0_0_6px_rgba(239,68,68,0.6)]",
   offline: "bg-text-faint",
 };
 
 const PRESENCE_LABEL: Record<Presence, string> = {
-  online: "online",
-  idle: "idle",
-  dnd: "do not disturb",
-  offline: "offline",
+  online: "Online",
+  idle: "Idle",
+  dnd: "Do Not Disturb",
+  offline: "Offline",
 };
 
 /**
- * Friends (brief §Home) — typographic rows on 1px rules, not cards. Square
- * avatars, mono presence text, quiet inline actions. Tabs share the system
- * tab pattern.
+ * Friends (Discord + Linear + Raycast Glass Friends Hub).
  */
 export function FriendsView({
   friends,
@@ -48,13 +46,10 @@ export function FriendsView({
   friends: FriendEntry[];
   onMessage?: (id: string) => void;
   onCall?: (id: string) => void;
-  /** Send a friend request by exact username — instant, optimistic. */
   onSendRequest?: (target: string) => void;
   onSearchUsers?: (query: string) => Promise<FriendSearchResult[]>;
   onAccept?: (id: string) => void;
-  /** Decline an incoming request or cancel an outgoing one. */
   onDecline?: (id: string) => void;
-  /** When embedded (Home tab) the view skips its own header. */
   embedded?: boolean;
 }) {
   const [tab, setTab] = useState<FriendsTab>("online");
@@ -123,12 +118,13 @@ export function FriendsView({
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
       {!embedded && (
-        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
-          <h1 className="text-[15px] font-semibold text-text-primary">Friends</h1>
+        <header className="flex h-13 shrink-0 items-center justify-between border-b border-white/[0.06] px-4">
+          <h1 className="text-[15px] font-bold text-text-primary">Friends</h1>
         </header>
       )}
 
-      <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-2">
+      {/* Tabs */}
+      <div className="flex shrink-0 items-center gap-1.5 border-b border-white/[0.06] px-4 py-2.5">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -136,159 +132,184 @@ export function FriendsView({
             data-active={tab === t.id}
             onClick={() => setTab(t.id)}
             className={cn(
-              "h-7 rounded px-3 text-[13px] transition-colors",
+              "h-7 rounded-xl px-3 font-mono text-[11px] font-semibold transition-all active:scale-95",
               tab === t.id
-                ? "bg-surface-overlay text-text-primary"
-                : "text-text-secondary hover:bg-hover-row hover:text-text-primary"
+                ? "border border-accent/40 bg-accent/20 text-accent shadow-sm"
+                : "border border-transparent text-text-muted hover:bg-white/[0.04] hover:text-text-primary"
             )}
           >
             {t.label}
             {t.id === "pending" && friends.some((f) => f.pending === "incoming") && (
-              <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent align-middle" />
+              <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent align-middle animate-pulse" />
             )}
           </button>
         ))}
       </div>
 
       {tab === "add" ? (
-        <div className="mx-auto w-full max-w-[520px] px-4 py-10">
-          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-text-muted">
-            Add a friend
+        <div className="mx-auto w-full max-w-[560px] p-4 sm:p-8">
+          <h2 className="font-mono text-xs font-bold uppercase tracking-wider text-accent">
+            Add a Friend by Username or ID
+          </h2>
+          <p className="mt-1 text-xs text-text-secondary leading-relaxed">
+            Search for fellow AIIC engineers and club members to collaborate, voice call, and DM.
           </p>
-          <p className="mt-2 text-[13px] leading-[1.6] text-text-secondary">
-            Send a request with their exact username. They&apos;ll see it under Pending.
-          </p>
+
           <div className="mt-4 flex gap-2">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") sendRequest();
-              }}
-              placeholder="username"
-              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface-input px-3 font-mono text-[13px] text-text-primary outline-none transition-colors placeholder:text-text-faint focus:border-border-active"
-            />
+            <div className="relative flex h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/[0.08] bg-black/40 px-3 backdrop-blur-md">
+              <Search size={15} className="text-text-muted" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") sendRequest();
+                }}
+                placeholder="Enter username (e.g. rafi, alex)..."
+                className="w-full bg-transparent font-mono text-xs text-text-primary outline-none placeholder:text-text-muted/60"
+              />
+            </div>
             <button
               type="button"
               disabled={!query.trim()}
               onClick={sendRequest}
               className={cn(
-                "flex h-10 shrink-0 items-center gap-2 rounded-md px-4 text-[13px] font-medium transition-colors",
+                "flex h-11 shrink-0 items-center gap-1.5 rounded-2xl px-5 font-mono text-xs font-bold transition-all active:scale-95",
                 query.trim()
-                  ? "bg-accent text-on-accent hover:bg-accent-violet-bright"
-                  : "cursor-not-allowed bg-surface-overlay text-text-faint"
+                  ? "bg-accent text-on-accent shadow-[0_2px_12px_rgba(var(--c-accent-rgb,138,92,246),0.4)] hover:scale-105"
+                  : "cursor-not-allowed border border-white/[0.06] bg-white/[0.04] text-text-muted/50"
               )}
             >
-              <UserPlus size={14} /> Send request
+              <UserPlus size={14} /> Send Request
             </button>
           </div>
-          <div className="mt-5 overflow-hidden rounded-md border border-border">
-            <div className="flex h-9 items-center justify-between border-b border-border bg-surface-subtle px-3">
-              <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-text-muted">
-                Search results
+
+          <div className="mt-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121622]/80 backdrop-blur-xl shadow-lg">
+            <div className="flex h-10 items-center justify-between border-b border-white/[0.06] px-4">
+              <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-text-muted">
+                Live Directory Search
               </span>
-              {searching && <Loader2 size={14} className="animate-spin text-text-muted" />}
+              {searching && <Loader2 size={13} className="animate-spin text-accent" />}
             </div>
-            {searchError ? (
-              <p className="px-3 py-4 text-[13px] text-danger">{searchError}</p>
-            ) : query.trim().length < 2 ? (
-              <p className="px-3 py-4 text-[13px] text-text-muted">
-                Type at least 2 characters to search.
-              </p>
-            ) : searchResults.length === 0 && !searching ? (
-              <p className="px-3 py-4 text-[13px] text-text-muted">No users found.</p>
-            ) : (
-              searchResults.map((user) => (
-                <div
-                  key={user.id}
-                  className="flex min-h-[56px] items-center gap-3 border-b border-border px-3 last:border-b-0"
-                >
-                  <Avatar
-                    src={user.avatarUrl}
-                    name={user.displayName || user.username}
-                    size={32}
-                    radius={8}
-                  />
-                  <div className="min-w-0 flex-1 leading-tight">
-                    <p className="truncate text-[14px] font-medium text-text-primary">
-                      {user.displayName || user.username}
-                    </p>
-                    <p className="truncate font-mono text-[11px] text-text-muted">
-                      @{user.username} - {relationLabel(user)}
-                    </p>
+
+            <div className="divide-y divide-white/[0.04] p-1">
+              {searchError ? (
+                <p className="p-4 text-xs text-danger">{searchError}</p>
+              ) : query.trim().length < 2 ? (
+                <p className="p-4 text-xs text-text-muted">Type at least 2 characters to search AIIC members.</p>
+              ) : searchResults.length === 0 && !searching ? (
+                <p className="p-4 text-xs text-text-muted">No members found matching &quot;{query}&quot;.</p>
+              ) : (
+                searchResults.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex min-h-[56px] items-center gap-3 rounded-xl px-3 py-2 transition-all hover:bg-white/[0.04]"
+                  >
+                    <div className="rounded-full ring-1 ring-white/10 ring-offset-1 ring-offset-black/40">
+                      <Avatar src={user.avatarUrl} name={user.displayName || user.username} size={32} shape="circle" />
+                    </div>
+                    <div className="min-w-0 flex-1 leading-tight">
+                      <p className="truncate text-[13.5px] font-bold text-text-primary">
+                        {user.displayName || user.username}
+                      </p>
+                      <p className="truncate font-mono text-[10.5px] text-accent mt-0.5">
+                        @{user.username} · {relationLabel(user)}
+                      </p>
+                    </div>
+                    <SearchResultAction user={user} onSendRequest={onSendRequest} onAccept={onAccept} />
                   </div>
-                  <SearchResultAction
-                    user={user}
-                    onSendRequest={onSendRequest}
-                    onAccept={onAccept}
-                  />
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto">
-          <p className="px-4 pb-1 pt-4 font-mono text-[11px] uppercase tracking-[0.08em] text-text-muted">
-            {tab === "pending" ? "Pending" : tab === "online" ? "Online" : "All friends"} —{" "}
-            {visible.length}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-1.5 scrollbar-thin scrollbar-thumb-white/10">
+          <p className="px-2 pb-1 font-mono text-[10.5px] font-bold uppercase tracking-wider text-text-muted">
+            {tab === "pending" ? "Pending Requests" : tab === "online" ? "Online Friends" : "All Connections"} — {visible.length}
           </p>
           {visible.map((f) => (
             <div
               key={f.id}
-              className="group mx-2 flex h-[52px] items-center gap-3 rounded-sm border-b border-border px-2 transition-colors last:border-b-0 hover:bg-hover-row"
+              className="group flex h-14 items-center gap-3 rounded-2xl border border-white/[0.06] bg-[#121622]/70 px-3.5 backdrop-blur-md transition-all hover:border-accent/40 hover:bg-[#161c2b]/85"
             >
-              <div className="relative">
-                <Avatar src={f.avatar} name={f.name} size={32} radius={8} />
+              <div className="relative shrink-0">
+                <div className="rounded-full ring-1 ring-white/10 ring-offset-1 ring-offset-black/40">
+                  <Avatar src={f.avatar} name={f.name} size={34} shape="circle" />
+                </div>
                 <span
                   className={cn(
-                    "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background",
+                    "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#121622]",
                     DOT[f.presence]
                   )}
                 />
               </div>
+
               <div className="min-w-0 flex-1 leading-tight">
-                <p className="truncate text-[14px] font-medium text-text-primary">{f.name}</p>
-                <p className="truncate font-mono text-[11px] text-text-muted">
+                <p className="truncate text-[14px] font-bold text-text-primary">{f.name}</p>
+                <p className="truncate font-mono text-[10.5px] text-text-muted mt-0.5">
                   {f.pending
                     ? f.pending === "incoming"
-                      ? "incoming request"
-                      : "request sent"
+                      ? "Incoming friend request"
+                      : "Request pending"
                     : f.status ?? PRESENCE_LABEL[f.presence]}
                 </p>
               </div>
 
-              <div className="hidden items-center gap-1 group-hover:flex">
+              <div className="flex items-center gap-1.5">
                 {f.pending === "incoming" ? (
                   <>
-                    <RowAction label="Accept" tone="success" onClick={() => onAccept?.(f.id)}>
-                      <Check size={15} />
-                    </RowAction>
-                    <RowAction label="Decline" tone="danger" onClick={() => onDecline?.(f.id)}>
-                      <X size={15} />
-                    </RowAction>
+                    <button
+                      type="button"
+                      onClick={() => onAccept?.(f.id)}
+                      title="Accept Request"
+                      className="flex h-8 items-center gap-1.5 rounded-xl border border-success/40 bg-success/15 px-3 font-mono text-[11px] font-bold text-success transition-all hover:bg-success/25 active:scale-95"
+                    >
+                      <Check size={13} /> Accept
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDecline?.(f.id)}
+                      title="Decline Request"
+                      className="flex h-8 items-center gap-1.5 rounded-xl border border-danger/40 bg-danger/15 px-3 font-mono text-[11px] font-bold text-danger transition-all hover:bg-danger/25 active:scale-95"
+                    >
+                      <X size={13} /> Decline
+                    </button>
                   </>
                 ) : f.pending === "outgoing" ? (
-                  <RowAction label="Cancel request" tone="danger" onClick={() => onDecline?.(f.id)}>
-                    <X size={15} />
-                  </RowAction>
+                  <button
+                    type="button"
+                    onClick={() => onDecline?.(f.id)}
+                    className="flex h-8 items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 font-mono text-[11px] text-text-muted hover:bg-danger/15 hover:text-danger hover:border-danger/30 transition-all"
+                  >
+                    <X size={12} /> Cancel
+                  </button>
                 ) : (
                   <>
-                    <RowAction label="Message" onClick={() => onMessage?.(f.id)}>
+                    <button
+                      type="button"
+                      aria-label="Direct message"
+                      onClick={() => onMessage?.(f.id)}
+                      className="flex h-8.5 w-8.5 items-center justify-center rounded-xl text-text-muted hover:bg-accent/20 hover:text-accent hover:border hover:border-accent/30 active:scale-95 transition-all"
+                    >
                       <MessageSquare size={15} />
-                    </RowAction>
-                    <RowAction label="Call" onClick={() => onCall?.(f.id)}>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Start voice call"
+                      onClick={() => onCall?.(f.id)}
+                      className="flex h-8.5 w-8.5 items-center justify-center rounded-xl text-text-muted hover:bg-status-online/20 hover:text-status-online hover:border hover:border-status-online/30 active:scale-95 transition-all"
+                    >
                       <Phone size={15} />
-                    </RowAction>
+                    </button>
                   </>
                 )}
               </div>
             </div>
           ))}
           {visible.length === 0 && (
-            <p className="px-4 py-8 text-[13px] text-text-muted">
-              {tab === "online" ? "No one's online right now." : "Nothing here yet."}
-            </p>
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center font-mono text-xs text-text-muted/70">
+              {tab === "online" ? "No friends are online right now." : "No entries found."}
+            </div>
           )}
         </div>
       )}
@@ -299,17 +320,13 @@ export function FriendsView({
 function relationLabel(user: FriendSearchResult) {
   switch (user.relationStatus) {
     case "friends":
-      return "friends";
+      return "Already friends";
     case "incoming_request":
-      return "incoming request";
+      return "Sent you a request";
     case "outgoing_request":
-      return "request sent";
-    case "blocked_by_you":
-      return "blocked";
-    case "blocked_you":
-      return "unavailable";
+      return "Request pending";
     default:
-      return "not connected";
+      return "AIIC Member";
   }
 }
 
@@ -322,68 +339,30 @@ function SearchResultAction({
   onSendRequest?: (target: string) => void;
   onAccept?: (id: string) => void;
 }) {
+  if (user.relationStatus === "friends") {
+    return <span className="font-mono text-[10.5px] text-text-muted">Friends</span>;
+  }
   if (user.relationStatus === "incoming_request" && user.pendingRequestId) {
     return (
       <button
         type="button"
         onClick={() => onAccept?.(user.pendingRequestId!)}
-        className="flex h-8 shrink-0 items-center gap-2 rounded-sm border border-border bg-surface-raised px-3 text-[12px] font-medium text-success transition-colors hover:bg-success/10"
+        className="flex h-8 items-center gap-1 rounded-xl bg-success/20 border border-success/40 px-3 font-mono text-[11px] font-bold text-success hover:bg-success/30 transition-all active:scale-95"
       >
-        <Check size={14} /> Accept
+        <Check size={12} /> Accept
       </button>
     );
   }
-
-  if (user.relationStatus !== "none") {
-    return (
-      <button
-        type="button"
-        disabled
-        className="h-8 shrink-0 cursor-not-allowed rounded-sm border border-border bg-surface-overlay px-3 text-[12px] text-text-faint"
-      >
-        {user.relationStatus === "outgoing_request" ? "Pending" : "Added"}
-      </button>
-    );
+  if (user.relationStatus === "outgoing_request") {
+    return <span className="font-mono text-[10.5px] text-text-muted">Pending</span>;
   }
-
   return (
     <button
       type="button"
-      onClick={() => onSendRequest?.(user.id)}
-      className="flex h-8 shrink-0 items-center gap-2 rounded-sm border border-border bg-surface-raised px-3 text-[12px] font-medium text-text-secondary transition-colors hover:bg-hover-row hover:text-text-primary"
+      onClick={() => onSendRequest?.(user.username || user.id)}
+      className="flex h-8 items-center gap-1 rounded-xl bg-accent/20 border border-accent/40 px-3 font-mono text-[11px] font-bold text-accent hover:bg-accent/30 transition-all active:scale-95"
     >
-      <UserPlus size={14} /> Add
-    </button>
-  );
-}
-
-function RowAction({
-  label,
-  tone,
-  onClick,
-  children,
-}: {
-  label: string;
-  tone?: "success" | "danger";
-  onClick?: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={cn(
-        "flex h-8 w-8 items-center justify-center rounded-sm border border-border bg-surface-raised transition-colors",
-        tone === "success"
-          ? "text-success hover:bg-success/10"
-          : tone === "danger"
-            ? "text-danger hover:bg-danger/10"
-            : "text-text-secondary hover:bg-hover-row hover:text-text-primary"
-      )}
-    >
-      {children}
+      <UserPlus size={12} /> Add
     </button>
   );
 }

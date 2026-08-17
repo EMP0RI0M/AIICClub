@@ -11,9 +11,9 @@ const RELEASES_BUCKET = process.env.NEXT_PUBLIC_RELEASES_BUCKET?.trim() || "rele
 
 // Object key in the `releases` bucket for each platform.
 const RELEASE_KEYS: Record<string, string> = {
-    windows: process.env.NEXT_PUBLIC_RELEASE_WINDOWS || "Corvus-Setup.exe",
-    mac: process.env.NEXT_PUBLIC_RELEASE_MAC || "Corvus.dmg",
-    linux: process.env.NEXT_PUBLIC_RELEASE_LINUX || "Corvus.AppImage",
+    windows: process.env.NEXT_PUBLIC_RELEASE_WINDOWS || "AIIC-Setup.exe",
+    mac: process.env.NEXT_PUBLIC_RELEASE_MAC || "AIIC.dmg",
+    linux: process.env.NEXT_PUBLIC_RELEASE_LINUX || "AIIC.AppImage",
 };
 
 function publicObjectUrl(key: string) {

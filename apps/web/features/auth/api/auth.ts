@@ -99,24 +99,30 @@ export function getPasswordResetUrl(): string {
 
 // ─── Supabase Auth operations ────────────────────────────────────
 
-export async function signInWithEmail(email: string, password: string): Promise<void> {
-    const { error } = await getSupabaseClient().auth.signInWithPassword({
+export async function signInWithEmail(email: string, password: string): Promise<Session> {
+    const { data, error } = await getSupabaseClient().auth.signInWithPassword({
         email: normalizeEmail(email),
         password,
     });
     if (error) throw new Error(error.message);
+    if (!data.session) throw new Error("No session returned from auth.");
+    return data.session;
 }
 
 export async function signUpWithEmail(params: {
     email: string;
     password: string;
     displayName: string;
+    username?: string;
 }): Promise<{ needsConfirmation: boolean }> {
     const { data, error } = await getSupabaseClient().auth.signUp({
         email: normalizeEmail(params.email),
         password: params.password,
         options: {
-            data: { display_name: params.displayName.trim() },
+            data: {
+                display_name: params.displayName.trim(),
+                username: params.username?.trim().toLowerCase(),
+            },
             emailRedirectTo: getAuthCallbackUrl(),
         },
     });
@@ -126,6 +132,7 @@ export async function signUpWithEmail(params: {
     const needsConfirmation = !data.session;
     return { needsConfirmation };
 }
+
 
 export async function signInWithGoogle(): Promise<void> {
     const { error } = await getSupabaseClient().auth.signInWithOAuth({
@@ -238,59 +245,101 @@ export async function getSupabaseAccessToken(): Promise<string | null> {
  * by calling the API's /auth/session/exchange endpoint.
  */
 export async function exchangeSupabaseSession(
-    profile?: Partial<Pick<PendingSignupProfile, "displayName" | "username">>
+    profile?: Partial<Pick<PendingSignupProfile, "displayName" | "username">>,
+    explicitToken?: string
 ): Promise<SessionExchangeResponse | null> {
-    const token = await getSupabaseAccessToken();
-    if (!token) return null;
+    const supabase = getSupabaseClient();
+    const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+    const token = explicitToken || session?.access_token;
+    const authUser = session?.user;
 
-    const apiUrl = ensureApiUrl();
-    const url = `${apiUrl}/auth/session/exchange`;
-    const requestInit: RequestInit = {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-            preferredDisplayName: profile?.displayName?.trim() || undefined,
-            preferredUsername: profile?.username?.trim().toLowerCase() || undefined,
-        }),
-    };
+    if (!authUser || !token) return null;
 
-    // Retry transient network failures (serverless cold starts surface as a
-    // generic "Failed to fetch" / timeout on first contact).
-    const maxAttempts = 3;
-    let response: Response | null = null;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000);
-        try {
-            response = await fetch(url, { ...requestInit, signal: controller.signal });
-            clearTimeout(timeoutId);
-            break;
-        } catch {
-            clearTimeout(timeoutId);
-            if (attempt < maxAttempts) {
-                await new Promise((r) => setTimeout(r, 800 * attempt));
-                continue;
+    // Try calling the App Router endpoint first
+    try {
+        const response = await fetch("/api/auth/session/exchange", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                preferredDisplayName: profile?.displayName?.trim() || undefined,
+                preferredUsername: profile?.username?.trim().toLowerCase() || undefined,
+            }),
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data?.user && data?.token) {
+                return data as SessionExchangeResponse;
             }
-            // Final failure — give an actionable message instead of "Failed to fetch".
-            throw new Error(
-                `Couldn't reach the Corvus server at ${apiUrl}. ` +
-                "Check your connection — if you're on the desktop app, it may have " +
-                "been built with the wrong API address."
-            );
         }
+    } catch {
+        // Fallback to direct Supabase profile resolution below
     }
 
-    if (!response) {
-        throw new Error("Unable to finish sign-in. Please try again.");
-    }
+    // Direct browser-side Supabase client resolution (zero network API failure)
+    try {
+        const email = authUser.email?.toLowerCase() || `${authUser.id}@corvus.internal`;
+        const { data: existingUser } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", authUser.id)
+            .maybeSingle();
 
-    const data = await response.json().catch(() => null);
-    if (!response.ok) {
-        throw new Error(getResponseError(data, "Unable to finish sign-in."));
-    }
+        const baseUsername = profile?.username?.trim().toLowerCase() ||
+            existingUser?.username ||
+            email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 20);
 
-    return data as SessionExchangeResponse;
+        const displayName = profile?.displayName?.trim() ||
+            existingUser?.display_name ||
+            authUser.user_metadata?.display_name ||
+            baseUsername;
+
+        if (!existingUser) {
+            await supabase.from("users").upsert({
+                id: authUser.id,
+                email,
+                username: baseUsername,
+                display_name: displayName,
+                avatar_url: authUser.user_metadata?.avatar_url || null,
+                status: "online",
+                onboarding_completed: true,
+                email_verified: true,
+                updated_at: new Date().toISOString(),
+            }, { onConflict: "id" });
+        }
+
+        return {
+            token: token,
+            user: {
+                id: authUser.id,
+                email,
+                displayName: existingUser?.display_name || displayName,
+                username: existingUser?.username || baseUsername,
+                avatar: existingUser?.avatar_url || authUser.user_metadata?.avatar_url || null,
+                bio: existingUser?.bio || null,
+                status: (existingUser?.status as any) || "online",
+                onboardingCompleted: existingUser?.onboarding_completed ?? true,
+            },
+            isNewUser: !existingUser,
+        };
+    } catch (err: any) {
+        console.error("Direct Supabase profile resolution fallback failed:", err);
+        return {
+            token: token,
+            user: {
+                id: authUser.id,
+                email: authUser.email || `${authUser.id}@corvus.internal`,
+                displayName: authUser.user_metadata?.display_name || "User",
+                username: (authUser.email?.split("@")[0] || "user").replace(/[^a-zA-Z0-9_]/g, "_"),
+                avatar: authUser.user_metadata?.avatar_url || null,
+                bio: null,
+                status: "online",
+                onboardingCompleted: true,
+            },
+            isNewUser: false,
+        };
+    }
 }

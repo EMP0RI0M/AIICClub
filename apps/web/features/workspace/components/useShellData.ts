@@ -92,7 +92,7 @@ function applyWorkspace(
       ...ws.localIncidents,
       ...ws.incidentOverrides,
     },
-    prsByChannel: { ...base.prsByChannel, ...ws.localPRs },
+    prsByChannel: ws.localPRs || {},
   };
 }
 
@@ -132,8 +132,29 @@ function toPresence(status: string | undefined): Presence {
   }
 }
 
+function parseClipContent(content: string) {
+  if (!content) return null;
+  const trimmed = content.trim();
+  if (trimmed.startsWith("clip:")) {
+    try {
+      const data = JSON.parse(decodeURIComponent(trimmed.slice(5)));
+      return {
+        duration: data.duration || "00:04",
+        size: data.size || "2 MB",
+        url: data.url || "",
+      };
+    } catch {
+      return { duration: "00:04", size: "2 MB", url: "" };
+    }
+  }
+  return null;
+}
+
 function toMessage(m: MessageData): ChatMessage {
   const attachment = parseAttachmentContent(m.content);
+  const clip = parseClipContent(m.content) || (m as any).clip;
+  const isAttachmentOrClip = Boolean(attachment || clip);
+
   return {
     id: m.id,
     author: {
@@ -143,8 +164,9 @@ function toMessage(m: MessageData): ChatMessage {
       presence: toPresence(m.author.status),
     },
     at: m.createdAt,
-    text: attachment ? "" : m.content,
+    text: isAttachmentOrClip ? "" : m.content,
     edited: Boolean(m.editedAt),
+    clip: clip || undefined,
     replyTo: m.replyTo
       ? {
           id: m.replyTo.id,
@@ -154,12 +176,13 @@ function toMessage(m: MessageData): ChatMessage {
       : undefined,
     attachments: attachment
       ? [{
-          kind: attachment.kind === "document" ? "file" : attachment.kind,
+          kind: attachment.kind === "image" ? "image" : attachment.kind === "video" ? "video" : attachment.kind === "gif" ? "gif" : "file",
           name: attachment.name,
           url: attachment.url,
           size: formatAttachmentSize(attachment.size),
         }]
       : undefined,
+
     embed: m.embeds?.[0]?.title
       ? {
           url: m.embeds[0].url,
@@ -171,6 +194,7 @@ function toMessage(m: MessageData): ChatMessage {
     reactions: m.reactions?.map((r) => ({ emoji: r.emoji, count: r.count, reacted: r.reacted })),
   };
 }
+
 
 function buildSections(channels: ChannelData[]) {
   const byCategory = new Map<string, ChannelData[]>();
@@ -241,7 +265,7 @@ export function useShellData(forceDemo = false): { data: AppShellData; live: boo
 
     let friendsList: FriendEntry[] = [];
     if (liveFriends) {
-      const accepted: FriendEntry[] = liveFriends.friends.map((f) => ({
+      const accepted: FriendEntry[] = (liveFriends.friends ?? []).map((f) => ({
         id: f.user.id,
         name: f.user.displayName || f.user.username,
         avatar: f.user.avatarUrl,
@@ -249,7 +273,7 @@ export function useShellData(forceDemo = false): { data: AppShellData; live: boo
         status: f.user.bio || undefined,
       }));
 
-      const pendingIncoming: FriendEntry[] = liveFriends.pendingIncoming.map((r) => ({
+      const pendingIncoming: FriendEntry[] = (liveFriends.pendingIncoming ?? []).map((r) => ({
         id: r.id,
         name: r.user.displayName || r.user.username,
         avatar: r.user.avatarUrl,
@@ -257,7 +281,7 @@ export function useShellData(forceDemo = false): { data: AppShellData; live: boo
         pending: "incoming",
       }));
 
-      const pendingOutgoing: FriendEntry[] = liveFriends.pendingOutgoing.map((r) => ({
+      const pendingOutgoing: FriendEntry[] = (liveFriends.pendingOutgoing ?? []).map((r) => ({
         id: r.id,
         name: r.user.displayName || r.user.username,
         avatar: r.user.avatarUrl,

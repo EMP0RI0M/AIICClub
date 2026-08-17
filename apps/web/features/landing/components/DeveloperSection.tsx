@@ -18,7 +18,7 @@ export function DeveloperSection() {
                         Start locally. Follow the real code.
                     </h2>
                     <p className="mt-5 max-w-[58ch] text-[15px] leading-7 text-text-secondary">
-                        Corvus is a pnpm workspace with separate web, API and Tauri desktop
+                        AIIC is a pnpm workspace with separate web, API and Tauri desktop
                         applications. The repository documents the current local-development flow
                         without presenting unfinished SDKs as a product.
                     </p>

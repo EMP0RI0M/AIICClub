@@ -12,7 +12,7 @@ const PAGES: Record<string, MarketingPageContent> = {
       {
         kind: "p",
         text:
-          "Corvus channels are built for high-throughput engineering conversation. Messages group by author and time, dates separate naturally, and metadata stays out of the way in monospace. No avatars shouting for attention, no embeds taking over the feed.",
+          "AIIC channels are built for high-throughput engineering conversation. Messages group by author and time, dates separate naturally, and metadata stays out of the way in monospace. No avatars shouting for attention, no embeds taking over the feed.",
       },
       {
         kind: "ul",

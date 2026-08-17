@@ -23,6 +23,14 @@ export interface User {
     bio: string | null;
     status: "online" | "idle" | "dnd" | "invisible" | "offline";
     onboardingCompleted: boolean;
+    role?: string | null;
+    classYear?: string | null;
+    section?: string | null;
+    githubUrl?: string | null;
+    websiteUrl?: string | null;
+    linkedinUrl?: string | null;
+    interests?: string[];
+    skills?: string[];
 }
 
 interface AuthState {
@@ -162,7 +170,7 @@ export const useAuthStore = create<AuthState>()(
                 set({ isLoading: true });
 
                 try {
-                    await signInWithEmail(normalizedEmail, password);
+                    const session = await signInWithEmail(normalizedEmail, password);
 
                     const pendingSignup = getPendingSignupProfile(normalizedEmail);
                     const data = await exchangeSupabaseSession(
@@ -171,11 +179,12 @@ export const useAuthStore = create<AuthState>()(
                                 displayName: pendingSignup.displayName,
                                 username: pendingSignup.username,
                             }
-                            : undefined
+                            : undefined,
+                        session.access_token
                     );
 
                     if (!data) {
-                        throw new Error("Sign-in succeeded, but no Supabase session was returned.");
+                        throw new Error("Sign-in succeeded, but could not load profile.");
                     }
 
                     clearPendingSignupProfile(normalizedEmail);
@@ -225,6 +234,7 @@ export const useAuthStore = create<AuthState>()(
                         email: normalizedEmail,
                         password: data.password,
                         displayName,
+                        username,
                     });
 
                     savePendingSignupProfile({
@@ -338,24 +348,55 @@ export const useAuthStore = create<AuthState>()(
                 if (current) {
                     set({ user: { ...current, ...data } });
 
-                    // Sync to API in background
-                    if (token) {
-                        const body: Record<string, unknown> = {};
-                        if (data.displayName !== undefined) body.displayName = data.displayName;
-                        if (data.bio !== undefined) body.bio = data.bio;
-                        if (data.avatar !== undefined) body.avatarUrl = data.avatar;
-                        if (data.status !== undefined) body.status = data.status;
+                    // Sync to Supabase via server API and client
+                    (async () => {
+                        try {
+                            if (token) {
+                                const res = await fetch("/api/auth/profile", {
+                                    method: "PATCH",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                        Authorization: `Bearer ${token}`,
+                                    },
+                                    body: JSON.stringify(data),
+                                });
+                                if (res.ok) {
+                                    const json = await res.json();
+                                    if (json?.user) {
+                                        set({ user: json.user });
+                                        return;
+                                    }
+                                }
+                            }
 
-                        if (Object.keys(body).length > 0) {
-                            api("/auth/profile", {
-                                method: "PATCH",
-                                body: JSON.stringify(body),
-                                headers: { Authorization: `Bearer ${token}` },
-                            }).catch((err) =>
-                                console.error("Failed to sync profile:", err)
-                            );
+                            const { getSupabaseClient } = await import("@/shared/supabase/client");
+                            const supabase = getSupabaseClient();
+                            const dbPayload: Record<string, any> = {
+                                updated_at: new Date().toISOString(),
+                            };
+                            if (data.displayName !== undefined) dbPayload.display_name = data.displayName;
+                            if (data.username !== undefined) dbPayload.username = data.username;
+                            if (data.bio !== undefined) dbPayload.bio = data.bio;
+                            if (data.avatar !== undefined) dbPayload.avatar_url = data.avatar;
+                            if (data.status !== undefined) dbPayload.status = data.status;
+                            if (data.classYear !== undefined) dbPayload.class_year = data.classYear;
+                            if (data.section !== undefined) dbPayload.section = data.section;
+                            if (data.githubUrl !== undefined) dbPayload.github_url = data.githubUrl;
+                            if (data.websiteUrl !== undefined) dbPayload.website_url = data.websiteUrl;
+                            if (data.linkedinUrl !== undefined) dbPayload.linkedin_url = data.linkedinUrl;
+                            if (data.interests !== undefined) dbPayload.interests = data.interests;
+                            if (data.skills !== undefined) dbPayload.skills = data.skills;
+
+                            if (Object.keys(dbPayload).length > 1) {
+                                await supabase
+                                    .from("users")
+                                    .update(dbPayload)
+                                    .eq("id", current.id);
+                            }
+                        } catch (err) {
+                            console.error("Failed to sync profile with Supabase:", err);
                         }
-                    }
+                    })();
                 }
             },
 

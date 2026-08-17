@@ -69,7 +69,7 @@ export const SPACE_TEMPLATES: SpaceTemplate[] = [
   {
     id: "engineering",
     name: "Engineering org",
-    description: "Everything Corvus offers: voice, kanban, docs, GitHub, incidents.",
+    description: "Everything AIIC offers: voice, kanban, docs, GitHub, incidents.",
     blueprint: [
       {
         section: "General",
@@ -133,13 +133,13 @@ function DialogShell({
 
   return (
     <div
-      className="absolute inset-0 z-[180] flex items-center justify-center bg-black/50 p-6"
+      className="fixed inset-0 z-[180] flex items-center justify-center bg-black/60 p-3 sm:p-6"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="flex w-full flex-col overflow-hidden rounded-[12px] border border-border bg-surface-overlay"
+        className="flex w-full max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-[12px] border border-border bg-surface-overlay"
         style={{ maxWidth: width, boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}
       >
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
@@ -148,12 +148,12 @@ function DialogShell({
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-sm text-text-faint transition-colors hover:bg-hover-row hover:text-text-primary"
+            className="flex h-8 w-8 items-center justify-center rounded-sm text-text-faint transition-colors hover:bg-hover-row hover:text-text-primary"
           >
             <X size={16} />
           </button>
         </header>
-        <div className="max-h-[70vh] overflow-y-auto p-5">{children}</div>
+        <div className="max-h-[80dvh] overflow-y-auto p-4 sm:p-5">{children}</div>
       </div>
     </div>
   );

@@ -1,13 +1,12 @@
 "use client";
 
 import { cn } from "@corvus/ui";
-import { MessageSquare, Plus, Settings, Home } from "lucide-react";
+import { MessageSquare, Plus, Settings, Home, Shield } from "lucide-react";
 import { ItemLink } from "./ItemLink";
 import type { SpaceSummary } from "./types";
 
 /**
- * 56px nav rail (brief §NavRail). Home, then space icons. Active state is a
- * border + subtle radius morph — no Discord pill, no blob. Unread is a 6px dot.
+ * 56px Nav Rail (Premium Glass & Ambient Depth).
  */
 export function NavRail({
   spaces,
@@ -15,6 +14,7 @@ export function NavRail({
   homeActive,
   dmsActive,
   dmsUnread,
+  canAccessAdminBoard,
   onOpenHome,
   onSelectSpace,
   onOpenDMs,
@@ -29,6 +29,7 @@ export function NavRail({
   homeActive?: boolean;
   dmsActive?: boolean;
   dmsUnread?: boolean;
+  canAccessAdminBoard?: boolean;
   onOpenHome?: () => void;
   onSelectSpace?: (id: string) => void;
   onOpenDMs?: () => void;
@@ -39,10 +40,11 @@ export function NavRail({
   dmsHref?: string;
   spaceHref?: (id: string) => string;
 }) {
+
   return (
     <nav
       aria-label="Spaces"
-      className="fixed inset-x-0 bottom-0 z-40 flex h-14 shrink-0 flex-row items-center bg-bg-deep px-2 shadow-[0_-1px_rgb(var(--c-border-subtle))] md:static md:h-full md:w-14 md:flex-col md:py-3 md:shadow-[inset_-1px_0_rgb(var(--c-border-subtle))]"
+      className="flex h-full w-[64px] sm:w-[68px] md:w-[60px] shrink-0 flex-col items-center bg-[#0d1017]/90 border-r border-white/[0.06] py-3.5 backdrop-blur-xl z-30 shadow-[inset_-1px_0_rgba(255,255,255,0.04)]"
     >
       <ItemLink
         href={homeHref}
@@ -50,18 +52,18 @@ export function NavRail({
         label="Home"
         active={homeActive}
         className={cn(
-          "relative mb-0 flex h-10 w-10 items-center justify-center md:mb-1",
-          "transition-[border-radius,background-color,color] duration-200",
+          "relative mb-1 flex h-10 w-10 sm:h-11 sm:w-11 md:h-10 md:w-10 items-center justify-center rounded-[14px] transition-all duration-200 active:scale-95",
           homeActive
-            ? "rounded-[10px] bg-accent-soft text-accent after:absolute after:bottom-[-7px] after:h-0.5 after:w-5 after:rounded-full after:bg-accent md:after:bottom-auto md:after:left-[-7px] md:after:h-5 md:after:w-0.5"
-            : "rounded-[10px] text-text-secondary hover:bg-surface-raised hover:text-text-primary"
+            ? "border border-accent/40 bg-accent/20 text-accent shadow-[0_0_16px_rgba(var(--c-accent-rgb,138,92,246),0.25)] after:absolute after:left-[-8px] after:h-5 after:w-1 after:rounded-full after:bg-accent"
+            : "border border-transparent text-text-muted hover:border-white/[0.06] hover:bg-white/[0.05] hover:text-text-primary"
         )}
       >
-        <Home size={17} />
+        <Home size={18} />
       </ItemLink>
-      <div className="mx-2 h-8 w-px shrink-0 bg-border-subtle md:mx-0 md:mb-2 md:h-px md:w-8" />
 
-      <div className="flex flex-1 flex-row items-center gap-1 overflow-x-auto scrollbar-none md:flex-col md:overflow-x-hidden md:overflow-y-auto">
+      <div className="my-2 h-px w-6 bg-white/[0.08]" />
+
+      <div className="flex flex-1 flex-col items-center gap-2.5 overflow-x-hidden overflow-y-auto scrollbar-none py-1">
         {spaces.map((space) => {
           const active = space.id === activeSpaceId && !dmsActive && !homeActive;
           return (
@@ -73,11 +75,10 @@ export function NavRail({
               current={active}
               active={active}
               className={cn(
-                "relative flex h-10 w-10 shrink-0 items-center justify-center text-[14px] font-medium text-text-primary",
-                "transition-[border-radius,background-color] duration-200",
+                "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] text-[13.5px] font-bold transition-all duration-200 active:scale-95",
                 active
-                  ? "rounded-[10px] bg-accent-soft after:absolute after:bottom-[-7px] after:h-0.5 after:w-5 after:rounded-full after:bg-accent md:after:bottom-auto md:after:left-[-7px] md:after:h-5 md:after:w-0.5"
-                  : "rounded-[10px] bg-surface-raised hover:bg-surface-overlay"
+                  ? "border border-accent/40 bg-accent/25 text-accent shadow-[0_0_16px_rgba(var(--c-accent-rgb,138,92,246),0.25)] after:absolute after:left-[-8px] after:h-5 after:w-1 after:rounded-full after:bg-accent"
+                  : "border border-white/[0.06] bg-white/[0.03] text-text-secondary hover:border-white/[0.12] hover:bg-white/[0.08] hover:text-text-primary"
               )}
             >
               {space.icon ? (
@@ -86,24 +87,29 @@ export function NavRail({
                 <span aria-hidden>{space.name[0]?.toUpperCase()}</span>
               )}
               {space.unread && !active && (
-                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-accent ring-2 ring-[#0d1017]" />
               )}
             </ItemLink>
           );
         })}
       </div>
 
-      <div className="ml-2 flex flex-row items-center gap-1 md:ml-0 md:mt-2 md:flex-col md:gap-2 md:pt-2">
-        <RailIcon label="Direct messages" active={dmsActive} unread={dmsUnread} href={dmsHref} onClick={onOpenDMs}>
-          <MessageSquare size={20} />
-        </RailIcon>
-        <RailIcon label="Add a space" onClick={onAddSpace}>
-          <Plus size={20} />
-        </RailIcon>
+      <div className="mt-auto flex flex-col items-center gap-2 pt-2 border-t border-white/[0.06]">
+        {canAccessAdminBoard && (
+          <RailIcon label="Organization Admin Board" href="/admin">
+            <Shield size={18} className="text-accent" />
+          </RailIcon>
+        )}
+        {onAddSpace && (
+          <RailIcon label="Add a space" onClick={onAddSpace}>
+            <Plus size={18} />
+          </RailIcon>
+        )}
         <RailIcon label="Settings" onClick={onOpenSettings}>
-          <Settings size={20} />
+          <Settings size={18} />
         </RailIcon>
       </div>
+
     </nav>
   );
 }
@@ -130,13 +136,15 @@ function RailIcon({
       label={label}
       active={active}
       className={cn(
-        "relative flex h-9 w-9 items-center justify-center transition-colors",
-        active ? "text-text-primary" : "text-text-faint hover:text-text-primary"
+        "relative flex h-9 w-9 items-center justify-center rounded-[12px] transition-all active:scale-95",
+        active
+          ? "border border-accent/40 bg-accent/20 text-accent"
+          : "text-text-muted hover:bg-white/[0.06] hover:text-text-primary"
       )}
     >
       {children}
       {unread && (
-        <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-accent" />
+        <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-accent ring-2 ring-[#0d1017]" />
       )}
     </ItemLink>
   );
