@@ -67,7 +67,7 @@ export type Message = {
 
 function Icon({
   name,
-  size = 22,
+  size = 20,
   color = "#A7A9B7",
 }: {
   name: string;
@@ -75,17 +75,21 @@ function Icon({
   color?: string;
 }) {
   const symbols: Record<string, string> = {
-    dm: "▰",
+    spaces: "▰",
+    dm: "💬",
+    projects: "📂",
+    events: "📅",
+    profile: "👤",
     search: "⌕",
-    add: "♙",
+    add: "+",
     calendar: "▣",
     notice: "!",
     archive: "▤",
     admin: "⚙",
     hash: "#",
-    voice: "◖",
+    voice: "🔊",
     project: "▣",
-    bell: "♧",
+    bell: "🔔",
     chevron: "›",
     plus: "+",
     send: "➤",
@@ -106,244 +110,175 @@ function Icon({
 }
 
 /* =========================================================
-   LEFT RAIL
+   LEFT SIDEBAR (PRIMARY APP NAVIGATION)
    ========================================================= */
 
-function SpaceRail({
-  servers,
-  selectedServerId,
-  onSelectServer,
-  onDM,
+function LeftSidebar({
   currentSection,
+  onSelectSection,
   isAdmin,
-  onNotice,
-  onArchive,
-  onAdmin,
+  currentUser,
 }: {
-  servers: Server[];
-  selectedServerId: string | null;
-  onSelectServer: (id: string) => void;
-  onDM: () => void;
   currentSection: string;
+  onSelectSection: (section: "spaces" | "dms" | "projects" | "events" | "profile" | "archive" | "admin" | "notices") => void;
   isAdmin: boolean;
-  onNotice: () => void;
-  onArchive: () => void;
-  onAdmin: () => void;
+  currentUser: any;
 }) {
   return (
-    <View style={styles.rail}>
-      {/* DM IS ALWAYS ABOVE SPACES */}
-      <Pressable
-        onPress={onDM}
-        style={[
-          styles.dmButton,
-          currentSection === "dm" && styles.activeDM,
-        ]}
-      >
-        <Icon
-          name="dm"
-          size={24}
-          color={
-            currentSection === "dm"
-              ? COLORS.white
-              : COLORS.muted
-          }
-        />
-      </Pressable>
+    <View style={styles.sidebar}>
+      {/* Brand / Logo */}
+      <View style={styles.sidebarHeader}>
+        <View style={styles.brandDot} />
+        <Text style={styles.brandText}>AIIC</Text>
+      </View>
 
-      <View style={styles.railDivider} />
+      <View style={styles.sidebarDivider} />
 
-      {/* SPACE LIST */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.spaceList}
-      >
-        {servers.map((server) => {
-          const active = selectedServerId === server.id && currentSection === "space";
-
-          return (
-            <Pressable
-              key={server.id}
-              onPress={() => onSelectServer(server.id)}
-              style={[
-                styles.spaceButton,
-                active && styles.activeSpace,
-              ]}
-            >
-              {server.iconUrl ? (
-                <Image
-                  source={{ uri: server.iconUrl }}
-                  style={styles.spaceImage}
-                />
-              ) : (
-                <View style={styles.spaceFallback}>
-                  <Text style={styles.spaceLetter}>
-                    {server.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-
-              {!!server.unreadCount && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadText}>
-                    {server.unreadCount > 99
-                      ? "99+"
-                      : server.unreadCount}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
-      {/* 3 UTILITY ITEMS */}
-      <View style={styles.utilityArea}>
+      {/* Primary Section Links */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sidebarNavList}>
         <Pressable
-          onPress={onNotice}
+          onPress={() => onSelectSection("spaces")}
           style={[
-            styles.utilityButton,
-            currentSection === "notices" &&
-              styles.utilityActive,
+            styles.navItem,
+            currentSection === "spaces" && styles.navItemActive,
           ]}
         >
-          <Icon name="notice" />
+          <Icon name="spaces" color={currentSection === "spaces" ? COLORS.accent : COLORS.muted} />
+          <Text style={[styles.navItemLabel, currentSection === "spaces" && styles.navItemLabelActive]}>
+            Spaces
+          </Text>
         </Pressable>
 
         <Pressable
-          onPress={onArchive}
+          onPress={() => onSelectSection("dms")}
           style={[
-            styles.utilityButton,
-            currentSection === "archive" &&
-              styles.utilityActive,
+            styles.navItem,
+            currentSection === "dms" && styles.navItemActive,
           ]}
         >
-          <Icon name="archive" />
+          <Icon name="dm" color={currentSection === "dms" ? COLORS.accent : COLORS.muted} />
+          <Text style={[styles.navItemLabel, currentSection === "dms" && styles.navItemLabelActive]}>
+            DMs
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => onSelectSection("projects")}
+          style={[
+            styles.navItem,
+            currentSection === "projects" && styles.navItemActive,
+          ]}
+        >
+          <Icon name="projects" color={currentSection === "projects" ? COLORS.accent : COLORS.muted} />
+          <Text style={[styles.navItemLabel, currentSection === "projects" && styles.navItemLabelActive]}>
+            Projects
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => onSelectSection("events")}
+          style={[
+            styles.navItem,
+            currentSection === "events" && styles.navItemActive,
+          ]}
+        >
+          <Icon name="events" color={currentSection === "events" ? COLORS.accent : COLORS.muted} />
+          <Text style={[styles.navItemLabel, currentSection === "events" && styles.navItemLabelActive]}>
+            Events
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => onSelectSection("profile")}
+          style={[
+            styles.navItem,
+            currentSection === "profile" && styles.navItemActive,
+          ]}
+        >
+          <Icon name="profile" color={currentSection === "profile" ? COLORS.accent : COLORS.muted} />
+          <Text style={[styles.navItemLabel, currentSection === "profile" && styles.navItemLabelActive]}>
+            Profile
+          </Text>
+        </Pressable>
+
+        <View style={styles.sidebarDivider} />
+
+        <Pressable
+          onPress={() => onSelectSection("archive")}
+          style={[
+            styles.navItem,
+            currentSection === "archive" && styles.navItemActive,
+          ]}
+        >
+          <Icon name="archive" color={currentSection === "archive" ? COLORS.accent : COLORS.muted} />
+          <Text style={[styles.navItemLabel, currentSection === "archive" && styles.navItemLabelActive]}>
+            Archives
+          </Text>
         </Pressable>
 
         {isAdmin && (
           <Pressable
-            onPress={onAdmin}
+            onPress={() => onSelectSection("admin")}
             style={[
-              styles.utilityButton,
-              currentSection === "admin" &&
-                styles.utilityActive,
+              styles.navItem,
+              currentSection === "admin" && styles.navItemActive,
             ]}
           >
-            <Icon name="admin" />
+            <Icon name="admin" color={currentSection === "admin" ? COLORS.accent : COLORS.muted} />
+            <Text style={[styles.navItemLabel, currentSection === "admin" && styles.navItemLabelActive]}>
+              Admin
+            </Text>
           </Pressable>
         )}
-      </View>
-    </View>
-  );
-}
+      </ScrollView>
 
-/* =========================================================
-   SPACE HEADER
-   ========================================================= */
-
-function SpaceHeader({
-  server,
-  onSearch,
-  onAdd,
-  onEvents,
-}: {
-  server: Server;
-  onSearch: () => void;
-  onAdd: () => void;
-  onEvents: () => void;
-}) {
-  return (
-    <View style={styles.header}>
-      <View style={styles.serverTitleRow}>
-        <Text style={styles.serverName}>
-          {server.name}
-        </Text>
-
-        <Icon name="chevron" size={22} color={COLORS.muted} />
-      </View>
-
-      <View style={styles.headerActions}>
-        <Pressable
-          onPress={onSearch}
-          style={styles.searchButton}
-        >
-          <Icon name="search" size={24} color={COLORS.white} />
-          <Text style={styles.searchText}>Search</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onAdd}
-          style={styles.squareButton}
-        >
-          <Icon name="add" color={COLORS.white} />
-        </Pressable>
-
-        <Pressable
-          onPress={onEvents}
-          style={styles.squareButton}
-        >
-          <Icon name="calendar" color={COLORS.white} />
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-/* =========================================================
-   NOTICE BAR
-   ========================================================= */
-
-function NoticeBar({
-  notice,
-  onPress,
-}: {
-  notice?: any;
-  onPress: () => void;
-}) {
-  if (!notice) return null;
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={styles.noticeBar}
-    >
-      <View>
-        <Text style={styles.noticeTitle}>
-          {notice.title || "Notice"}
-        </Text>
-
-        {!!(notice.message || notice.content) && (
-          <Text
-            style={styles.noticeMessage}
-            numberOfLines={1}
-          >
-            {notice.message || notice.content}
-          </Text>
+      {/* User Profile Pill at Bottom */}
+      <Pressable
+        onPress={() => onSelectSection("profile")}
+        style={styles.userProfileFooter}
+      >
+        {currentUser?.avatar ? (
+          <Image source={{ uri: currentUser.avatar }} style={styles.userAvatar} />
+        ) : (
+          <View style={styles.userAvatarFallback}>
+            <Text style={styles.userAvatarInitial}>
+              {(currentUser?.displayName || "U").charAt(0).toUpperCase()}
+            </Text>
+          </View>
         )}
-      </View>
-
-      <Icon
-        name="chevron"
-        size={24}
-        color={COLORS.muted}
-      />
-    </Pressable>
+        <View style={styles.userMeta}>
+          <Text style={styles.userDisplayName} numberOfLines={1}>
+            {currentUser?.displayName || "Member"}
+          </Text>
+          <Text style={styles.userRoleText} numberOfLines={1}>
+            {currentUser?.role || "Member"}
+          </Text>
+        </View>
+      </Pressable>
+    </View>
   );
 }
 
 /* =========================================================
-   CHANNEL LIST
+   SPACE / CHANNEL SELECTOR (STANDALONE SCREEN)
    ========================================================= */
 
-function ChannelList({
+function SpaceSelectorScreen({
+  servers,
+  selectedServer,
   channels,
-  selectedChannelId,
+  notice,
   onSelectChannel,
+  onNotice,
+  onSelectServer,
 }: {
+  servers: Server[];
+  selectedServer,
   channels: Channel[];
-  selectedChannelId: string | null;
-  onSelectChannel: (id: string) => void;
+  notice?: any;
+  onSelectChannel: (channelId: string) => void;
+  onNotice: () => void;
+  onSelectServer: (serverId: string) => void;
 }) {
   const categories = useMemo(() => {
     const result: Record<string, Channel[]> = {};
@@ -368,77 +303,121 @@ function ChannelList({
   }, [channels]);
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      style={styles.channelsContainer}
-    >
-      {Object.entries(categories).map(
-        ([category, items]) => (
-          <View key={category}>
-            <Text style={styles.categoryTitle}>
-              {category.toUpperCase()}
-            </Text>
+    <View style={styles.selectorContainer}>
+      {/* Header */}
+      <View style={styles.selectorHeader}>
+        <Text style={styles.serverName}>{selectedServer?.name || "AIIC Space"}</Text>
+      </View>
 
-            {items.map((channel) => {
-              const selected = channel.id === selectedChannelId;
-
-              return (
-                <Pressable
-                  key={channel.id}
-                  onPress={() =>
-                    onSelectChannel(channel.id)
-                  }
-                  style={[
-                    styles.channelRow,
-                    selected && styles.selectedChannel,
-                  ]}
-                >
-                  <Icon
-                    name={
-                      channel.type === "voice"
-                        ? "voice"
-                        : channel.type === "project"
-                          ? "project"
-                          : "hash"
-                    }
-                    size={22}
-                    color={
-                      selected
-                        ? COLORS.white
-                        : COLORS.muted
-                    }
-                  />
-
-                  <Text
-                    style={[
-                      styles.channelName,
-                      selected &&
-                        styles.selectedChannelText,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {channel.name}
-                  </Text>
-
-                  {!!channel.unreadCount && (
-                    <View style={styles.channelUnread}>
-                      <Text style={styles.unreadText}>
-                        {channel.unreadCount}
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
+      {/* Notice Banner */}
+      {notice && (
+        <Pressable onPress={onNotice} style={styles.noticeBar}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.noticeTitle}>{notice.title || "Notice"}</Text>
+            {!!(notice.message || notice.content) && (
+              <Text style={styles.noticeMessage} numberOfLines={1}>
+                {notice.message || notice.content}
+              </Text>
+            )}
           </View>
-        ),
+          <Icon name="chevron" size={20} color={COLORS.muted} />
+        </Pressable>
       )}
-    </ScrollView>
+
+      {/* Categorized Channel List */}
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.channelScroll}>
+        {Object.entries(categories).map(([category, items]) => (
+          <View key={category} style={styles.categoryBlock}>
+            <Text style={styles.categoryTitle}>{category.toUpperCase()}</Text>
+
+            {items.map((channel) => (
+              <Pressable
+                key={channel.id}
+                onPress={() => onSelectChannel(channel.id)}
+                style={({ pressed }) => [
+                  styles.channelRow,
+                  pressed && styles.channelRowPressed,
+                ]}
+              >
+                <Icon
+                  name={
+                    channel.type === "voice"
+                      ? "voice"
+                      : channel.type === "project"
+                        ? "project"
+                        : "hash"
+                  }
+                  size={18}
+                  color={COLORS.muted}
+                />
+                <Text style={styles.channelName} numberOfLines={1}>
+                  {channel.name}
+                </Text>
+                {!!channel.unreadCount && (
+                  <View style={styles.channelUnread}>
+                    <Text style={styles.unreadText}>{channel.unreadCount}</Text>
+                  </View>
+                )}
+              </Pressable>
+            ))}
+          </View>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 
 /* =========================================================
-   MESSAGE VIEW
+   DEDICATED CHANNEL SCREEN (OCCUPIES FULL MAIN AREA)
+   ========================================================= */
+
+function ChannelScreen({
+  channel,
+  messages,
+  onBack,
+  onSend,
+}: {
+  channel: Channel;
+  messages: Message[];
+  onBack: () => void;
+  onSend: (content: string) => Promise<void>;
+}) {
+  return (
+    <View style={styles.channelScreen}>
+      {/* Channel Header with Back Button */}
+      <View style={styles.channelHeader}>
+        <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
+          <Icon name="back" size={26} color={COLORS.white} />
+        </Pressable>
+
+        <Icon
+          name={
+            channel.type === "voice"
+              ? "voice"
+              : channel.type === "project"
+                ? "project"
+                : "hash"
+          }
+          size={18}
+          color={COLORS.muted}
+        />
+
+        <Text style={styles.channelHeaderName} numberOfLines={1}>
+          {channel.name}
+        </Text>
+      </View>
+
+      {/* Messages Feed */}
+      <NativeMessageList messages={messages} />
+
+      {/* Composer */}
+      <MessageComposer channelName={channel.name} onSend={onSend} />
+    </View>
+  );
+}
+
+/* =========================================================
+   MESSAGE FEED & COMPOSER
    ========================================================= */
 
 function isImageUrl(url: string, mimeType?: string) {
@@ -446,11 +425,7 @@ function isImageUrl(url: string, mimeType?: string) {
   return /\.(png|jpe?g|gif|webp|bmp|avif)(\?.*)?$/i.test(url);
 }
 
-function NativeMessageList({
-  messages,
-}: {
-  messages: Message[];
-}) {
+function NativeMessageList({ messages }: { messages: Message[] }) {
   return (
     <FlatList
       data={messages}
@@ -463,16 +438,11 @@ function NativeMessageList({
         return (
           <View style={styles.messageRow}>
             {item.user?.avatarUrl ? (
-              <Image
-                source={{ uri: item.user.avatarUrl }}
-                style={styles.messageAvatar}
-              />
+              <Image source={{ uri: item.user.avatarUrl }} style={styles.messageAvatar} />
             ) : (
               <View style={styles.messageAvatarFallback}>
                 <Text style={styles.avatarLetter}>
-                  {(item.user?.displayName || "U")
-                    .charAt(0)
-                    .toUpperCase()}
+                  {(item.user?.displayName || "U").charAt(0).toUpperCase()}
                 </Text>
               </View>
             )}
@@ -482,11 +452,7 @@ function NativeMessageList({
                 <Text
                   style={[
                     styles.displayName,
-                    {
-                      color:
-                        item.user?.roleColor ||
-                        COLORS.white,
-                    },
+                    { color: item.user?.roleColor || COLORS.white },
                   ]}
                 >
                   {item.user?.displayName || "Member"}
@@ -502,56 +468,28 @@ function NativeMessageList({
                 </Text>
               </View>
 
-              {cleanText ? (
-                <Text style={styles.messageText}>
-                  {cleanText}
-                </Text>
-              ) : null}
+              {cleanText ? <Text style={styles.messageText}>{cleanText}</Text> : null}
 
-              {/* Rich Attachments */}
               {attachments.map((att, idx) => (
                 <AttachmentCard key={idx} attachment={att} />
               ))}
 
-              {/* DIRECT IMAGE URL */}
-              {item.attachment?.url &&
-                isImageUrl(
-                  item.attachment.url,
-                  item.attachment.mimeType,
-                ) && (
-                  <Image
-                    source={{
-                      uri: item.attachment.url,
-                    }}
-                    style={styles.attachmentImage}
-                    resizeMode="cover"
-                  />
-                )}
+              {item.attachment?.url && isImageUrl(item.attachment.url, item.attachment.mimeType) && (
+                <Image source={{ uri: item.attachment.url }} style={styles.attachmentImage} resizeMode="cover" />
+              )}
 
-              {/* FILE */}
-              {item.attachment?.url &&
-                !isImageUrl(
-                  item.attachment.url,
-                  item.attachment.mimeType,
-                ) && (
-                  <View style={styles.fileCard}>
-                    <Text style={styles.fileName}>
-                      {item.attachment.name ||
-                        "Attachment"}
-                    </Text>
-                  </View>
-                )}
+              {item.attachment?.url && !isImageUrl(item.attachment.url, item.attachment.mimeType) && (
+                <View style={styles.fileCard}>
+                  <Text style={styles.fileName}>{item.attachment.name || "Attachment"}</Text>
+                </View>
+              )}
 
               {!!item.reactions?.length && (
                 <View style={styles.reactions}>
                   {item.reactions.map((reaction) => (
-                    <View
-                      key={reaction.emoji}
-                      style={styles.reaction}
-                    >
+                    <View key={reaction.emoji} style={styles.reaction}>
                       <Text style={{ color: COLORS.white }}>
-                        {reaction.emoji}{" "}
-                        {reaction.count}
+                        {reaction.emoji} {reaction.count}
                       </Text>
                     </View>
                   ))}
@@ -564,10 +502,6 @@ function NativeMessageList({
     />
   );
 }
-
-/* =========================================================
-   MESSAGE COMPOSER
-   ========================================================= */
 
 function MessageComposer({
   channelName,
@@ -595,11 +529,7 @@ function MessageComposer({
   return (
     <View style={styles.composer}>
       <Pressable style={styles.composerPlus}>
-        <Icon
-          name="plus"
-          size={25}
-          color={COLORS.white}
-        />
+        <Icon name="plus" size={22} color={COLORS.white} />
       </Pressable>
 
       <TextInput
@@ -616,21 +546,13 @@ function MessageComposer({
         disabled={!text.trim() || sending}
         style={[
           styles.sendButton,
-          (!text.trim() || sending) &&
-            styles.sendDisabled,
+          (!text.trim() || sending) && styles.sendDisabled,
         ]}
       >
         {sending ? (
-          <ActivityIndicator
-            color={COLORS.white}
-            size="small"
-          />
+          <ActivityIndicator color={COLORS.white} size="small" />
         ) : (
-          <Icon
-            name="send"
-            size={20}
-            color={COLORS.white}
-          />
+          <Icon name="send" size={18} color={COLORS.white} />
         )}
       </Pressable>
     </View>
@@ -638,125 +560,20 @@ function MessageComposer({
 }
 
 /* =========================================================
-   SPACE CONTENT
-   ========================================================= */
-
-function SpaceContent({
-  server,
-  channels,
-  selectedChannelId,
-  messages,
-  notice,
-  onSelectChannel,
-  onNotice,
-  onSend,
-  onSearch,
-  onAdd,
-  onEvents,
-}: {
-  server: Server;
-  channels: Channel[];
-  selectedChannelId: string | null;
-  messages: Message[];
-  notice?: any;
-  onSelectChannel: (id: string) => void;
-  onNotice: () => void;
-  onSend: (content: string) => Promise<void>;
-  onSearch: () => void;
-  onAdd: () => void;
-  onEvents: () => void;
-}) {
-  const selectedChannel = channels.find(
-    (c) => c.id === selectedChannelId,
-  );
-
-  return (
-    <View style={styles.spaceContent}>
-      <SpaceHeader
-        server={server}
-        onSearch={onSearch}
-        onAdd={onAdd}
-        onEvents={onEvents}
-      />
-
-      <NoticeBar
-        notice={notice}
-        onPress={onNotice}
-      />
-
-      <View style={styles.workspace}>
-        {/* CHANNEL DRAWER */}
-        <View style={styles.channelDrawer}>
-          <ChannelList
-            channels={channels}
-            selectedChannelId={selectedChannelId}
-            onSelectChannel={onSelectChannel}
-          />
-        </View>
-
-        {/* ACTUAL CONTENT */}
-        <View style={styles.channelContent}>
-          {selectedChannel ? (
-            <>
-              <View style={styles.channelHeader}>
-                <Icon
-                  name={
-                    selectedChannel.type === "voice"
-                      ? "voice"
-                      : selectedChannel.type === "project"
-                        ? "project"
-                        : "hash"
-                  }
-                  color={COLORS.white}
-                />
-
-                <Text style={styles.channelHeaderName}>
-                  {selectedChannel.name}
-                </Text>
-              </View>
-
-              <NativeMessageList
-                messages={messages}
-              />
-
-              <MessageComposer
-                channelName={selectedChannel.name}
-                onSend={onSend}
-              />
-            </>
-          ) : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>
-                Select a channel
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-/* =========================================================
-   NOTICES
+   SUB PAGES
    ========================================================= */
 
 function NoticePage({ notices }: { notices: any[] }) {
   return (
     <View style={styles.page}>
       <Text style={styles.pageTitle}>Notices</Text>
-
       <FlatList
         data={notices}
         keyExtractor={(item, index) => String(item.id || index)}
         renderItem={({ item }) => (
           <View style={styles.noticeCard}>
-            <Text style={styles.noticeCardTitle}>
-              {item.title}
-            </Text>
-            <Text style={styles.noticeCardText}>
-              {item.message || item.content || item.description || ""}
-            </Text>
+            <Text style={styles.noticeCardTitle}>{item.title}</Text>
+            <Text style={styles.noticeCardText}>{item.message || item.content || item.description || ""}</Text>
           </View>
         )}
       />
@@ -764,35 +581,20 @@ function NoticePage({ notices }: { notices: any[] }) {
   );
 }
 
-/* =========================================================
-   ARCHIVE
-   ========================================================= */
-
 function ArchivePage({ archive }: { archive: any[] }) {
   return (
     <View style={styles.page}>
-      <Text style={styles.pageTitle}>Archive</Text>
-
+      <Text style={styles.pageTitle}>Archives</Text>
       <FlatList
         data={archive}
         keyExtractor={(item, index) => String(item.id || item.archiveId || index)}
         renderItem={({ item }) => (
           <View style={styles.archiveRow}>
-            <Icon
-              name="archive"
-              color={COLORS.muted}
-            />
-
+            <Icon name="archive" color={COLORS.muted} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.archiveTitle}>
-                {item.title || item.name || "Archive record"}
-              </Text>
-
+              <Text style={styles.archiveTitle}>{item.title || item.name || "Archive record"}</Text>
               {!!(item.description || item.summary) && (
-                <Text
-                  style={styles.archiveDescription}
-                  numberOfLines={2}
-                >
+                <Text style={styles.archiveDescription} numberOfLines={2}>
                   {item.description || item.summary}
                 </Text>
               )}
@@ -804,67 +606,37 @@ function ArchivePage({ archive }: { archive: any[] }) {
   );
 }
 
-/* =========================================================
-   ADMIN
-   ========================================================= */
-
 function AdminPage({ data }: { data: any }) {
   return (
     <ScrollView style={styles.page}>
-      <Text style={styles.pageTitle}>
-        Admin Panel
-      </Text>
-
+      <Text style={styles.pageTitle}>Admin Panel</Text>
       <View style={styles.adminGrid}>
-        <AdminStat
-          title="Total Members"
-          value={data?.stats?.totalUsers ?? data?.totalMembers}
-        />
-
-        <AdminStat
-          title="Active Spaces"
-          value={data?.stats?.activeSpaces ?? data?.activeSpaces}
-        />
-
-        <AdminStat
-          title="Pending Approvals"
-          value={data?.stats?.pendingApprovals ?? data?.pendingApprovals}
-        />
-
-        <AdminStat
-          title="Squad Teams"
-          value={data?.stats?.activeTeams ?? data?.squadTeams}
-        />
+        <View style={styles.adminStat}>
+          <Text style={styles.adminStatTitle}>Total Members</Text>
+          <Text style={styles.adminStatValue}>{data?.stats?.totalUsers ?? data?.totalMembers ?? "—"}</Text>
+        </View>
+        <View style={styles.adminStat}>
+          <Text style={styles.adminStatTitle}>Active Spaces</Text>
+          <Text style={styles.adminStatValue}>{data?.stats?.activeSpaces ?? data?.activeSpaces ?? "—"}</Text>
+        </View>
+        <View style={styles.adminStat}>
+          <Text style={styles.adminStatTitle}>Pending Approvals</Text>
+          <Text style={styles.adminStatValue}>{data?.stats?.pendingApprovals ?? data?.pendingApprovals ?? "—"}</Text>
+        </View>
+        <View style={styles.adminStat}>
+          <Text style={styles.adminStatTitle}>Squad Teams</Text>
+          <Text style={styles.adminStatValue}>{data?.stats?.activeTeams ?? data?.squadTeams ?? "—"}</Text>
+        </View>
       </View>
     </ScrollView>
   );
 }
 
-function AdminStat({
-  title,
-  value,
-}: {
-  title: string;
-  value: any;
-}) {
-  return (
-    <View style={styles.adminStat}>
-      <Text style={styles.adminStatTitle}>
-        {title}
-      </Text>
-
-      <Text style={styles.adminStatValue}>
-        {value ?? "—"}
-      </Text>
-    </View>
-  );
-}
-
 /* =========================================================
-   MAIN SHELL
+   MAIN APP SHELL (CLEAN NAVIGATION ARCHITECTURE)
    ========================================================= */
 
-export default function SpaceChannelScreen() {
+export default function AppShellScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
 
@@ -872,11 +644,9 @@ export default function SpaceChannelScreen() {
     spaces,
     sections,
     activeSpaceId,
-    activeChannelId,
     loadSpaces,
     loadChannelsForSpace,
     setActiveSpace,
-    setActiveChannel,
   } = useWorkspaceStore();
 
   const {
@@ -887,9 +657,12 @@ export default function SpaceChannelScreen() {
     unsubscribeFromChannel,
   } = useChatStore();
 
-  const [currentSection, setCurrentSection] =
-    useState<"dm" | "space" | "notices" | "archive" | "admin">("space");
+  // Primary Section: spaces | dms | projects | events | profile | archive | admin | notices
+  const [currentSection, setCurrentSection] = useState<
+    "spaces" | "dms" | "projects" | "events" | "profile" | "archive" | "admin" | "notices"
+  >("spaces");
 
+  // Selected Space & Channel state (null channel means viewing channel selector)
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
 
@@ -904,9 +677,6 @@ export default function SpaceChannelScreen() {
     user?.role === "president" ||
     user?.role === "president_admin";
 
-  /* -------------------------------------------------------
-     LOAD SPACES
-     ------------------------------------------------------- */
   useEffect(() => {
     loadSpaces();
   }, []);
@@ -926,9 +696,6 @@ export default function SpaceChannelScreen() {
     }
   }, [servers, activeSpaceId]);
 
-  /* -------------------------------------------------------
-     LOAD CHANNELS
-     ------------------------------------------------------- */
   useEffect(() => {
     if (!selectedServerId) return;
     loadChannelsForSpace(selectedServerId);
@@ -949,16 +716,6 @@ export default function SpaceChannelScreen() {
     );
   }, [sections, selectedServerId]);
 
-  useEffect(() => {
-    if (channels.length > 0) {
-      const firstText = channels.find((c) => c.type === "text") || channels[0];
-      setSelectedChannelId(activeChannelId || firstText.id);
-    }
-  }, [channels, activeChannelId]);
-
-  /* -------------------------------------------------------
-     LOAD MESSAGES
-     ------------------------------------------------------- */
   useEffect(() => {
     if (!selectedChannelId) return;
     loadChannelMessages(selectedChannelId);
@@ -998,22 +755,14 @@ export default function SpaceChannelScreen() {
     }));
   }, [messages, selectedChannelId]);
 
-  /* -------------------------------------------------------
-     NOTICES
-     ------------------------------------------------------- */
   useEffect(() => {
-    if (currentSection === "notices" || currentSection === "space") {
-      api<{ announcements: any[] }>("/announcements")
-        .then((res) => {
-          setNotices(res?.announcements || []);
-        })
-        .catch(console.error);
-    }
-  }, [currentSection]);
+    api<{ announcements: any[] }>("/announcements")
+      .then((res) => {
+        setNotices(res?.announcements || []);
+      })
+      .catch(console.error);
+  }, []);
 
-  /* -------------------------------------------------------
-     ARCHIVE
-     ------------------------------------------------------- */
   useEffect(() => {
     if (currentSection === "archive") {
       api<{ records: any[] }>("/archive/records")
@@ -1024,9 +773,6 @@ export default function SpaceChannelScreen() {
     }
   }, [currentSection]);
 
-  /* -------------------------------------------------------
-     ADMIN
-     ------------------------------------------------------- */
   useEffect(() => {
     if (isAdmin && currentSection === "admin") {
       api<any>("/admin/overview")
@@ -1039,9 +785,6 @@ export default function SpaceChannelScreen() {
     }
   }, [currentSection, isAdmin]);
 
-  /* -------------------------------------------------------
-     SEND MESSAGE
-     ------------------------------------------------------- */
   async function sendMessage(content: string) {
     if (!selectedChannelId) return;
     await sendChannelMessageAction(selectedChannelId, content);
@@ -1050,74 +793,122 @@ export default function SpaceChannelScreen() {
   const selectedServer =
     servers.find((server) => server.id === selectedServerId) || servers[0] || null;
 
+  const selectedChannel =
+    channels.find((channel) => channel.id === selectedChannelId) || null;
+
   const notice = notices[0];
 
-  /* -------------------------------------------------------
-     RENDER
-     ------------------------------------------------------- */
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.root}>
         {/* =================================================
-            LEFT DISCORD-STYLE RAIL
+            1. PRIMARY LEFT SIDEBAR (REPLACES BOTTOM BAR)
             ================================================= */}
-        <SpaceRail
-          servers={servers}
-          selectedServerId={selectedServerId}
-          onSelectServer={(id) => {
-            setSelectedServerId(id);
-            setActiveSpace(id);
-            setCurrentSection("space");
-          }}
-          onDM={() => {
-            router.push("/(app)/dms/index" as any);
-          }}
+        <LeftSidebar
           currentSection={currentSection}
-          isAdmin={isAdmin}
-          onNotice={() => {
-            setCurrentSection("notices");
-          }}
-          onArchive={() => {
-            setCurrentSection("archive");
-          }}
-          onAdmin={() => {
-            if (isAdmin) {
-              setCurrentSection("admin");
+          onSelectSection={(section) => {
+            setCurrentSection(section);
+            if (section === "spaces") {
+              setSelectedChannelId(null); // Reset channel so user views SpaceSelector
             }
           }}
+          isAdmin={isAdmin}
+          currentUser={user}
         />
 
         {/* =================================================
-            MAIN CONTENT
+            2. MAIN CONTENT AREA
             ================================================= */}
-        <View style={styles.main}>
-          {currentSection === "space" && selectedServer && (
-            <SpaceContent
-              server={selectedServer}
-              channels={channels}
-              selectedChannelId={selectedChannelId}
-              messages={channelMessages}
-              notice={notice}
-              onSelectChannel={(chId) => {
-                setSelectedChannelId(chId);
-                setActiveChannel(chId);
-              }}
-              onNotice={() => setCurrentSection("notices")}
-              onSend={sendMessage}
-              onSearch={() => router.push("/(app)/projects/index" as any)}
-              onAdd={() => router.push("/(app)/projects/index" as any)}
-              onEvents={() => router.push("/(app)/events/index" as any)}
-            />
+        <View style={styles.mainContent}>
+          {/* SPACES FLOW */}
+          {currentSection === "spaces" && (
+            selectedChannel ? (
+              /* DEDICATED CHANNEL SCREEN */
+              <ChannelScreen
+                channel={selectedChannel}
+                messages={channelMessages}
+                onBack={() => setSelectedChannelId(null)}
+                onSend={sendMessage}
+              />
+            ) : (
+              /* STANDALONE SPACE & CHANNEL SELECTOR */
+              <SpaceSelectorScreen
+                servers={servers}
+                selectedServer={selectedServer}
+                channels={channels}
+                notice={notice}
+                onSelectChannel={(chId) => setSelectedChannelId(chId)}
+                onNotice={() => setCurrentSection("notices")}
+                onSelectServer={(sId) => {
+                  setSelectedServerId(sId);
+                  setActiveSpace(sId);
+                  setSelectedChannelId(null);
+                }}
+              />
+            )
           )}
 
+          {/* DEDICATED DMs */}
+          {currentSection === "dms" && (
+            <View style={styles.page}>
+              <Text style={styles.pageTitle}>Direct Messages</Text>
+              <TextInput
+                placeholder="Search direct messages or friends"
+                placeholderTextColor={COLORS.muted}
+                style={styles.dmSearch}
+              />
+              <Text style={styles.emptyText}>No recent direct conversations.</Text>
+            </View>
+          )}
+
+          {/* DEDICATED PROJECTS */}
+          {currentSection === "projects" && (
+            <View style={styles.page}>
+              <Text style={styles.pageTitle}>Projects & Labs</Text>
+              <Text style={styles.emptyText}>Explore active AIIC build teams and repositories.</Text>
+            </View>
+          )}
+
+          {/* DEDICATED EVENTS */}
+          {currentSection === "events" && (
+            <View style={styles.page}>
+              <Text style={styles.pageTitle}>Events & Workshops</Text>
+              <Text style={styles.emptyText}>Upcoming AIIC hackathons, talks, and meeting schedule.</Text>
+            </View>
+          )}
+
+          {/* DEDICATED PROFILE */}
+          {currentSection === "profile" && (
+            <View style={styles.page}>
+              <Text style={styles.pageTitle}>Profile</Text>
+              <View style={styles.profileCard}>
+                {user?.avatar ? (
+                  <Image source={{ uri: user.avatar }} style={styles.profileAvatar} />
+                ) : (
+                  <View style={styles.profileAvatarFallback}>
+                    <Text style={styles.profileAvatarLetter}>
+                      {(user?.displayName || "U").charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.profileName}>{user?.displayName || "AIIC Member"}</Text>
+                <Text style={styles.profileEmail}>{user?.email}</Text>
+                <Text style={styles.profileRoleBadge}>{user?.role || "Member"}</Text>
+              </View>
+            </View>
+          )}
+
+          {/* NOTICES */}
           {currentSection === "notices" && (
             <NoticePage notices={notices} />
           )}
 
+          {/* ARCHIVE */}
           {currentSection === "archive" && (
             <ArchivePage archive={archive} />
           )}
 
+          {/* ADMIN (Only accessible if isAdmin is true) */}
           {currentSection === "admin" && isAdmin && (
             <AdminPage data={adminData} />
           )}
@@ -1128,27 +919,23 @@ export default function SpaceChannelScreen() {
 }
 
 /* =========================================================
-   COLORS
+   COLORS & STYLES
    ========================================================= */
 
 const COLORS = {
-  bg: "#0B0B0F",
-  rail: "#111116",
-  panel: "#1A1A20",
-  panel2: "#202027",
-  selected: "#3A3A42",
+  bg: "#08090D",
+  sidebar: "#101116",
+  panel: "#16171D",
+  panel2: "#1D1E26",
+  selected: "#282933",
   white: "#F5F5F7",
-  muted: "#9698A8",
-  dim: "#696B79",
-  border: "#292A31",
-  accent: "#F2B544",
+  muted: "#8F91A2",
+  dim: "#5A5C6B",
+  border: "rgba(255, 255, 255, 0.08)",
+  accent: "#E8A33D",
   danger: "#E5484D",
   success: "#3CCB72",
 };
-
-/* =========================================================
-   STYLES
-   ========================================================= */
 
 const styles = StyleSheet.create({
   safe: {
@@ -1162,83 +949,218 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
   },
 
-  /* RAIL */
-
-  rail: {
-    width: 82,
-    backgroundColor: COLORS.rail,
+  /* PRIMARY LEFT SIDEBAR */
+  sidebar: {
+    width: 78,
+    backgroundColor: COLORS.sidebar,
+    borderRightWidth: 1,
+    borderRightColor: COLORS.border,
     alignItems: "center",
-    paddingTop: 8,
+    paddingTop: 10,
     paddingBottom: 8,
   },
 
-  dmButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
+  sidebarHeader: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#24242A",
+    gap: 6,
+    paddingVertical: 6,
   },
 
-  activeDM: {
+  brandDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: COLORS.accent,
   },
 
-  railDivider: {
-    width: 36,
+  brandText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 2,
+  },
+
+  sidebarDivider: {
+    width: 44,
     height: 1,
     backgroundColor: COLORS.border,
     marginVertical: 10,
   },
 
-  spaceList: {
+  sidebarNavList: {
     alignItems: "center",
-    paddingBottom: 8,
-    gap: 10,
+    gap: 8,
   },
 
-  spaceButton: {
+  navItem: {
     width: 58,
-    height: 58,
-    borderRadius: 18,
+    height: 52,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    position: "relative",
+    backgroundColor: "transparent",
   },
 
-  activeSpace: {
+  navItemActive: {
     backgroundColor: COLORS.selected,
   },
 
-  spaceImage: {
-    width: 54,
-    height: 54,
-    borderRadius: 17,
+  navItemLabel: {
+    color: COLORS.muted,
+    fontSize: 9.5,
+    fontWeight: "700",
+    marginTop: 2,
   },
 
-  spaceFallback: {
-    width: 54,
-    height: 54,
-    borderRadius: 17,
+  navItemLabelActive: {
+    color: COLORS.white,
+  },
+
+  userProfileFooter: {
+    marginTop: "auto",
+    alignItems: "center",
+    paddingTop: 8,
+  },
+
+  userAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+
+  userAvatarFallback: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLORS.panel2,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#292A33",
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
 
-  spaceLetter: {
+  userAvatarInitial: {
     color: COLORS.white,
-    fontSize: 20,
     fontWeight: "800",
+    fontSize: 15,
   },
 
-  unreadBadge: {
-    position: "absolute",
-    right: -2,
-    bottom: -2,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
+  userMeta: {
+    alignItems: "center",
+    marginTop: 4,
+  },
+
+  userDisplayName: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: "700",
+    maxWidth: 68,
+  },
+
+  userRoleText: {
+    color: COLORS.accent,
+    fontSize: 8.5,
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+
+  /* MAIN CONTENT AREA */
+  mainContent: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+
+  /* STANDALONE SPACE SELECTOR */
+  selectorContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+
+  selectorHeader: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+
+  serverName: {
+    color: COLORS.white,
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+  },
+
+  noticeBar: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: COLORS.panel2,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
+  noticeTitle: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  noticeMessage: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+
+  channelScroll: {
+    flex: 1,
+    marginTop: 12,
+  },
+
+  categoryBlock: {
+    marginBottom: 16,
+  },
+
+  categoryTitle: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    paddingHorizontal: 6,
+    marginBottom: 6,
+  },
+
+  channelRow: {
+    minHeight: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    gap: 10,
+    borderRadius: 12,
+    backgroundColor: COLORS.panel,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.04)",
+  },
+
+  channelRowPressed: {
+    backgroundColor: COLORS.selected,
+  },
+
+  channelName: {
+    flex: 1,
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+
+  channelUnread: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: COLORS.danger,
     alignItems: "center",
     justifyContent: "center",
@@ -1251,226 +1173,62 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
-  utilityArea: {
-    marginTop: "auto",
-    gap: 8,
-    alignItems: "center",
-  },
-
-  utilityButton: {
-    width: 54,
-    height: 48,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  utilityActive: {
-    backgroundColor: COLORS.selected,
-  },
-
-  /* MAIN */
-
-  main: {
+  /* DEDICATED CHANNEL SCREEN */
+  channelScreen: {
     flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-
-  spaceContent: {
-    flex: 1,
-  },
-
-  /* HEADER */
-
-  header: {
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-
-  serverTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 12,
-  },
-
-  serverName: {
-    color: COLORS.white,
-    fontSize: 21,
-    fontWeight: "800",
-  },
-
-  headerActions: {
-    flexDirection: "row",
-    gap: 10,
-  },
-
-  searchButton: {
-    flex: 1,
-    height: 48,
-    borderRadius: 15,
-    backgroundColor: COLORS.panel2,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-
-  searchText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  squareButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 15,
-    backgroundColor: COLORS.panel2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  /* NOTICE */
-
-  noticeBar: {
-    marginHorizontal: 14,
-    marginTop: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 17,
-    backgroundColor: COLORS.panel2,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  noticeTitle: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-
-  noticeMessage: {
-    color: COLORS.muted,
-    marginTop: 2,
-    fontSize: 12,
-  },
-
-  /* WORKSPACE */
-
-  workspace: {
-    flex: 1,
-    flexDirection: "row",
-    marginTop: 10,
-  },
-
-  channelDrawer: {
-    width: 175,
-    backgroundColor: "#15151A",
-    borderRightWidth: 1,
-    borderRightColor: COLORS.border,
-  },
-
-  channelsContainer: {
-    flex: 1,
-  },
-
-  categoryTitle: {
-    color: COLORS.muted,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.7,
-    paddingHorizontal: 12,
-    paddingTop: 18,
-    paddingBottom: 6,
-  },
-
-  channelRow: {
-    minHeight: 42,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    gap: 7,
-    borderRadius: 8,
-    marginHorizontal: 5,
-  },
-
-  selectedChannel: {
-    backgroundColor: COLORS.selected,
-  },
-
-  channelName: {
-    flex: 1,
-    color: COLORS.muted,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  selectedChannelText: {
-    color: COLORS.white,
-  },
-
-  channelUnread: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: COLORS.danger,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  channelContent: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
   },
 
   channelHeader: {
-    height: 50,
+    height: 54,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    gap: 7,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+
+  backBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 18,
+    backgroundColor: COLORS.panel2,
   },
 
   channelHeaderName: {
     color: COLORS.white,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "800",
   },
 
-  /* MESSAGES */
-
+  /* MESSAGES & COMPOSER */
   messages: {
     flex: 1,
   },
 
   messageContent: {
     padding: 14,
-    paddingBottom: 24,
+    paddingBottom: 20,
   },
 
   messageRow: {
     flexDirection: "row",
-    marginBottom: 17,
+    marginBottom: 16,
     gap: 10,
   },
 
   messageAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
   },
 
   messageAvatarFallback: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: COLORS.panel2,
     alignItems: "center",
     justifyContent: "center",
@@ -1502,7 +1260,7 @@ const styles = StyleSheet.create({
   },
 
   messageText: {
-    color: "#D8D8DE",
+    color: "#E1E2E8",
     fontSize: 14,
     lineHeight: 21,
     marginTop: 2,
@@ -1542,21 +1300,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
 
-  /* COMPOSER */
-
   composer: {
-    minHeight: 58,
+    minHeight: 54,
     margin: 10,
-    borderRadius: 17,
+    borderRadius: 16,
     backgroundColor: COLORS.panel2,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
 
   composerPlus: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1567,13 +1325,13 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 15,
     paddingHorizontal: 8,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
 
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: COLORS.accent,
     alignItems: "center",
     justifyContent: "center",
@@ -1583,54 +1341,99 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
 
-  /* PAGES */
-
+  /* SUB PAGES */
   page: {
     flex: 1,
     padding: 20,
-    backgroundColor: COLORS.bg,
   },
 
   pageTitle: {
     color: COLORS.white,
-    fontSize: 25,
+    fontSize: 24,
     fontWeight: "800",
-    marginBottom: 18,
-  },
-
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  emptyTitle: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: "700",
+    marginBottom: 16,
   },
 
   emptyText: {
     color: COLORS.muted,
-    marginTop: 20,
+    fontSize: 14,
+    marginTop: 10,
   },
 
   dmSearch: {
-    height: 50,
+    height: 48,
     borderRadius: 14,
     backgroundColor: COLORS.panel2,
     color: COLORS.white,
-    paddingHorizontal: 15,
+    paddingHorizontal: 14,
     fontSize: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
 
-  /* NOTICES */
+  profileCard: {
+    padding: 20,
+    borderRadius: 18,
+    backgroundColor: COLORS.panel,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
+  profileAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    marginBottom: 12,
+  },
+
+  profileAvatarFallback: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: COLORS.panel2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+
+  profileAvatarLetter: {
+    color: COLORS.white,
+    fontSize: 28,
+    fontWeight: "800",
+  },
+
+  profileName: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+
+  profileEmail: {
+    color: COLORS.muted,
+    fontSize: 13,
+    marginTop: 4,
+  },
+
+  profileRoleBadge: {
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(232, 163, 61, 0.15)",
+    color: COLORS.accent,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
 
   noticeCard: {
     padding: 16,
-    borderRadius: 15,
-    backgroundColor: COLORS.panel2,
+    borderRadius: 14,
+    backgroundColor: COLORS.panel,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
 
   noticeCardTitle: {
@@ -1645,21 +1448,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  /* ARCHIVE */
-
   archiveRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 15,
+    padding: 14,
     borderRadius: 14,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: COLORS.panel,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
 
   archiveTitle: {
     color: COLORS.white,
     fontWeight: "700",
+    fontSize: 15,
   },
 
   archiveDescription: {
@@ -1667,8 +1471,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 3,
   },
-
-  /* ADMIN */
 
   adminGrid: {
     flexDirection: "row",
@@ -1678,10 +1480,12 @@ const styles = StyleSheet.create({
 
   adminStat: {
     width: "47%",
-    minHeight: 110,
-    padding: 15,
+    minHeight: 105,
+    padding: 14,
     borderRadius: 16,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: COLORS.panel,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
 
   adminStatTitle: {
@@ -1692,8 +1496,8 @@ const styles = StyleSheet.create({
 
   adminStatValue: {
     color: COLORS.white,
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "800",
-    marginTop: 15,
+    marginTop: 12,
   },
 });
