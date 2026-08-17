@@ -33,6 +33,7 @@ import {
 import { CanvasChannelView } from "../../../../components/chat/CanvasChannelView";
 import { DocsChannelView } from "@/components/chat/DocsChannelView";
 import { BoardChannelView } from "@/components/chat/BoardChannelView";
+import { GitHubChannelView } from "@/components/chat/GitHubChannelView";
 import { SpaceDrawerModal } from "@/components/navigation/SpaceDrawerModal";
 import { MobileArchiveView } from "@/components/archive/MobileArchiveView";
 import { MobileNoticeBoardView } from "@/components/notifications/MobileNoticeBoardView";
@@ -496,80 +497,41 @@ function ChannelRouter({
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onOpenProfile?: (user: UserProfileData) => void;
 }) {
-  switch (channel.type) {
-    case "voice":
-      return (
-        <VoiceChannelView
-          channelId={channel.id}
-          channelName={channel.name}
-          isStage={false}
-          onBack={onBack}
-        />
-      );
-
-    case "stage":
-      return (
-        <VoiceChannelView
-          channelId={channel.id}
-          channelName={channel.name}
-          isStage={true}
-          onBack={onBack}
-        />
-      );
-
-    case "incident":
-      return (
-        <IncidentChannelView
-          channelId={channel.id}
-          channelName={channel.name}
-          onBack={onBack}
-        />
-      );
-
-    case "canvas":
-      return (
-        <CanvasChannelView
-          channelId={channel.id}
-          channelName={channel.name}
-          onBack={onBack}
-        />
-      );
-
-    case "docs":
-      return (
-        <DocsChannelView
-          channelId={channel.id}
-          channelName={channel.name}
-          onBack={onBack}
-        />
-      );
-
-    case "board":
-    case "project":
-      return (
-        <BoardChannelView
-          channelId={channel.id}
-          channelName={channel.name}
-          onBack={onBack}
-        />
-      );
-
-    case "text":
-    case "announcement":
-    case "forum":
-    case "github":
-    default:
-      return (
-        <TextChannelScreen
-          channel={channel}
-          messages={messages}
-          onBack={onBack}
-          onSend={onSend}
-          onToggleReaction={onToggleReaction}
-          onOpenProfile={onOpenProfile}
-        />
-      );
+  if (channel.type === "voice") {
+    return (
+      <VoiceChannelView
+        channelId={channel.id}
+        channelName={channel.name}
+        isStage={false}
+        onBack={onBack}
+      />
+    );
   }
+
+  if (channel.type === "stage") {
+    return (
+      <VoiceChannelView
+        channelId={channel.id}
+        channelName={channel.name}
+        isStage={true}
+        onBack={onBack}
+      />
+    );
+  }
+
+  // All other channels (text, github, board, project, docs, incident, canvas, announcement, forum)
+  // route through TextChannelScreen which provides the unified channel header, dual Tool ⟷ Chat toggle,
+  // message composer, full message feed, and interactive specialized tools.
+  return (
+    <TextChannelScreen
+      channel={channel}
+      messages={messages}
+      onBack={onBack}
+      onSend={onSend}
+      onToggleReaction={onToggleReaction}
+      onOpenProfile={onOpenProfile}
+    />
+  );
 }
 
 /* =========================================================
@@ -592,10 +554,21 @@ function TextChannelScreen({
   onOpenProfile?: (user: UserProfileData) => void;
 }) {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const isSpecialized =
+    channel.type === "github" ||
+    channel.type === "board" ||
+    channel.type === "project" ||
+    channel.type === "docs" ||
+    channel.type === "incident" ||
+    channel.type === "canvas";
+
+  const [activeTab, setActiveTab] = useState<"tool" | "chat">(
+    isSpecialized ? "tool" : "chat"
+  );
 
   return (
     <View style={styles.channelScreen}>
-      {/* Header with Back Button */}
+      {/* Header with Back Button and Mode Toggle */}
       <View style={styles.channelHeader}>
         <Pressable onPress={onBack} hitSlop={14} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.textPrimary} />
@@ -603,10 +576,14 @@ function TextChannelScreen({
 
         {channel.type === "github" ? (
           <Github size={18} color={colors.accentTeal} />
-        ) : channel.type === "board" ? (
+        ) : channel.type === "board" || channel.type === "project" ? (
           <Kanban size={18} color={colors.accentWarm} />
         ) : channel.type === "docs" ? (
           <FileText size={18} color={colors.info} />
+        ) : channel.type === "incident" ? (
+          <AlertTriangle size={18} color={colors.danger} />
+        ) : channel.type === "canvas" ? (
+          <Layers size={18} color={colors.accent} />
         ) : (
           <Hash size={18} color={colors.textMuted} />
         )}
@@ -621,23 +598,108 @@ function TextChannelScreen({
             </Text>
           ) : null}
         </View>
+
+        {/* Specialized Channel View Switcher (Tool ⟷ Chat) */}
+        {isSpecialized && (
+          <View style={styles.channelViewToggleWrap}>
+            <Pressable
+              onPress={() => setActiveTab("tool")}
+              style={[
+                styles.channelViewToggleBtn,
+                activeTab === "tool" && styles.channelViewToggleBtnActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.channelViewToggleText,
+                  activeTab === "tool" && styles.channelViewToggleTextActive,
+                ]}
+              >
+                {channel.type === "github"
+                  ? "HUB"
+                  : channel.type === "board" || channel.type === "project"
+                  ? "BOARD"
+                  : channel.type === "docs"
+                  ? "DOCS"
+                  : channel.type === "incident"
+                  ? "INCIDENT"
+                  : "CANVAS"}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setActiveTab("chat")}
+              style={[
+                styles.channelViewToggleBtn,
+                activeTab === "chat" && styles.channelViewToggleBtnActive,
+              ]}
+            >
+              <MessageSquare size={13} color={activeTab === "chat" ? colors.accent : colors.textMuted} />
+              <Text
+                style={[
+                  styles.channelViewToggleText,
+                  activeTab === "chat" && styles.channelViewToggleTextActive,
+                ]}
+              >
+                CHAT
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
-      {/* Message Feed with interactive reactions and replies */}
-      <NativeMessageList
-        messages={messages}
-        onToggleReaction={onToggleReaction}
-        onReply={(msg) => setReplyingTo(msg)}
-        onOpenProfile={onOpenProfile}
-      />
+      {/* Render Specialized Tool View or Chat Stream */}
+      {isSpecialized && activeTab === "tool" ? (
+        channel.type === "github" ? (
+          <GitHubChannelView
+            channelId={channel.id}
+            channelName={channel.name}
+            onOpenChat={() => setActiveTab("chat")}
+          />
+        ) : channel.type === "board" || channel.type === "project" ? (
+          <BoardChannelView
+            channelId={channel.id}
+            channelName={channel.name}
+            onBack={() => setActiveTab("chat")}
+          />
+        ) : channel.type === "docs" ? (
+          <DocsChannelView
+            channelId={channel.id}
+            channelName={channel.name}
+            onBack={() => setActiveTab("chat")}
+          />
+        ) : channel.type === "incident" ? (
+          <IncidentChannelView
+            channelId={channel.id}
+            channelName={channel.name}
+            onBack={() => setActiveTab("chat")}
+          />
+        ) : (
+          <CanvasChannelView
+            channelId={channel.id}
+            channelName={channel.name}
+            onBack={() => setActiveTab("chat")}
+          />
+        )
+      ) : (
+        <>
+          {/* Message Feed with interactive reactions and replies */}
+          <NativeMessageList
+            messages={messages}
+            onToggleReaction={onToggleReaction}
+            onReply={(msg) => setReplyingTo(msg)}
+            onOpenProfile={onOpenProfile}
+          />
 
-      {/* Message Composer with Reply Banner */}
-      <MessageComposer
-        channelName={channel.name}
-        onSend={onSend}
-        replyingTo={replyingTo}
-        onCancelReply={() => setReplyingTo(null)}
-      />
+          {/* Message Composer with Reply Banner */}
+          <MessageComposer
+            channelName={channel.name}
+            onSend={onSend}
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -2951,5 +3013,40 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     fontFamily: "monospace",
+  },
+
+  channelViewToggleWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 8,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+
+  channelViewToggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+
+  channelViewToggleBtnActive: {
+    backgroundColor: "rgba(232, 163, 61, 0.18)",
+  },
+
+  channelViewToggleText: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: "800",
+    fontFamily: "monospace",
+    letterSpacing: 0.5,
+  },
+
+  channelViewToggleTextActive: {
+    color: colors.accent,
   },
 });
