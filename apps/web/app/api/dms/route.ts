@@ -63,7 +63,9 @@ export async function GET(req: NextRequest) {
     const seenPeerMap = new Map<string, any>();
 
     for (const c of rawList) {
-        const convo = c.dm_conversations;
+        const convo: any = Array.isArray(c.dm_conversations) ? c.dm_conversations[0] : c.dm_conversations;
+        if (!convo) continue;
+
         const participants = (convo.dm_participants || [])
             .map((p: any) => p.users)
             .filter(Boolean)
