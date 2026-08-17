@@ -31,6 +31,8 @@ import {
   type SpaceSettingsSection,
 } from "@/components/space/SpaceSettingsModal";
 import { CanvasChannelView } from "../../../../components/chat/CanvasChannelView";
+import { DocsChannelView } from "@/components/chat/DocsChannelView";
+import { BoardChannelView } from "@/components/chat/BoardChannelView";
 import { colors, radius } from "../../../../theme/tokens";
 import {
   MessageSquare,
@@ -545,12 +547,28 @@ function ChannelRouter({
         />
       );
 
+    case "docs":
+      return (
+        <DocsChannelView
+          channelId={channel.id}
+          channelName={channel.name}
+          onBack={onBack}
+        />
+      );
+
+    case "board":
+    case "project":
+      return (
+        <BoardChannelView
+          channelId={channel.id}
+          channelName={channel.name}
+          onBack={onBack}
+        />
+      );
+
     case "text":
     case "announcement":
     case "forum":
-    case "project":
-    case "board":
-    case "docs":
     case "github":
     default:
       return (
