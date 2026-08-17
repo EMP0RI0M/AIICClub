@@ -79,6 +79,7 @@ export default function AppTabsLayout() {
       />
 
       {/* Auxiliary routes hidden from tab bar */}
+      <Tabs.Screen name="admin/index" options={{ href: null }} />
       <Tabs.Screen name="dms/[id]" options={{ href: null }} />
       <Tabs.Screen name="projects/[slug]" options={{ href: null }} />
       <Tabs.Screen name="events/[slug]" options={{ href: null }} />

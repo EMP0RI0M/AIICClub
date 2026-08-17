@@ -355,7 +355,7 @@ export default function ProfileScreen() {
         <GlassCard style={styles.menuCard}>
           <TouchableOpacity
             style={[styles.menuItem, { borderBottomWidth: 0 }]}
-            onPress={() => router.push("/(admin)")}
+            onPress={() => router.push("/(app)/admin" as any)}
           >
             <View style={styles.menuItemLeft}>
               <Shield size={18} color={colors.accentTeal} />
