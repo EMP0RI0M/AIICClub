@@ -1,16 +1,16 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
   ActivityIndicator,
-  Animated,
-  Easing,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../stores/auth-store";
@@ -35,41 +35,12 @@ const COLORS = {
 };
 
 function AmbientGlow() {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(60)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 900,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 900,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        StyleSheet.absoluteFillObject,
-        {
-          opacity,
-          transform: [{ translateY }],
-        },
-      ]}
-    >
+    <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
       <View style={styles.amberGlow} />
       <View style={styles.tealGlow} />
       <View style={styles.centerGlow} />
-    </Animated.View>
+    </View>
   );
 }
 
@@ -83,34 +54,10 @@ export default function RegisterScreen() {
   const [error, setError] = useState<string | null>(null);
   const [successConfirmation, setSuccessConfirmation] = useState(false);
 
-  // Field focus states for visual border highlight
-  const [focusedField, setFocusedField] = useState<"displayName" | "email" | "password" | null>(null);
-
-  // Independent refs for smooth keyboard navigation
+  // Independent refs for keyboard Next chaining
   const displayNameRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
-
-  // Stable entrance animations on screen level only (does not wrap or unmount individual inputs)
-  const headerAnim = useRef(new Animated.Value(0)).current;
-  const formAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.stagger(120, [
-      Animated.timing(headerAnim, {
-        toValue: 1,
-        duration: 450,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(formAnim, {
-        toValue: 1,
-        duration: 450,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
 
   const ready =
     displayName.trim().length >= 2 &&
@@ -119,7 +66,7 @@ export default function RegisterScreen() {
     password.length >= 6;
 
   const handleRegister = async () => {
-    if (!ready) return;
+    if (!ready || isLoading) return;
     setError(null);
     try {
       const generatedUsername = displayName.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
@@ -172,236 +119,196 @@ export default function RegisterScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <View style={StyleSheet.absoluteFill}>
         <View style={styles.background} />
         <AmbientGlow />
       </View>
 
-      {/* Back button */}
-      <View style={styles.backWrapper}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && styles.backPressed,
-          ]}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+          showsVerticalScrollIndicator={false}
         >
-          <Ionicons
-            name="chevron-back"
-            size={22}
-            color={COLORS.text}
-          />
-        </Pressable>
-      </View>
-
-      <View style={styles.body}>
-        {/* Header */}
-        <Animated.View
-          style={{
-            opacity: headerAnim,
-            transform: [
-              {
-                translateY: headerAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [12, 0],
-                }),
-              },
-            ],
-          }}
-        >
-          <View style={styles.smallBrand}>
-            <View style={styles.brandDot} />
-            <Text style={styles.brandText}>AIIC</Text>
-          </View>
-
-          <Text style={styles.title}>
-            Create your account.
-          </Text>
-
-          <Text style={styles.subtitle}>
-            Join your AIIC community and start building your space.
-          </Text>
-        </Animated.View>
-
-        {/* Error banner */}
-        {error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-
-        {/* Stable Form Container (Inputs remain permanently mounted without remounting) */}
-        <Animated.View
-          style={[
-            styles.form,
-            {
-              opacity: formAnim,
-              transform: [
-                {
-                  translateY: formAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [14, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          {/* Display Name Input */}
-          <View
-            style={[
-              styles.inputContainer,
-              focusedField === "displayName" && styles.inputFocused,
-            ]}
-          >
-            <Ionicons
-              name="person-outline"
-              size={20}
-              color={focusedField === "displayName" ? COLORS.amber : COLORS.muted}
-            />
-            <TextInput
-              ref={displayNameRef}
-              style={styles.input}
-              placeholder="Display name"
-              placeholderTextColor={COLORS.faint}
-              value={displayName}
-              onChangeText={setDisplayName}
-              autoCapitalize="words"
-              autoCorrect={false}
-              returnKeyType="next"
-              blurOnSubmit={false}
-              onSubmitEditing={() => emailRef.current?.focus()}
-              onFocus={() => setFocusedField("displayName")}
-              onBlur={() => setFocusedField((prev) => (prev === "displayName" ? null : prev))}
-              selectionColor={COLORS.amber}
-            />
-          </View>
-
-          {/* Email Input */}
-          <View
-            style={[
-              styles.inputContainer,
-              focusedField === "email" && styles.inputFocused,
-            ]}
-          >
-            <Ionicons
-              name="mail-outline"
-              size={20}
-              color={focusedField === "email" ? COLORS.amber : COLORS.muted}
-            />
-            <TextInput
-              ref={emailRef}
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor={COLORS.faint}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="next"
-              blurOnSubmit={false}
-              onSubmitEditing={() => passwordRef.current?.focus()}
-              onFocus={() => setFocusedField("email")}
-              onBlur={() => setFocusedField((prev) => (prev === "email" ? null : prev))}
-              selectionColor={COLORS.amber}
-            />
-          </View>
-
-          {/* Password Input */}
-          <View
-            style={[
-              styles.inputContainer,
-              focusedField === "password" && styles.inputFocused,
-            ]}
-          >
-            <Ionicons
-              name="lock-closed-outline"
-              size={20}
-              color={focusedField === "password" ? COLORS.amber : COLORS.muted}
-            />
-            <TextInput
-              ref={passwordRef}
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor={COLORS.faint}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={true}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="done"
-              onSubmitEditing={() => passwordRef.current?.blur()}
-              onFocus={() => setFocusedField("password")}
-              onBlur={() => setFocusedField((prev) => (prev === "password" ? null : prev))}
-              selectionColor={COLORS.amber}
-            />
-          </View>
-
-          {/* Password requirement */}
-          <View style={styles.passwordHint}>
-            <View
-              style={[
-                styles.statusDot,
-                password.length >= 6 && styles.statusDotActive,
+          {/* Back button */}
+          <View style={styles.backWrapper}>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={12}
+              style={({ pressed }) => [
+                styles.backButton,
+                pressed && styles.backPressed,
               ]}
-            />
-            <Text style={styles.passwordHintText}>
-              Use at least 6 characters
+            >
+              <Ionicons
+                name="chevron-back"
+                size={22}
+                color={COLORS.text}
+              />
+            </Pressable>
+          </View>
+
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.smallBrand}>
+              <View style={styles.brandDot} />
+              <Text style={styles.brandText}>AIIC</Text>
+            </View>
+
+            <Text style={styles.title}>
+              Create your account.
+            </Text>
+
+            <Text style={styles.subtitle}>
+              Join your AIIC community and start building your space.
             </Text>
           </View>
 
-          {/* Create button */}
+          {/* Error banner */}
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          {/* Form */}
+          <View style={styles.form}>
+            {/* Display Name Input */}
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="person-outline"
+                size={20}
+                color={COLORS.muted}
+              />
+              <TextInput
+                ref={displayNameRef}
+                style={styles.input}
+                placeholder="Display name"
+                placeholderTextColor={COLORS.faint}
+                value={displayName}
+                onChangeText={setDisplayName}
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => emailRef.current?.focus()}
+                selectionColor={COLORS.amber}
+              />
+            </View>
+
+            {/* Email Input */}
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={COLORS.muted}
+              />
+              <TextInput
+                ref={emailRef}
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor={COLORS.faint}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                selectionColor={COLORS.amber}
+              />
+            </View>
+
+            {/* Password Input */}
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={COLORS.muted}
+              />
+              <TextInput
+                ref={passwordRef}
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor={COLORS.faint}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={true}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleRegister}
+                selectionColor={COLORS.amber}
+              />
+            </View>
+
+            {/* Password requirement */}
+            <View style={styles.passwordHint}>
+              <View
+                style={[
+                  styles.statusDot,
+                  password.length >= 6 && styles.statusDotActive,
+                ]}
+              />
+              <Text style={styles.passwordHintText}>
+                Use at least 6 characters
+              </Text>
+            </View>
+
+            {/* Create button */}
+            <Pressable
+              disabled={!ready || isLoading}
+              onPress={handleRegister}
+              style={({ pressed }) => [
+                styles.createButton,
+                (!ready || isLoading) && styles.createDisabled,
+                pressed && ready && styles.createPressed,
+              ]}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#080A0D" />
+              ) : (
+                <>
+                  <Text style={styles.createButtonText}>
+                    Create account
+                  </Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={19}
+                    color="#080A0D"
+                  />
+                </>
+              )}
+            </Pressable>
+          </View>
+
+          {/* Login Link */}
           <Pressable
-            disabled={!ready || isLoading}
-            onPress={handleRegister}
-            style={({ pressed }) => [
-              styles.createButton,
-              (!ready || isLoading) && styles.createDisabled,
-              pressed && ready && styles.createPressed,
-            ]}
+            onPress={() => router.push("/(auth)/login" as any)}
+            style={styles.loginButton}
           >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#080A0D" />
-            ) : (
-              <>
-                <Text style={styles.createButtonText}>
-                  Create account
-                </Text>
-                <Ionicons
-                  name="arrow-forward"
-                  size={19}
-                  color="#080A0D"
-                />
-              </>
-            )}
+            <Text style={styles.loginNormal}>
+              Already have an account?{" "}
+            </Text>
+            <Text style={styles.loginLink}>
+              Sign in
+            </Text>
           </Pressable>
-        </Animated.View>
 
-        {/* Login */}
-        <Pressable
-          onPress={() => router.push("/(auth)/login" as any)}
-          style={styles.loginButton}
-        >
-          <Text style={styles.loginNormal}>
-            Already have an account?{" "}
+          {/* Terms */}
+          <Text style={styles.terms}>
+            By creating an account, you agree to our Terms and Privacy Policy.
           </Text>
-          <Text style={styles.loginLink}>
-            Sign in
-          </Text>
-        </Pressable>
-
-        {/* Terms */}
-        <Text style={styles.terms}>
-          By creating an account, you agree to our Terms and Privacy Policy.
-        </Text>
-      </View>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -409,12 +316,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
-    overflow: "hidden",
   },
 
   background: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: COLORS.bg,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 25,
+    paddingTop: 14,
+    paddingBottom: 24,
   },
 
   amberGlow: {
@@ -448,10 +361,8 @@ const styles = StyleSheet.create({
   },
 
   backWrapper: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 58 : 38,
-    left: 18,
-    zIndex: 10,
+    marginBottom: 20,
+    alignSelf: "flex-start",
   },
 
   backButton: {
@@ -463,11 +374,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.065)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.11)",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 8,
   },
 
   backPressed: {
@@ -475,11 +381,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.10)",
   },
 
-  body: {
-    flex: 1,
-    paddingHorizontal: 25,
-    paddingTop: Platform.OS === "ios" ? 110 : 90,
-    paddingBottom: 22,
+  header: {
+    marginBottom: 8,
   },
 
   confirmationBody: {
@@ -500,9 +403,6 @@ const styles = StyleSheet.create({
     height: 9,
     borderRadius: 5,
     backgroundColor: COLORS.amber,
-    shadowColor: COLORS.amber,
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
   },
 
   brandText: {
@@ -545,7 +445,7 @@ const styles = StyleSheet.create({
   },
 
   form: {
-    marginTop: 24,
+    marginTop: 20,
   },
 
   inputContainer: {
@@ -559,16 +459,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.input,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 11,
-  },
-
-  inputFocused: {
-    backgroundColor: COLORS.inputFocused,
-    borderColor: "rgba(232,163,61,0.58)",
-    shadowColor: COLORS.amber,
-    shadowOpacity: 0.13,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 0 },
+    marginBottom: 12,
   },
 
   input: {
@@ -597,9 +488,6 @@ const styles = StyleSheet.create({
 
   statusDotActive: {
     backgroundColor: COLORS.teal,
-    shadowColor: COLORS.teal,
-    shadowOpacity: 0.8,
-    shadowRadius: 5,
   },
 
   passwordHintText: {
@@ -611,17 +499,12 @@ const styles = StyleSheet.create({
   createButton: {
     height: 54,
     borderRadius: 27,
-    marginTop: 13,
+    marginTop: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 9,
     backgroundColor: COLORS.amber,
-    shadowColor: COLORS.amber,
-    shadowOpacity: 0.32,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 9,
   },
 
   createDisabled: {
@@ -641,8 +524,9 @@ const styles = StyleSheet.create({
   loginButton: {
     alignSelf: "center",
     flexDirection: "row",
-    marginTop: "auto",
-    paddingVertical: 9,
+    marginTop: 28,
+    marginBottom: 14,
+    paddingVertical: 6,
   },
 
   loginNormal: {
