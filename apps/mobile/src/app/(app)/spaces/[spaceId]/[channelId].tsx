@@ -109,6 +109,11 @@ export type Message = {
     avatarUrl?: string | null;
     roleColor?: string;
   };
+  replyTo?: {
+    id: string;
+    authorName: string;
+    text: string;
+  };
   attachment?: {
     url?: string;
     name?: string;
@@ -649,46 +654,58 @@ function NativeMessageList({
         renderItem={({ item }) => {
           const { cleanText, attachments } = parseMessageAttachments(item.content || "");
           return (
-            <Pressable
-              onLongPress={() => {
-                setSelectedMessage(item);
-                setActionMenuOpen(true);
-              }}
-              style={({ pressed }) => [
-                styles.messageRow,
-                pressed && { backgroundColor: "rgba(255, 255, 255, 0.03)", borderRadius: 10 },
-              ]}
-            >
-              {item.user?.avatarUrl ? (
-                <Image source={{ uri: item.user.avatarUrl }} style={styles.messageAvatar} />
-              ) : (
-                <View style={styles.messageAvatarFallback}>
-                  <Text style={styles.avatarLetter}>
-                    {(item.user?.displayName || "U").charAt(0).toUpperCase()}
+            <View style={{ marginBottom: 6 }}>
+              {/* Quoted reply header if message is a reply to another message */}
+              {item.replyTo && (
+                <View style={styles.messageReplyHeader}>
+                  <CornerUpLeft size={12} color={colors.accent} />
+                  <Text style={styles.messageReplyAuthor}>{item.replyTo.authorName}:</Text>
+                  <Text style={styles.messageReplySnippet} numberOfLines={1}>
+                    {item.replyTo.text}
                   </Text>
                 </View>
               )}
 
-              <View style={styles.messageBody}>
-                <View style={styles.messageHeader}>
-                  <Text
-                    style={[
-                      styles.displayName,
-                      { color: item.user?.roleColor || colors.textPrimary },
-                    ]}
-                  >
-                    {item.user?.displayName || "Member"}
-                  </Text>
+              <Pressable
+                onLongPress={() => {
+                  setSelectedMessage(item);
+                  setActionMenuOpen(true);
+                }}
+                style={({ pressed }) => [
+                  styles.messageRow,
+                  pressed && { backgroundColor: "rgba(255, 255, 255, 0.03)", borderRadius: 10 },
+                ]}
+              >
+                {item.user?.avatarUrl ? (
+                  <Image source={{ uri: item.user.avatarUrl }} style={styles.messageAvatar} />
+                ) : (
+                  <View style={styles.messageAvatarFallback}>
+                    <Text style={styles.avatarLetter}>
+                      {(item.user?.displayName || "U").charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
 
-                  <Text style={styles.timestamp}>
-                    {item.createdAt
-                      ? new Date(item.createdAt).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : ""}
-                  </Text>
-                </View>
+                <View style={styles.messageBody}>
+                  <View style={styles.messageHeader}>
+                    <Text
+                      style={[
+                        styles.displayName,
+                        { color: item.user?.roleColor || colors.textPrimary },
+                      ]}
+                    >
+                      {item.user?.displayName || "Member"}
+                    </Text>
+
+                    <Text style={styles.timestamp}>
+                      {item.createdAt
+                        ? new Date(item.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : ""}
+                    </Text>
+                  </View>
 
                 {cleanText ? <Text style={styles.messageText}>{cleanText}</Text> : null}
 
@@ -735,9 +752,10 @@ function NativeMessageList({
                 </View>
               </View>
             </Pressable>
-          );
-        }}
-      />
+          </View>
+        );
+      }}
+    />
 
       {/* Message Action & Reaction Modal */}
       <Modal visible={actionMenuOpen} transparent animationType="fade" onRequestClose={() => setActionMenuOpen(false)}>
@@ -1278,6 +1296,7 @@ export default function AIICDiscordApp() {
         avatarUrl: m.author?.avatar,
         roleColor: m.author?.roleColor,
       },
+      replyTo: m.replyTo,
       attachment: m.attachments?.[0]
         ? {
             url: m.attachments[0].url,
@@ -2649,5 +2668,26 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.textMuted,
     fontSize: 11,
+  },
+
+  messageReplyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingLeft: 46,
+    marginBottom: 4,
+  },
+
+  messageReplyAuthor: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: "monospace",
+  },
+
+  messageReplySnippet: {
+    color: colors.textMuted,
+    fontSize: 11,
+    flex: 1,
   },
 });
