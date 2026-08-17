@@ -75,13 +75,9 @@ function Icon({
   color?: string;
 }) {
   const symbols: Record<string, string> = {
-    spaces: "▰",
-    dm: "💬",
-    projects: "📂",
-    events: "📅",
-    profile: "👤",
+    dm: "▰",
     search: "⌕",
-    add: "+",
+    add: "♙",
     calendar: "▣",
     notice: "!",
     archive: "▤",
@@ -89,7 +85,7 @@ function Icon({
     hash: "#",
     voice: "🔊",
     project: "▣",
-    bell: "🔔",
+    bell: "♧",
     chevron: "›",
     plus: "+",
     send: "➤",
@@ -110,175 +106,155 @@ function Icon({
 }
 
 /* =========================================================
-   LEFT SIDEBAR (PRIMARY APP NAVIGATION)
+   LEVEL 1: NARROW LEFT SPACE / SERVER RAIL
    ========================================================= */
 
-function LeftSidebar({
+function SpaceRail({
+  servers,
+  selectedServerId,
+  onSelectServer,
+  onDM,
   currentSection,
-  onSelectSection,
   isAdmin,
-  currentUser,
+  onNotice,
+  onArchive,
+  onAdmin,
 }: {
+  servers: Server[];
+  selectedServerId: string | null;
+  onSelectServer: (id: string) => void;
+  onDM: () => void;
   currentSection: string;
-  onSelectSection: (section: "spaces" | "dms" | "projects" | "events" | "profile" | "archive" | "admin" | "notices") => void;
   isAdmin: boolean;
-  currentUser: any;
+  onNotice: () => void;
+  onArchive: () => void;
+  onAdmin: () => void;
 }) {
   return (
-    <View style={styles.sidebar}>
-      {/* Brand / Logo */}
-      <View style={styles.sidebarHeader}>
-        <View style={styles.brandDot} />
-        <Text style={styles.brandText}>AIIC</Text>
-      </View>
+    <View style={styles.rail}>
+      {/* DM button above spaces */}
+      <Pressable
+        onPress={onDM}
+        style={[
+          styles.dmButton,
+          currentSection === "dm" && styles.activeDM,
+        ]}
+      >
+        <Icon
+          name="dm"
+          size={24}
+          color={currentSection === "dm" ? COLORS.white : COLORS.muted}
+        />
+      </Pressable>
 
-      <View style={styles.sidebarDivider} />
+      <View style={styles.railDivider} />
 
-      {/* Primary Section Links */}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sidebarNavList}>
+      {/* SPACE LIST (CIRCULAR SERVER ICONS) */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.spaceList}
+      >
+        {servers.map((server) => {
+          const active = selectedServerId === server.id && currentSection === "space";
+
+          return (
+            <Pressable
+              key={server.id}
+              onPress={() => onSelectServer(server.id)}
+              style={[
+                styles.spaceButton,
+                active && styles.activeSpace,
+              ]}
+            >
+              {server.iconUrl ? (
+                <Image
+                  source={{ uri: server.iconUrl }}
+                  style={styles.spaceImage}
+                />
+              ) : (
+                <View style={styles.spaceFallback}>
+                  <Text style={styles.spaceLetter}>
+                    {server.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+
+              {!!server.unreadCount && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadText}>
+                    {server.unreadCount > 99
+                      ? "99+"
+                      : server.unreadCount}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {/* 3 UTILITY ITEMS AT BOTTOM */}
+      <View style={styles.utilityArea}>
         <Pressable
-          onPress={() => onSelectSection("spaces")}
+          onPress={onNotice}
           style={[
-            styles.navItem,
-            currentSection === "spaces" && styles.navItemActive,
+            styles.utilityButton,
+            currentSection === "notices" && styles.utilityActive,
           ]}
         >
-          <Icon name="spaces" color={currentSection === "spaces" ? COLORS.accent : COLORS.muted} />
-          <Text style={[styles.navItemLabel, currentSection === "spaces" && styles.navItemLabelActive]}>
-            Spaces
-          </Text>
+          <Icon name="notice" />
         </Pressable>
 
         <Pressable
-          onPress={() => onSelectSection("dms")}
+          onPress={onArchive}
           style={[
-            styles.navItem,
-            currentSection === "dms" && styles.navItemActive,
+            styles.utilityButton,
+            currentSection === "archive" && styles.utilityActive,
           ]}
         >
-          <Icon name="dm" color={currentSection === "dms" ? COLORS.accent : COLORS.muted} />
-          <Text style={[styles.navItemLabel, currentSection === "dms" && styles.navItemLabelActive]}>
-            DMs
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => onSelectSection("projects")}
-          style={[
-            styles.navItem,
-            currentSection === "projects" && styles.navItemActive,
-          ]}
-        >
-          <Icon name="projects" color={currentSection === "projects" ? COLORS.accent : COLORS.muted} />
-          <Text style={[styles.navItemLabel, currentSection === "projects" && styles.navItemLabelActive]}>
-            Projects
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => onSelectSection("events")}
-          style={[
-            styles.navItem,
-            currentSection === "events" && styles.navItemActive,
-          ]}
-        >
-          <Icon name="events" color={currentSection === "events" ? COLORS.accent : COLORS.muted} />
-          <Text style={[styles.navItemLabel, currentSection === "events" && styles.navItemLabelActive]}>
-            Events
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => onSelectSection("profile")}
-          style={[
-            styles.navItem,
-            currentSection === "profile" && styles.navItemActive,
-          ]}
-        >
-          <Icon name="profile" color={currentSection === "profile" ? COLORS.accent : COLORS.muted} />
-          <Text style={[styles.navItemLabel, currentSection === "profile" && styles.navItemLabelActive]}>
-            Profile
-          </Text>
-        </Pressable>
-
-        <View style={styles.sidebarDivider} />
-
-        <Pressable
-          onPress={() => onSelectSection("archive")}
-          style={[
-            styles.navItem,
-            currentSection === "archive" && styles.navItemActive,
-          ]}
-        >
-          <Icon name="archive" color={currentSection === "archive" ? COLORS.accent : COLORS.muted} />
-          <Text style={[styles.navItemLabel, currentSection === "archive" && styles.navItemLabelActive]}>
-            Archives
-          </Text>
+          <Icon name="archive" />
         </Pressable>
 
         {isAdmin && (
           <Pressable
-            onPress={() => onSelectSection("admin")}
+            onPress={onAdmin}
             style={[
-              styles.navItem,
-              currentSection === "admin" && styles.navItemActive,
+              styles.utilityButton,
+              currentSection === "admin" && styles.utilityActive,
             ]}
           >
-            <Icon name="admin" color={currentSection === "admin" ? COLORS.accent : COLORS.muted} />
-            <Text style={[styles.navItemLabel, currentSection === "admin" && styles.navItemLabelActive]}>
-              Admin
-            </Text>
+            <Icon name="admin" />
           </Pressable>
         )}
-      </ScrollView>
-
-      {/* User Profile Pill at Bottom */}
-      <Pressable
-        onPress={() => onSelectSection("profile")}
-        style={styles.userProfileFooter}
-      >
-        {currentUser?.avatar ? (
-          <Image source={{ uri: currentUser.avatar }} style={styles.userAvatar} />
-        ) : (
-          <View style={styles.userAvatarFallback}>
-            <Text style={styles.userAvatarInitial}>
-              {(currentUser?.displayName || "U").charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
-        <View style={styles.userMeta}>
-          <Text style={styles.userDisplayName} numberOfLines={1}>
-            {currentUser?.displayName || "Member"}
-          </Text>
-          <Text style={styles.userRoleText} numberOfLines={1}>
-            {currentUser?.role || "Member"}
-          </Text>
-        </View>
-      </Pressable>
+      </View>
     </View>
   );
 }
 
 /* =========================================================
-   SPACE / CHANNEL SELECTOR (STANDALONE SCREEN)
+   LEVEL 2: SELECTED SPACE NAVIGATION (CHANNEL SELECTOR VIEW)
+   Occupies the full content area beside SpaceRail on mobile.
+   Does NOT render MessageList or empty channel view beside it.
    ========================================================= */
 
-function SpaceSelectorScreen({
-  servers,
-  selectedServer,
+function SelectedSpaceView({
+  server,
   channels,
   notice,
   onSelectChannel,
   onNotice,
-  onSelectServer,
+  onSearch,
+  onAdd,
+  onEvents,
 }: {
-  servers: Server[];
-  selectedServer: Server | null;
+  server: Server;
   channels: Channel[];
   notice?: any;
   onSelectChannel: (channelId: string) => void;
   onNotice: () => void;
-  onSelectServer: (serverId: string) => void;
+  onSearch: () => void;
+  onAdd: () => void;
+  onEvents: () => void;
 }) {
   const categories = useMemo(() => {
     const result: Record<string, Channel[]> = {};
@@ -303,13 +279,31 @@ function SpaceSelectorScreen({
   }, [channels]);
 
   return (
-    <View style={styles.selectorContainer}>
-      {/* Header */}
-      <View style={styles.selectorHeader}>
-        <Text style={styles.serverName}>{selectedServer?.name || "AIIC Space"}</Text>
+    <View style={styles.selectorView}>
+      {/* Space Header */}
+      <View style={styles.header}>
+        <View style={styles.serverTitleRow}>
+          <Text style={styles.serverName}>{server.name}</Text>
+          <Icon name="chevron" size={20} color={COLORS.muted} />
+        </View>
+
+        <View style={styles.headerActions}>
+          <Pressable onPress={onSearch} style={styles.searchButton}>
+            <Icon name="search" size={20} color={COLORS.white} />
+            <Text style={styles.searchText}>Search</Text>
+          </Pressable>
+
+          <Pressable onPress={onAdd} style={styles.squareButton}>
+            <Icon name="add" color={COLORS.white} />
+          </Pressable>
+
+          <Pressable onPress={onEvents} style={styles.squareButton}>
+            <Icon name="calendar" color={COLORS.white} />
+          </Pressable>
+        </View>
       </View>
 
-      {/* Notice Banner */}
+      {/* Notice / Announcement Bar */}
       {notice && (
         <Pressable onPress={onNotice} style={styles.noticeBar}>
           <View style={{ flex: 1 }}>
@@ -324,7 +318,7 @@ function SpaceSelectorScreen({
         </Pressable>
       )}
 
-      {/* Categorized Channel List */}
+      {/* Full-width Categorized Channel List */}
       <ScrollView showsVerticalScrollIndicator={false} style={styles.channelScroll}>
         {Object.entries(categories).map(([category, items]) => (
           <View key={category} style={styles.categoryBlock}>
@@ -350,9 +344,11 @@ function SpaceSelectorScreen({
                   size={18}
                   color={COLORS.muted}
                 />
+
                 <Text style={styles.channelName} numberOfLines={1}>
                   {channel.name}
                 </Text>
+
                 {!!channel.unreadCount && (
                   <View style={styles.channelUnread}>
                     <Text style={styles.unreadText}>{channel.unreadCount}</Text>
@@ -368,7 +364,9 @@ function SpaceSelectorScreen({
 }
 
 /* =========================================================
-   DEDICATED CHANNEL SCREEN (OCCUPIES FULL MAIN AREA)
+   CHANNEL SCREEN (DEDICATED FULL-AREA MESSAGE VIEW)
+   Opens only when user clicks a channel.
+   Pressing Back returns cleanly to SelectedSpaceView.
    ========================================================= */
 
 function ChannelScreen({
@@ -384,9 +382,9 @@ function ChannelScreen({
 }) {
   return (
     <View style={styles.channelScreen}>
-      {/* Channel Header with Back Button */}
+      {/* Header with Back Button */}
       <View style={styles.channelHeader}>
-        <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
+        <Pressable onPress={onBack} hitSlop={14} style={styles.backBtn}>
           <Icon name="back" size={26} color={COLORS.white} />
         </Pressable>
 
@@ -407,10 +405,10 @@ function ChannelScreen({
         </Text>
       </View>
 
-      {/* Messages Feed */}
+      {/* Message Feed */}
       <NativeMessageList messages={messages} />
 
-      {/* Composer */}
+      {/* Message Composer */}
       <MessageComposer channelName={channel.name} onSend={onSend} />
     </View>
   );
@@ -529,7 +527,7 @@ function MessageComposer({
   return (
     <View style={styles.composer}>
       <Pressable style={styles.composerPlus}>
-        <Icon name="plus" size={22} color={COLORS.white} />
+        <Icon name="plus" size={24} color={COLORS.white} />
       </Pressable>
 
       <TextInput
@@ -560,7 +558,7 @@ function MessageComposer({
 }
 
 /* =========================================================
-   SUB PAGES
+   SUB-SECTIONS: NOTICES, ARCHIVES, ADMIN
    ========================================================= */
 
 function NoticePage({ notices }: { notices: any[] }) {
@@ -633,10 +631,10 @@ function AdminPage({ data }: { data: any }) {
 }
 
 /* =========================================================
-   MAIN APP SHELL (CLEAN NAVIGATION ARCHITECTURE)
+   MAIN APP SHELL (DISCORD MOBILE ARCHITECTURE)
    ========================================================= */
 
-export default function AppShellScreen() {
+export default function AIICDiscordApp() {
   const router = useRouter();
   const { user } = useAuthStore();
 
@@ -657,12 +655,12 @@ export default function AppShellScreen() {
     unsubscribeFromChannel,
   } = useChatStore();
 
-  // Primary Section: spaces | dms | projects | events | profile | archive | admin | notices
+  // Navigation section: space | dm | notices | archive | admin
   const [currentSection, setCurrentSection] = useState<
-    "spaces" | "dms" | "projects" | "events" | "profile" | "archive" | "admin" | "notices"
-  >("spaces");
+    "space" | "dm" | "notices" | "archive" | "admin"
+  >("space");
 
-  // Selected Space & Channel state (null channel means viewing channel selector)
+  // Selected Space & Channel state (selectedChannelId is null when in selector)
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
 
@@ -802,28 +800,46 @@ export default function AppShellScreen() {
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.root}>
         {/* =================================================
-            1. PRIMARY LEFT SIDEBAR (REPLACES BOTTOM BAR)
+            LEVEL 1: NARROW LEFT SPACE / SERVER RAIL
             ================================================= */}
-        <LeftSidebar
+        <SpaceRail
+          servers={servers}
+          selectedServerId={selectedServerId}
+          onSelectServer={(id) => {
+            setSelectedServerId(id);
+            setActiveSpace(id);
+            setSelectedChannelId(null); // Reset to channel selector view
+            setCurrentSection("space");
+          }}
+          onDM={() => {
+            setCurrentSection("dm");
+            setSelectedChannelId(null);
+          }}
           currentSection={currentSection}
-          onSelectSection={(section) => {
-            setCurrentSection(section);
-            if (section === "spaces") {
-              setSelectedChannelId(null); // Reset channel so user views SpaceSelector
+          isAdmin={isAdmin}
+          onNotice={() => {
+            setCurrentSection("notices");
+            setSelectedChannelId(null);
+          }}
+          onArchive={() => {
+            setCurrentSection("archive");
+            setSelectedChannelId(null);
+          }}
+          onAdmin={() => {
+            if (isAdmin) {
+              setCurrentSection("admin");
+              setSelectedChannelId(null);
             }
           }}
-          isAdmin={isAdmin}
-          currentUser={user}
         />
 
         {/* =================================================
-            2. MAIN CONTENT AREA
+            LEVEL 2: MAIN CONTENT VIEW (SPACE OR CHANNEL VIEW)
             ================================================= */}
         <View style={styles.mainContent}>
-          {/* SPACES FLOW */}
-          {currentSection === "spaces" && (
+          {currentSection === "space" && selectedServer && (
             selectedChannel ? (
-              /* DEDICATED CHANNEL SCREEN */
+              /* DEDICATED CHANNEL SCREEN (OCCUPIES FULL CONTENT AREA) */
               <ChannelScreen
                 channel={selectedChannel}
                 messages={channelMessages}
@@ -831,25 +847,21 @@ export default function AppShellScreen() {
                 onSend={sendMessage}
               />
             ) : (
-              /* STANDALONE SPACE & CHANNEL SELECTOR */
-              <SpaceSelectorScreen
-                servers={servers}
-                selectedServer={selectedServer}
+              /* SELECTED SPACE VIEW (CHANNEL SELECTOR VIEW ONLY) */
+              <SelectedSpaceView
+                server={selectedServer}
                 channels={channels}
                 notice={notice}
                 onSelectChannel={(chId) => setSelectedChannelId(chId)}
                 onNotice={() => setCurrentSection("notices")}
-                onSelectServer={(sId) => {
-                  setSelectedServerId(sId);
-                  setActiveSpace(sId);
-                  setSelectedChannelId(null);
-                }}
+                onSearch={() => {}}
+                onAdd={() => {}}
+                onEvents={() => {}}
               />
             )
           )}
 
-          {/* DEDICATED DMs */}
-          {currentSection === "dms" && (
+          {currentSection === "dm" && (
             <View style={styles.page}>
               <Text style={styles.pageTitle}>Direct Messages</Text>
               <TextInput
@@ -861,54 +873,14 @@ export default function AppShellScreen() {
             </View>
           )}
 
-          {/* DEDICATED PROJECTS */}
-          {currentSection === "projects" && (
-            <View style={styles.page}>
-              <Text style={styles.pageTitle}>Projects & Labs</Text>
-              <Text style={styles.emptyText}>Explore active AIIC build teams and repositories.</Text>
-            </View>
-          )}
-
-          {/* DEDICATED EVENTS */}
-          {currentSection === "events" && (
-            <View style={styles.page}>
-              <Text style={styles.pageTitle}>Events & Workshops</Text>
-              <Text style={styles.emptyText}>Upcoming AIIC hackathons, talks, and meeting schedule.</Text>
-            </View>
-          )}
-
-          {/* DEDICATED PROFILE */}
-          {currentSection === "profile" && (
-            <View style={styles.page}>
-              <Text style={styles.pageTitle}>Profile</Text>
-              <View style={styles.profileCard}>
-                {user?.avatar ? (
-                  <Image source={{ uri: user.avatar }} style={styles.profileAvatar} />
-                ) : (
-                  <View style={styles.profileAvatarFallback}>
-                    <Text style={styles.profileAvatarLetter}>
-                      {(user?.displayName || "U").charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-                <Text style={styles.profileName}>{user?.displayName || "AIIC Member"}</Text>
-                <Text style={styles.profileEmail}>{user?.email}</Text>
-                <Text style={styles.profileRoleBadge}>{user?.role || "Member"}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* NOTICES */}
           {currentSection === "notices" && (
             <NoticePage notices={notices} />
           )}
 
-          {/* ARCHIVE */}
           {currentSection === "archive" && (
             <ArchivePage archive={archive} />
           )}
 
-          {/* ADMIN (Only accessible if isAdmin is true) */}
           {currentSection === "admin" && isAdmin && (
             <AdminPage data={adminData} />
           )}
@@ -919,20 +891,20 @@ export default function AppShellScreen() {
 }
 
 /* =========================================================
-   COLORS & STYLES
+   COLORS & STYLES (MATCHING DISCORD MOBILE REFERENCE)
    ========================================================= */
 
 const COLORS = {
-  bg: "#08090D",
-  sidebar: "#101116",
-  panel: "#16171D",
-  panel2: "#1D1E26",
-  selected: "#282933",
+  bg: "#0B0B0F",
+  rail: "#111116",
+  panel: "#15151A",
+  panel2: "#202027",
+  selected: "#3A3A42",
   white: "#F5F5F7",
-  muted: "#8F91A2",
-  dim: "#5A5C6B",
-  border: "rgba(255, 255, 255, 0.08)",
-  accent: "#E8A33D",
+  muted: "#9698A8",
+  dim: "#696B79",
+  border: "#292A31",
+  accent: "#F2B544",
   danger: "#E5484D",
   success: "#3CCB72",
 };
@@ -949,175 +921,204 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
   },
 
-  /* PRIMARY LEFT SIDEBAR */
-  sidebar: {
-    width: 78,
-    backgroundColor: COLORS.sidebar,
-    borderRightWidth: 1,
-    borderRightColor: COLORS.border,
+  /* LEVEL 1: NARROW LEFT SPACE RAIL */
+  rail: {
+    width: 80,
+    backgroundColor: COLORS.rail,
     alignItems: "center",
-    paddingTop: 10,
+    paddingTop: 8,
     paddingBottom: 8,
   },
 
-  sidebarHeader: {
-    flexDirection: "row",
+  dmButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 6,
+    justifyContent: "center",
+    backgroundColor: "#24242A",
   },
 
-  brandDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  activeDM: {
     backgroundColor: COLORS.accent,
   },
 
-  brandText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 2,
-  },
-
-  sidebarDivider: {
-    width: 44,
+  railDivider: {
+    width: 36,
     height: 1,
     backgroundColor: COLORS.border,
     marginVertical: 10,
   },
 
-  sidebarNavList: {
+  spaceList: {
     alignItems: "center",
-    gap: 8,
+    paddingBottom: 8,
+    gap: 10,
   },
 
-  navItem: {
-    width: 58,
-    height: 52,
-    borderRadius: 16,
+  spaceButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "transparent",
+    position: "relative",
   },
 
-  navItemActive: {
+  activeSpace: {
     backgroundColor: COLORS.selected,
   },
 
-  navItemLabel: {
-    color: COLORS.muted,
-    fontSize: 9.5,
-    fontWeight: "700",
-    marginTop: 2,
+  spaceImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 17,
   },
 
-  navItemLabelActive: {
-    color: COLORS.white,
-  },
-
-  userProfileFooter: {
-    marginTop: "auto",
-    alignItems: "center",
-    paddingTop: 8,
-  },
-
-  userAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-  },
-
-  userAvatarFallback: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: COLORS.panel2,
+  spaceFallback: {
+    width: 52,
+    height: 52,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: "#292A33",
   },
 
-  userAvatarInitial: {
+  spaceLetter: {
     color: COLORS.white,
+    fontSize: 20,
     fontWeight: "800",
-    fontSize: 15,
   },
 
-  userMeta: {
+  unreadBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.danger,
     alignItems: "center",
-    marginTop: 4,
+    justifyContent: "center",
+    paddingHorizontal: 4,
   },
 
-  userDisplayName: {
+  unreadText: {
     color: COLORS.white,
     fontSize: 10,
-    fontWeight: "700",
-    maxWidth: 68,
+    fontWeight: "800",
   },
 
-  userRoleText: {
-    color: COLORS.accent,
-    fontSize: 8.5,
-    fontWeight: "600",
-    textTransform: "uppercase",
+  utilityArea: {
+    marginTop: "auto",
+    gap: 8,
+    alignItems: "center",
   },
 
-  /* MAIN CONTENT AREA */
+  utilityButton: {
+    width: 52,
+    height: 46,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  utilityActive: {
+    backgroundColor: COLORS.selected,
+  },
+
+  /* LEVEL 2: MAIN CONTENT AREA */
   mainContent: {
     flex: 1,
     backgroundColor: COLORS.bg,
   },
 
-  /* STANDALONE SPACE SELECTOR */
-  selectorContainer: {
+  /* SELECTED SPACE VIEW (CHANNEL SELECTOR) */
+  selectorView: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    backgroundColor: COLORS.bg,
   },
 
-  selectorHeader: {
-    paddingVertical: 12,
+  header: {
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
 
-  serverName: {
-    color: COLORS.white,
-    fontSize: 22,
-    fontWeight: "800",
-    letterSpacing: -0.4,
+  serverTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 12,
   },
 
-  noticeBar: {
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
+  serverName: {
+    color: COLORS.white,
+    fontSize: 21,
+    fontWeight: "800",
+  },
+
+  headerActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  searchButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 15,
     backgroundColor: COLORS.panel2,
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+
+  searchText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  squareButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 15,
+    backgroundColor: COLORS.panel2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  noticeBar: {
+    marginHorizontal: 14,
+    marginTop: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 17,
+    backgroundColor: COLORS.panel2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
 
   noticeTitle: {
     color: COLORS.white,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
   },
 
   noticeMessage: {
     color: COLORS.muted,
-    fontSize: 12,
     marginTop: 2,
+    fontSize: 12,
   },
 
   channelScroll: {
     flex: 1,
-    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingTop: 10,
   },
 
   categoryBlock: {
@@ -1128,9 +1129,10 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 0.8,
-    paddingHorizontal: 6,
-    marginBottom: 6,
+    letterSpacing: 0.7,
+    paddingHorizontal: 4,
+    paddingTop: 14,
+    paddingBottom: 6,
   },
 
   channelRow: {
@@ -1139,7 +1141,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
     gap: 10,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: COLORS.panel,
     marginBottom: 6,
     borderWidth: 1,
@@ -1167,19 +1169,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
 
-  unreadText: {
-    color: COLORS.white,
-    fontSize: 10,
-    fontWeight: "800",
-  },
-
   /* DEDICATED CHANNEL SCREEN */
   channelScreen: {
     flex: 1,
+    backgroundColor: COLORS.bg,
   },
 
   channelHeader: {
-    height: 54,
+    height: 52,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     flexDirection: "row",
@@ -1189,11 +1186,11 @@ const styles = StyleSheet.create({
   },
 
   backBtn: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 18,
+    borderRadius: 19,
     backgroundColor: COLORS.panel2,
   },
 
@@ -1210,25 +1207,25 @@ const styles = StyleSheet.create({
 
   messageContent: {
     padding: 14,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
 
   messageRow: {
     flexDirection: "row",
-    marginBottom: 16,
+    marginBottom: 17,
     gap: 10,
   },
 
   messageAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
 
   messageAvatarFallback: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.panel2,
     alignItems: "center",
     justifyContent: "center",
@@ -1260,7 +1257,7 @@ const styles = StyleSheet.create({
   },
 
   messageText: {
-    color: "#E1E2E8",
+    color: "#D8D8DE",
     fontSize: 14,
     lineHeight: 21,
     marginTop: 2,
@@ -1301,20 +1298,18 @@ const styles = StyleSheet.create({
   },
 
   composer: {
-    minHeight: 54,
+    minHeight: 58,
     margin: 10,
-    borderRadius: 16,
+    borderRadius: 17,
     backgroundColor: COLORS.panel2,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
 
   composerPlus: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1325,13 +1320,13 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 15,
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
 
   sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.accent,
     alignItems: "center",
     justifyContent: "center",
@@ -1345,95 +1340,35 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     padding: 20,
+    backgroundColor: COLORS.bg,
   },
 
   pageTitle: {
     color: COLORS.white,
-    fontSize: 24,
+    fontSize: 25,
     fontWeight: "800",
-    marginBottom: 16,
+    marginBottom: 18,
   },
 
   emptyText: {
     color: COLORS.muted,
-    fontSize: 14,
-    marginTop: 10,
+    marginTop: 20,
   },
 
   dmSearch: {
-    height: 48,
+    height: 50,
     borderRadius: 14,
     backgroundColor: COLORS.panel2,
     color: COLORS.white,
-    paddingHorizontal: 14,
+    paddingHorizontal: 15,
     fontSize: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-
-  profileCard: {
-    padding: 20,
-    borderRadius: 18,
-    backgroundColor: COLORS.panel,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-
-  profileAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    marginBottom: 12,
-  },
-
-  profileAvatarFallback: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: COLORS.panel2,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-
-  profileAvatarLetter: {
-    color: COLORS.white,
-    fontSize: 28,
-    fontWeight: "800",
-  },
-
-  profileName: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: "800",
-  },
-
-  profileEmail: {
-    color: COLORS.muted,
-    fontSize: 13,
-    marginTop: 4,
-  },
-
-  profileRoleBadge: {
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: "rgba(232, 163, 61, 0.15)",
-    color: COLORS.accent,
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
   },
 
   noticeCard: {
     padding: 16,
-    borderRadius: 14,
-    backgroundColor: COLORS.panel,
+    borderRadius: 15,
+    backgroundColor: COLORS.panel2,
     marginBottom: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
 
   noticeCardTitle: {
@@ -1452,18 +1387,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 14,
+    padding: 15,
     borderRadius: 14,
-    backgroundColor: COLORS.panel,
+    backgroundColor: COLORS.panel2,
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
 
   archiveTitle: {
     color: COLORS.white,
     fontWeight: "700",
-    fontSize: 15,
   },
 
   archiveDescription: {
@@ -1480,12 +1412,10 @@ const styles = StyleSheet.create({
 
   adminStat: {
     width: "47%",
-    minHeight: 105,
-    padding: 14,
+    minHeight: 110,
+    padding: 15,
     borderRadius: 16,
-    backgroundColor: COLORS.panel,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.panel2,
   },
 
   adminStatTitle: {
@@ -1496,8 +1426,8 @@ const styles = StyleSheet.create({
 
   adminStatValue: {
     color: COLORS.white,
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: "800",
-    marginTop: 12,
+    marginTop: 15,
   },
 });
