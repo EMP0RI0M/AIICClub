@@ -273,7 +273,7 @@ function SpaceSelectorScreen({
   onSelectServer,
 }: {
   servers: Server[];
-  selectedServer,
+  selectedServer: Server | null;
   channels: Channel[];
   notice?: any;
   onSelectChannel: (channelId: string) => void;
