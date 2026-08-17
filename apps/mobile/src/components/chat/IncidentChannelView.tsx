@@ -8,8 +8,8 @@ import {
   TextInput,
 } from "react-native";
 import { colors, radius } from "../../theme/tokens";
-import { GlassCard } from "./GlassCard";
-import { Badge } from "./Badge";
+import { GlassCard } from "../ui/GlassCard";
+import { Badge } from "../ui/Badge";
 import {
   AlertTriangle,
   ChevronLeft,

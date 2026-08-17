@@ -8,7 +8,7 @@ import {
   TextInput,
 } from "react-native";
 import { colors, radius } from "../../theme/tokens";
-import { GlassCard } from "./GlassCard";
+import { GlassCard } from "../ui/GlassCard";
 import {
   ChevronLeft,
   Square,

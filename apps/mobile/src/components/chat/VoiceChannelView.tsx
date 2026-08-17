@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { colors, radius } from "../../theme/tokens";
-import { GlassCard } from "./GlassCard";
-import { Badge } from "./Badge";
-import { Avatar } from "./Avatar";
+import { GlassCard } from "../ui/GlassCard";
+import { Badge } from "../ui/Badge";
+import { Avatar } from "../ui/Avatar";
 import {
   Mic,
   MicOff,
