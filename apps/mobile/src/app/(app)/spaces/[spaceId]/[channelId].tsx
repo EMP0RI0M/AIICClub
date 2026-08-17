@@ -58,6 +58,8 @@ import {
   MicOff,
   PhoneOff,
   Sparkles,
+  Smile,
+  CornerUpLeft,
   Layers,
   Terminal,
   Activity,
@@ -479,11 +481,13 @@ function ChannelRouter({
   messages,
   onBack,
   onSend,
+  onToggleReaction,
 }: {
   channel: Channel;
   messages: Message[];
   onBack: () => void;
-  onSend: (content: string) => Promise<void>;
+  onSend: (content: string, replyToId?: string) => Promise<void>;
+  onToggleReaction?: (messageId: string, emoji: string) => void;
 }) {
   switch (channel.type) {
     case "voice":
@@ -534,6 +538,7 @@ function ChannelRouter({
           messages={messages}
           onBack={onBack}
           onSend={onSend}
+          onToggleReaction={onToggleReaction}
         />
       );
   }
@@ -548,12 +553,16 @@ function TextChannelScreen({
   messages,
   onBack,
   onSend,
+  onToggleReaction,
 }: {
   channel: Channel;
   messages: Message[];
   onBack: () => void;
-  onSend: (content: string) => Promise<void>;
+  onSend: (content: string, replyToId?: string) => Promise<void>;
+  onToggleReaction?: (messageId: string, emoji: string) => void;
 }) {
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+
   return (
     <View style={styles.channelScreen}>
       {/* Header with Back Button */}
@@ -584,11 +593,20 @@ function TextChannelScreen({
         </View>
       </View>
 
-      {/* Message Feed */}
-      <NativeMessageList messages={messages} />
+      {/* Message Feed with interactive reactions and replies */}
+      <NativeMessageList
+        messages={messages}
+        onToggleReaction={onToggleReaction}
+        onReply={(msg) => setReplyingTo(msg)}
+      />
 
-      {/* Message Composer */}
-      <MessageComposer channelName={channel.name} onSend={onSend} />
+      {/* Message Composer with Reply Banner */}
+      <MessageComposer
+        channelName={channel.name}
+        onSend={onSend}
+        replyingTo={replyingTo}
+        onCancelReply={() => setReplyingTo(null)}
+      />
     </View>
   );
 }
@@ -602,90 +620,174 @@ function isImageUrl(url: string, mimeType?: string) {
   return /\.(png|jpe?g|gif|webp|bmp|avif)(\?.*)?$/i.test(url);
 }
 
-function NativeMessageList({ messages }: { messages: Message[] }) {
+function NativeMessageList({
+  messages,
+  onToggleReaction,
+  onReply,
+}: {
+  messages: Message[];
+  onToggleReaction?: (messageId: string, emoji: string) => void;
+  onReply?: (message: Message) => void;
+}) {
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
+
+  const quickEmojis = ["👍", "🔥", "🚀", "❤️", "👀", "🎉", "🧠", "💯"];
+
   return (
-    <FlatList
-      data={messages}
-      keyExtractor={(item) => item.id}
-      style={styles.messages}
-      contentContainerStyle={styles.messageContent}
-      showsVerticalScrollIndicator={false}
-      renderItem={({ item }) => {
-        const { cleanText, attachments } = parseMessageAttachments(item.content || "");
-        return (
-          <View style={styles.messageRow}>
-            {item.user?.avatarUrl ? (
-              <Image source={{ uri: item.user.avatarUrl }} style={styles.messageAvatar} />
-            ) : (
-              <View style={styles.messageAvatarFallback}>
-                <Text style={styles.avatarLetter}>
-                  {(item.user?.displayName || "U").charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.messageBody}>
-              <View style={styles.messageHeader}>
-                <Text
-                  style={[
-                    styles.displayName,
-                    { color: item.user?.roleColor || colors.textPrimary },
-                  ]}
-                >
-                  {item.user?.displayName || "Member"}
-                </Text>
-
-                <Text style={styles.timestamp}>
-                  {item.createdAt
-                    ? new Date(item.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : ""}
-                </Text>
-              </View>
-
-              {cleanText ? <Text style={styles.messageText}>{cleanText}</Text> : null}
-
-              {attachments.map((att, idx) => (
-                <AttachmentCard key={idx} attachment={att} />
-              ))}
-
-              {item.attachment?.url && isImageUrl(item.attachment.url, item.attachment.mimeType) && (
-                <Image source={{ uri: item.attachment.url }} style={styles.attachmentImage} resizeMode="cover" />
-              )}
-
-              {item.attachment?.url && !isImageUrl(item.attachment.url, item.attachment.mimeType) && (
-                <View style={styles.fileCard}>
-                  <Text style={styles.fileName}>{item.attachment.name || "Attachment"}</Text>
+    <>
+      <FlatList
+        data={messages}
+        keyExtractor={(item) => item.id}
+        style={styles.messages}
+        contentContainerStyle={styles.messageContent}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => {
+          const { cleanText, attachments } = parseMessageAttachments(item.content || "");
+          return (
+            <Pressable
+              onLongPress={() => {
+                setSelectedMessage(item);
+                setActionMenuOpen(true);
+              }}
+              style={({ pressed }) => [
+                styles.messageRow,
+                pressed && { backgroundColor: "rgba(255, 255, 255, 0.03)", borderRadius: 10 },
+              ]}
+            >
+              {item.user?.avatarUrl ? (
+                <Image source={{ uri: item.user.avatarUrl }} style={styles.messageAvatar} />
+              ) : (
+                <View style={styles.messageAvatarFallback}>
+                  <Text style={styles.avatarLetter}>
+                    {(item.user?.displayName || "U").charAt(0).toUpperCase()}
+                  </Text>
                 </View>
               )}
 
-              {!!item.reactions?.length && (
+              <View style={styles.messageBody}>
+                <View style={styles.messageHeader}>
+                  <Text
+                    style={[
+                      styles.displayName,
+                      { color: item.user?.roleColor || colors.textPrimary },
+                    ]}
+                  >
+                    {item.user?.displayName || "Member"}
+                  </Text>
+
+                  <Text style={styles.timestamp}>
+                    {item.createdAt
+                      ? new Date(item.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : ""}
+                  </Text>
+                </View>
+
+                {cleanText ? <Text style={styles.messageText}>{cleanText}</Text> : null}
+
+                {attachments.map((att, idx) => (
+                  <AttachmentCard key={idx} attachment={att} />
+                ))}
+
+                {item.attachment?.url && isImageUrl(item.attachment.url, item.attachment.mimeType) && (
+                  <Image source={{ uri: item.attachment.url }} style={styles.attachmentImage} resizeMode="cover" />
+                )}
+
+                {item.attachment?.url && !isImageUrl(item.attachment.url, item.attachment.mimeType) && (
+                  <View style={styles.fileCard}>
+                    <Text style={styles.fileName}>{item.attachment.name || "Attachment"}</Text>
+                  </View>
+                )}
+
+                {/* Reaction Pills & Add Reaction Button */}
                 <View style={styles.reactions}>
-                  {item.reactions.map((reaction) => (
-                    <View key={reaction.emoji} style={styles.reaction}>
-                      <Text style={{ color: colors.textPrimary }}>
+                  {item.reactions?.map((reaction) => (
+                    <Pressable
+                      key={reaction.emoji}
+                      onPress={() => onToggleReaction?.(item.id, reaction.emoji)}
+                      style={[
+                        styles.reaction,
+                        reaction.reacted && styles.reactionActive,
+                      ]}
+                    >
+                      <Text style={{ color: colors.textPrimary, fontSize: 12 }}>
                         {reaction.emoji} {reaction.count}
                       </Text>
-                    </View>
+                    </Pressable>
                   ))}
+
+                  <Pressable
+                    onPress={() => {
+                      setSelectedMessage(item);
+                      setActionMenuOpen(true);
+                    }}
+                    style={styles.addReactionBtn}
+                  >
+                    <Smile size={13} color={colors.textMuted} />
+                  </Pressable>
                 </View>
-              )}
+              </View>
+            </Pressable>
+          );
+        }}
+      />
+
+      {/* Message Action & Reaction Modal */}
+      <Modal visible={actionMenuOpen} transparent animationType="fade" onRequestClose={() => setActionMenuOpen(false)}>
+        <Pressable style={styles.actionModalBackdrop} onPress={() => setActionMenuOpen(false)}>
+          <View style={styles.actionModalSheet}>
+            <Text style={styles.actionModalTitle}>Add Reaction</Text>
+            <View style={styles.emojiPickerRow}>
+              {quickEmojis.map((emoji) => (
+                <Pressable
+                  key={emoji}
+                  onPress={() => {
+                    if (selectedMessage) {
+                      onToggleReaction?.(selectedMessage.id, emoji);
+                    }
+                    setActionMenuOpen(false);
+                  }}
+                  style={styles.emojiPickerItem}
+                >
+                  <Text style={styles.emojiText}>{emoji}</Text>
+                </Pressable>
+              ))}
             </View>
+
+            <View style={styles.actionDivider} />
+
+            <Pressable
+              style={styles.actionMenuRow}
+              onPress={() => {
+                if (selectedMessage) {
+                  onReply?.(selectedMessage);
+                }
+                setActionMenuOpen(false);
+              }}
+            >
+              <CornerUpLeft size={16} color={colors.accent} />
+              <Text style={styles.actionMenuText}>Reply to Message</Text>
+            </Pressable>
           </View>
-        );
-      }}
-    />
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
 function MessageComposer({
   channelName,
   onSend,
+  replyingTo,
+  onCancelReply,
 }: {
   channelName: string;
-  onSend: (content: string) => Promise<void>;
+  onSend: (content: string, replyToId?: string) => Promise<void>;
+  replyingTo?: Message | null;
+  onCancelReply?: () => void;
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -696,42 +798,57 @@ function MessageComposer({
 
     setSending(true);
     try {
-      await onSend(value);
+      await onSend(value, replyingTo?.id);
       setText("");
+      onCancelReply?.();
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <View style={styles.composer}>
-      <Pressable style={styles.composerPlus}>
-        <Plus size={18} color={colors.textPrimary} />
-      </Pressable>
+    <View style={styles.composerWrapper}>
+      {replyingTo && (
+        <View style={styles.replyBanner}>
+          <CornerUpLeft size={13} color={colors.accent} />
+          <Text style={styles.replyBannerText} numberOfLines={1}>
+            Replying to <Text style={{ fontWeight: "700", color: colors.textPrimary }}>{replyingTo.user.displayName}</Text>: {replyingTo.content}
+          </Text>
+          <Pressable onPress={onCancelReply} hitSlop={8}>
+            <X size={14} color={colors.textMuted} />
+          </Pressable>
+        </View>
+      )}
 
-      <TextInput
-        value={text}
-        onChangeText={setText}
-        placeholder={`Message #${channelName}`}
-        placeholderTextColor={colors.textMuted}
-        style={styles.composerInput}
-        multiline
-      />
+      <View style={styles.composer}>
+        <Pressable style={styles.composerPlus}>
+          <Plus size={18} color={colors.textPrimary} />
+        </Pressable>
 
-      <Pressable
-        onPress={send}
-        disabled={!text.trim() || sending}
-        style={[
-          styles.sendButton,
-          (!text.trim() || sending) && styles.sendDisabled,
-        ]}
-      >
-        {sending ? (
-          <ActivityIndicator color={colors.accentContrast} size="small" />
-        ) : (
-          <Send size={15} color={colors.accentContrast} />
-        )}
-      </Pressable>
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder={`Message #${channelName}`}
+          placeholderTextColor={colors.textMuted}
+          style={styles.composerInput}
+          multiline
+        />
+
+        <Pressable
+          onPress={send}
+          disabled={!text.trim() || sending}
+          style={[
+            styles.sendButton,
+            (!text.trim() || sending) && styles.sendDisabled,
+          ]}
+        >
+          {sending ? (
+            <ActivityIndicator color={colors.accentContrast} size="small" />
+          ) : (
+            <Send size={15} color={colors.accentContrast} />
+          )}
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -1060,6 +1177,7 @@ export default function AIICDiscordApp() {
     messages,
     loadChannelMessages,
     sendChannelMessageAction,
+    toggleReaction,
     subscribeToChannel,
     unsubscribeFromChannel,
   } = useChatStore();
@@ -1273,6 +1391,11 @@ export default function AIICDiscordApp() {
                 messages={channelMessages}
                 onBack={() => setSelectedChannelId(null)}
                 onSend={sendMessage}
+                onToggleReaction={(msgId, emoji) => {
+                  if (selectedChannelId) {
+                    toggleReaction(selectedChannelId, msgId, emoji);
+                  }
+                }}
               />
             ) : (
               /* SELECTED SPACE VIEW (CHANNEL SELECTOR VIEW ONLY) */
