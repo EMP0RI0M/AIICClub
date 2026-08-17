@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -7,11 +7,14 @@ import {
   Platform,
   Animated,
   Easing,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuthStore } from "../../stores/auth-store";
 
 const COLORS = {
   bg: "#080A0F",
@@ -120,11 +123,11 @@ function GoogleIcon() {
   );
 }
 
-function AppleIcon() {
+function GitHubIcon() {
   return (
     <Ionicons
-      name="logo-apple"
-      size={20}
+      name="logo-github"
+      size={21}
       color="#FFFFFF"
     />
   );
@@ -134,16 +137,19 @@ function LoginButton({
   children,
   onPress,
   variant,
+  loading = false,
 }: {
   children: React.ReactNode;
   onPress?: () => void;
-  variant: "google" | "apple";
+  variant: "google" | "github";
+  loading?: boolean;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
 
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
       <Pressable
+        disabled={loading}
         onPress={onPress}
         onPressIn={() => {
           Animated.timing(scale, {
@@ -162,23 +168,28 @@ function LoginButton({
         }}
         style={[
           styles.providerButton,
-          variant === "google"
-            ? styles.googleButton
-            : styles.appleButton,
+          variant === "google" ? styles.googleButton : styles.githubButton,
+          loading && { opacity: 0.7 },
         ]}
       >
-        {variant === "google" ? <GoogleIcon /> : <AppleIcon />}
-
-        <Text
-          style={[
-            styles.providerText,
-            variant === "google"
-              ? styles.googleText
-              : styles.appleText,
-          ]}
-        >
-          {children}
-        </Text>
+        {loading ? (
+          <ActivityIndicator
+            color={variant === "google" ? "#080A0D" : "#FFFFFF"}
+            size="small"
+          />
+        ) : (
+          <>
+            {variant === "google" ? <GoogleIcon /> : <GitHubIcon />}
+            <Text
+              style={[
+                styles.providerText,
+                variant === "google" ? styles.googleText : styles.githubText,
+              ]}
+            >
+              {children}
+            </Text>
+          </>
+        )}
       </Pressable>
     </Animated.View>
   );
@@ -186,6 +197,8 @@ function LoginButton({
 
 export default function LoginHubScreen() {
   const router = useRouter();
+  const { loginWithOAuth, isAuthenticated } = useAuthStore();
+  const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null);
 
   const brandAnim = useRef(new Animated.Value(0)).current;
   const sheetAnim = useRef(new Animated.Value(0)).current;
@@ -206,6 +219,24 @@ export default function LoginHubScreen() {
       }),
     ]).start();
   }, []);
+
+  const handleOAuth = async (provider: "google" | "github") => {
+    setOauthLoading(provider);
+    try {
+      await loginWithOAuth(provider);
+      const state = useAuthStore.getState();
+      if (state.isAuthenticated) {
+        router.replace("/(app)/spaces/space-aiic-main/c-general" as any);
+      }
+    } catch (err: any) {
+      Alert.alert(
+        `${provider === "google" ? "Google" : "GitHub"} Sign In`,
+        err?.message || "Failed to sign in. Please try again."
+      );
+    } finally {
+      setOauthLoading(null);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -257,23 +288,25 @@ export default function LoginHubScreen() {
           }}
         >
           <Glass style={styles.sheet}>
-            {/* Google */}
+            {/* Google OAuth (Direct via Supabase) */}
             <LoginButton
               variant="google"
-              onPress={() => router.push("/(auth)/email-login" as any)}
+              loading={oauthLoading === "google"}
+              onPress={() => handleOAuth("google")}
             >
               Continue with Google
             </LoginButton>
 
-            {/* Apple */}
+            {/* GitHub OAuth (Direct via Supabase) */}
             <LoginButton
-              variant="apple"
-              onPress={() => router.push("/(auth)/email-login" as any)}
+              variant="github"
+              loading={oauthLoading === "github"}
+              onPress={() => handleOAuth("github")}
             >
-              Continue with Apple
+              Continue with GitHub
             </LoginButton>
 
-            {/* Email */}
+            {/* Email Sign In */}
             <Pressable
               onPress={() => router.push("/(auth)/email-login" as any)}
               style={({ pressed }) => [
@@ -463,12 +496,12 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  appleButton: {
-    backgroundColor: "#101114",
+  githubButton: {
+    backgroundColor: "#161B22",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: "rgba(255,255,255,0.18)",
     shadowColor: "#000",
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.28,
     shadowRadius: 12,
     shadowOffset: {
       width: 0,
@@ -486,7 +519,7 @@ const styles = StyleSheet.create({
     color: "#292824",
   },
 
-  appleText: {
+  githubText: {
     color: "#FFFFFF",
   },
 

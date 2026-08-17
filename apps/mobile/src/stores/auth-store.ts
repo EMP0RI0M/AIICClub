@@ -1,7 +1,11 @@
 import { create } from "zustand";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { getSupabaseClient } from "../lib/supabase";
 import { NativeStorage } from "../lib/storage";
 import { api, setAuthToken } from "../lib/api";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export interface User {
   id: string;
@@ -30,6 +34,7 @@ interface AuthState {
   isRestoring: boolean;
 
   login: (email: string, password: string) => Promise<void>;
+  loginWithOAuth: (provider: "google" | "github") => Promise<void>;
   register: (data: {
     displayName: string;
     username: string;
@@ -75,7 +80,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         profileUser = {
           id: data.user.id,
           email: normalizedEmail,
-          displayName: data.user.user_metadata?.displayName || normalizedEmail.split("@")[0],
+          displayName: data.user.user_metadata?.displayName || data.user.user_metadata?.full_name || normalizedEmail.split("@")[0],
           username: data.user.user_metadata?.username || normalizedEmail.split("@")[0],
           avatar: data.user.user_metadata?.avatar_url || null,
           bio: null,
@@ -85,12 +90,90 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       await NativeStorage.setItem("aiic_user_session", JSON.stringify(profileUser));
+      await NativeStorage.setItem("aiic_auth_token", accessToken);
       set({
         user: profileUser,
         token: accessToken,
         isAuthenticated: true,
         isLoading: false,
       });
+    } catch (err) {
+      set({ isLoading: false });
+      throw err;
+    }
+  },
+
+  loginWithOAuth: async (provider: "google" | "github") => {
+    set({ isLoading: true });
+    try {
+      const supabase = getSupabaseClient();
+      const redirectUri = Linking.createURL("auth/callback");
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: redirectUri,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.url) throw new Error("No authorization URL returned from Supabase.");
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+
+      if (result.type === "success" && result.url) {
+        // Extract params or tokens from the URL
+        const parsedUrl = new URL(result.url.replace("#", "?"));
+        const access_token =
+          parsedUrl.searchParams.get("access_token") ||
+          parsedUrl.searchParams.get("token");
+        const refresh_token = parsedUrl.searchParams.get("refresh_token");
+
+        if (access_token) {
+          await supabase.auth.setSession({
+            access_token,
+            refresh_token: refresh_token || "",
+          });
+        }
+      }
+
+      // Query latest session after browser closure
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        const accessToken = sessionData.session.access_token;
+        setAuthToken(accessToken);
+
+        let profileUser: User;
+        try {
+          const profileRes = await api<{ user: User }>("/auth/profile");
+          profileUser = profileRes.user;
+        } catch {
+          const u = sessionData.session.user;
+          const email = u.email || "";
+          profileUser = {
+            id: u.id,
+            email,
+            displayName: u.user_metadata?.displayName || u.user_metadata?.full_name || u.user_metadata?.user_name || email.split("@")[0] || "Member",
+            username: u.user_metadata?.username || u.user_metadata?.user_name || email.split("@")[0] || "member",
+            avatar: u.user_metadata?.avatar_url || null,
+            bio: null,
+            status: "online",
+            onboardingCompleted: true,
+          };
+        }
+
+        await NativeStorage.setItem("aiic_user_session", JSON.stringify(profileUser));
+        await NativeStorage.setItem("aiic_auth_token", accessToken);
+        set({
+          user: profileUser,
+          token: accessToken,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } else {
+        set({ isLoading: false });
+      }
     } catch (err) {
       set({ isLoading: false });
       throw err;
@@ -129,6 +212,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           onboardingCompleted: false,
         };
         await NativeStorage.setItem("aiic_user_session", JSON.stringify(newUser));
+        await NativeStorage.setItem("aiic_auth_token", accessToken);
         set({
           user: newUser,
           token: accessToken,
