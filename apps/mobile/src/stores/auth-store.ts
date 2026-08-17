@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
+import { makeRedirectUri } from "expo-auth-session";
+import * as QueryParams from "expo-auth-session/build/QueryParams";
 import { getSupabaseClient } from "../lib/supabase";
 import { NativeStorage } from "../lib/storage";
 import { api, setAuthToken } from "../lib/api";
@@ -107,12 +108,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       const supabase = getSupabaseClient();
-      const redirectUri = Linking.createURL("auth/callback");
+      const redirectTo = makeRedirectUri();
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: redirectUri,
+          redirectTo,
           skipBrowserRedirect: true,
         },
       });
@@ -120,21 +121,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) throw error;
       if (!data?.url) throw new Error("No authorization URL returned from Supabase.");
 
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectTo
+      );
 
       if (result.type === "success" && result.url) {
-        // Extract params or tokens from the URL
-        const parsedUrl = new URL(result.url.replace("#", "?"));
-        const access_token =
-          parsedUrl.searchParams.get("access_token") ||
-          parsedUrl.searchParams.get("token");
-        const refresh_token = parsedUrl.searchParams.get("refresh_token");
+        const { params, errorCode } = QueryParams.getQueryParams(result.url);
+        if (errorCode) {
+          throw new Error(errorCode);
+        }
 
-        if (access_token) {
-          await supabase.auth.setSession({
+        const { access_token, refresh_token } = params;
+        if (access_token && refresh_token) {
+          const { error: sessionErr } = await supabase.auth.setSession({
             access_token,
-            refresh_token: refresh_token || "",
+            refresh_token,
           });
+          if (sessionErr) throw sessionErr;
         }
       }
 
