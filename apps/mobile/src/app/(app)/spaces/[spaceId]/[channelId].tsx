@@ -33,6 +33,10 @@ import {
 import { CanvasChannelView } from "../../../../components/chat/CanvasChannelView";
 import { DocsChannelView } from "@/components/chat/DocsChannelView";
 import { BoardChannelView } from "@/components/chat/BoardChannelView";
+import { SpaceDrawerModal } from "@/components/navigation/SpaceDrawerModal";
+import { BottomTabBar, type BottomNavSection } from "@/components/navigation/BottomTabBar";
+import { MobileArchiveView } from "@/components/archive/MobileArchiveView";
+import { MobileNoticeBoardView } from "@/components/notifications/MobileNoticeBoardView";
 import { colors, radius } from "../../../../theme/tokens";
 import {
   MessageSquare,
@@ -313,6 +317,7 @@ function SelectedSpaceView({
   onAdd: () => void;
   onEvents: () => void;
   onOpenSettings?: () => void;
+  onOpenDrawer?: () => void;
 }) {
   const categories = useMemo(() => {
     const result: Record<string, Channel[]> = {};
@@ -355,8 +360,7 @@ function SelectedSpaceView({
     }
   }
 
-  // Identify specialized badge for Space Type
-  const spaceType = server.type || "general";
+  const spaceType = (server as any).spaceType || "community";
   const spaceBadgeLabel =
     spaceType === "flagship"
       ? "FLAGSHIP RESEARCH"
@@ -374,21 +378,27 @@ function SelectedSpaceView({
     <View style={styles.selectorView}>
       {/* Space Header */}
       <View style={styles.header}>
-        <Pressable onPress={onOpenSettings} style={styles.serverTitleRow}>
-          <View style={{ flex: 1 }}>
-            <View style={styles.spaceBadgeCapsule}>
-              <Sparkles size={11} color={colors.accent} />
-              <Text style={styles.spaceBadgeText}>{spaceBadgeLabel}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+          {onOpenDrawer && (
+            <Pressable onPress={onOpenDrawer} style={styles.menuDrawerBtn}>
+              <Text style={styles.menuDrawerIcon}>☰</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={onOpenSettings} style={styles.serverTitleRow}>
+            <View style={{ flex: 1 }}>
+              <View style={styles.spaceBadgeCapsule}>
+                <Sparkles size={11} color={colors.accent} />
+                <Text style={styles.spaceBadgeText}>{spaceBadgeLabel}</Text>
+              </View>
+              <Text style={styles.serverName}>{server.name}</Text>
+              {server.description ? (
+                <Text style={styles.serverDescription} numberOfLines={1}>
+                  {server.description}
+                </Text>
+              ) : null}
             </View>
-            <Text style={styles.serverName}>{server.name}</Text>
-            {server.description ? (
-              <Text style={styles.serverDescription} numberOfLines={1}>
-                {server.description}
-              </Text>
-            ) : null}
-          </View>
-          <Settings size={18} color={colors.textMuted} />
-        </Pressable>
+          </Pressable>
+        </View>
 
         <View style={styles.headerActions}>
           <Pressable onPress={onSearch} style={styles.searchButton}>
@@ -1238,6 +1248,7 @@ export default function AIICDiscordApp() {
   const [currentSection, setCurrentSection] = useState<
     "space" | "dm" | "notices" | "archive" | "admin" | "profile"
   >("space");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Selected Space & Channel state (selectedChannelId is null when in selector)
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
@@ -1393,51 +1404,12 @@ export default function AIICDiscordApp() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <View style={styles.root}>
+      <View style={styles.mobileRoot}>
         {/* =================================================
-            LEVEL 1: NARROW LEFT SPACE / SERVER RAIL
+            LEVEL 1: MAIN FULL-WIDTH MOBILE CONTENT
             ================================================= */}
-        <SpaceRail
-          servers={servers}
-          selectedServerId={selectedServerId}
-          onSelectServer={(id) => {
-            setSelectedServerId(id);
-            setActiveSpace(id);
-            setSelectedChannelId(null);
-            setCurrentSection("space");
-          }}
-          onDM={() => {
-            setCurrentSection("dm");
-            setSelectedChannelId(null);
-          }}
-          currentSection={currentSection}
-          isAdmin={isAdmin}
-          onNotice={() => {
-            setCurrentSection("notices");
-            setSelectedChannelId(null);
-          }}
-          onArchive={() => {
-            setCurrentSection("archive");
-            setSelectedChannelId(null);
-          }}
-          onAdmin={() => {
-            if (isAdmin) {
-              setCurrentSection("admin");
-              setSelectedChannelId(null);
-            }
-          }}
-          currentUser={user}
-          onOpenProfile={() => {
-            setCurrentSection("profile");
-            setSelectedChannelId(null);
-          }}
-        />
-
-        {/* =================================================
-            LEVEL 2: MAIN CONTENT VIEW (SPACE OR CHANNEL VIEW)
-            ================================================= */}
-        <View style={styles.mainContent}>
-          {currentSection === "space" && selectedServer && (
+        <View style={styles.mainContentFull}>
+          {(currentSection === "space" || currentSection === "chat") && selectedServer && (
             selectedChannel ? (
               /* DEDICATED TYPE-SPECIFIC CHANNEL ROUTER */
               <ChannelRouter
@@ -1465,6 +1437,7 @@ export default function AIICDiscordApp() {
                 onAdd={() => router.push("/(app)/projects/index" as any)}
                 onEvents={() => router.push("/(app)/events/index" as any)}
                 onOpenSettings={() => setSpaceSettingsOpen(true)}
+                onOpenDrawer={() => setDrawerOpen(true)}
               />
             )
           )}
@@ -1520,18 +1493,14 @@ export default function AIICDiscordApp() {
             </View>
           )}
 
-          {/* NOTICES */}
+          {/* FULL WEB-PARITY NOTICES / ANNOUNCEMENTS */}
           {currentSection === "notices" && (
-            <NoticePage
-              notices={notices}
-              canCreateNotice={canCreateNotice}
-              onCreateNotice={() => setCreateNoticeOpen(true)}
-            />
+            <MobileNoticeBoardView />
           )}
 
-          {/* ARCHIVE */}
+          {/* FULL WEB-PARITY ARCHIVE */}
           {currentSection === "archive" && (
-            <ArchivePage archive={archive} />
+            <MobileArchiveView />
           )}
 
           {/* ADMIN (Only accessible if isAdmin is true) */}
@@ -1573,14 +1542,51 @@ export default function AIICDiscordApp() {
                     onPress={() => router.push("/(app)/profile/settings" as any)}
                     style={styles.profileEditBtn}
                   >
-                    <Text style={styles.profileEditBtnText}>Edit Settings</Text>
+                    <Text style={styles.profileEditBtnText}>Edit Settings & Preferences</Text>
                   </Pressable>
                 </View>
               </View>
             </ScrollView>
           )}
         </View>
+
+        {/* =================================================
+            LEVEL 2: MOBILE BOTTOM NAVIGATION BAR
+            ================================================= */}
+        <BottomTabBar
+          currentSection={currentSection}
+          onSelectSection={(sec) => {
+            if (sec === "chat") {
+              setCurrentSection("space");
+            } else {
+              setCurrentSection(sec);
+              setSelectedChannelId(null);
+            }
+          }}
+          isAdmin={isAdmin}
+        />
       </View>
+
+      {/* Slide-out Drawer for Spaces & Channels */}
+      <SpaceDrawerModal
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        servers={servers}
+        selectedServerId={selectedServerId}
+        onSelectServer={(srvId) => {
+          setSelectedServerId(srvId);
+          setActiveSpace(srvId);
+          setSelectedChannelId(null);
+          setCurrentSection("space");
+        }}
+        channels={channels}
+        selectedChannelId={selectedChannelId}
+        onSelectChannel={(chId) => {
+          setSelectedChannelId(chId);
+          setCurrentSection("space");
+        }}
+        onOpenSpaceSettings={() => setSpaceSettingsOpen(true)}
+      />
 
       {/* Global Functional Search Modal */}
       <SearchModal
@@ -1627,6 +1633,34 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+
+  mobileRoot: {
+    flex: 1,
+    flexDirection: "column",
+    backgroundColor: colors.background,
+  },
+
+  mainContentFull: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+
+  menuDrawerBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  menuDrawerIcon: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: "700",
   },
 
   root: {
