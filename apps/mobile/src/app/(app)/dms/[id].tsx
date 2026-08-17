@@ -167,7 +167,7 @@ export default function DMDetailScreen() {
                         });
                       }}
                     >
-                      <Avatar name={item.author.name} size={28} src={item.author.avatar} />
+                      <Avatar name={item.author.name} size={28} url={item.author.avatar} />
                     </TouchableOpacity>
                   )}
                   <View
