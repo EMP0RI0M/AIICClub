@@ -25,7 +25,16 @@ export async function GET(req: NextRequest) {
                         username,
                         display_name,
                         avatar_url,
-                        status
+                        status,
+                        bio,
+                        role,
+                        class_year,
+                        section,
+                        github_url,
+                        linkedin_url,
+                        website_url,
+                        skills,
+                        interests
                     )
                 )
             )
@@ -75,6 +84,15 @@ export async function GET(req: NextRequest) {
                 displayName: u.display_name,
                 avatarUrl: u.avatar_url,
                 status: u.status || "offline",
+                bio: u.bio || null,
+                role: u.role || "member",
+                classYear: u.class_year || null,
+                section: u.section || null,
+                githubUrl: u.github_url || null,
+                linkedinUrl: u.linkedin_url || null,
+                websiteUrl: u.website_url || null,
+                skills: u.skills || [],
+                interests: u.interests || [],
             }));
 
         const otherUser = participants.find((p: any) => p.id !== user.id) || participants[0];

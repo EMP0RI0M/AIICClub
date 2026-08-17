@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Resolve authoritative role from organization_role_assignments
+    // Resolve authoritative role from organization_role_assignments or users.role
     const { data: assignments } = await supabase
         .from("organization_role_assignments")
         .select("role:organization_roles(key, name, hierarchy_level)")
@@ -30,14 +30,14 @@ export async function GET(req: NextRequest) {
         .eq("is_active", true)
         .order("starts_at", { ascending: false });
 
-    let effectiveRole = "member";
-    let effectiveRoleName = "Member";
+    let effectiveRole = userRecord.role || "member";
+    let effectiveRoleName = userRecord.role ? userRecord.role.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "Member";
 
     if (assignments && assignments.length > 0) {
         const topRole = (assignments as any[])[0]?.role;
         if (topRole) {
-            effectiveRole = topRole.key || "member";
-            effectiveRoleName = topRole.name || "Member";
+            effectiveRole = topRole.key || effectiveRole;
+            effectiveRoleName = topRole.name || effectiveRoleName;
         }
     }
 
@@ -130,6 +130,8 @@ export async function PATCH(req: NextRequest) {
         .order("starts_at", { ascending: false });
 
     const topRole = (assignments as any[])?.[0]?.role;
+    const fallbackRole = updated.role || "member";
+    const fallbackRoleName = updated.role ? updated.role.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "Member";
 
     return NextResponse.json({
         user: {
@@ -147,8 +149,8 @@ export async function PATCH(req: NextRequest) {
             interests: updated.interests || [],
             skills: updated.skills || [],
             status: updated.status || "online",
-            role: topRole?.key || "member",
-            roleName: topRole?.name || "Member",
+            role: topRole?.key || fallbackRole,
+            roleName: topRole?.name || fallbackRoleName,
             onboardingCompleted: updated.onboarding_completed ?? true,
             createdAt: updated.created_at,
         },

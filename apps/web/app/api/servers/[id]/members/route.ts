@@ -26,7 +26,14 @@ export async function GET(
                 display_name,
                 avatar_url,
                 status,
-                bio
+                bio,
+                class_year,
+                section,
+                github_url,
+                linkedin_url,
+                website_url,
+                skills,
+                interests
             )
         `)
         .eq("server_id", serverId);
@@ -48,6 +55,13 @@ export async function GET(
             avatarUrl: m.user?.avatar_url || null,
             status: m.user?.status || "offline",
             bio: m.user?.bio || null,
+            classYear: m.user?.class_year || null,
+            section: m.user?.section || null,
+            githubUrl: m.user?.github_url || null,
+            linkedinUrl: m.user?.linkedin_url || null,
+            websiteUrl: m.user?.website_url || null,
+            skills: m.user?.skills || [],
+            interests: m.user?.interests || [],
         },
     }));
 

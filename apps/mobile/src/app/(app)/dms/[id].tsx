@@ -18,6 +18,8 @@ import { useWorkspaceStore } from "../../../stores/workspace-store";
 import { useChatStore } from "../../../stores/chat-store";
 import { useAuthStore } from "../../../stores/auth-store";
 import { ArrowLeft, Send, Phone, Video, MoreVertical, Smile, Paperclip } from "lucide-react-native";
+import { AttachmentCard, parseMessageAttachments } from "../../../components/chat/AttachmentCard";
+import { UserProfileModal, type UserProfileData } from "../../../components/profile/UserProfileModal";
 
 export default function DMDetailScreen() {
   const router = useRouter();
@@ -34,6 +36,7 @@ export default function DMDetailScreen() {
   } = useChatStore();
 
   const [inputText, setInputText] = useState("");
+  const [selectedUser, setSelectedUser] = useState<UserProfileData | null>(null);
   const convoId = id as string;
 
   const conversation = dms.find((d) => d.id === convoId) || {
@@ -76,7 +79,28 @@ export default function DMDetailScreen() {
           <ArrowLeft size={18} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        <View style={styles.headerCenter}>
+        <TouchableOpacity
+          style={styles.headerCenter}
+          onPress={() => {
+            setSelectedUser({
+              id: (conversation as any).user_id || conversation.id,
+              displayName: conversation.name,
+              username: (conversation as any).username || conversation.name.toLowerCase().replace(/\s+/g, ""),
+              avatarUrl: (conversation as any).avatarUrl || null,
+              status: conversation.presence,
+              role: (conversation as any).role || "member",
+              roleName: (conversation as any).roleName,
+              bio: (conversation as any).bio,
+              classYear: (conversation as any).classYear,
+              section: (conversation as any).section,
+              githubUrl: (conversation as any).githubUrl,
+              linkedinUrl: (conversation as any).linkedinUrl,
+              websiteUrl: (conversation as any).websiteUrl,
+              skills: (conversation as any).skills,
+              interests: (conversation as any).interests,
+            });
+          }}
+        >
           <Avatar
             name={conversation.name}
             presence={conversation.presence}
@@ -88,7 +112,7 @@ export default function DMDetailScreen() {
             </Text>
             <Text style={styles.headerSub}>AIIC · DIRECT MESSAGE</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -123,6 +147,7 @@ export default function DMDetailScreen() {
             contentContainerStyle={styles.list}
             renderItem={({ item }) => {
               const isMe = item.author.id === (user?.id || "u-anon");
+              const { cleanText, attachments } = parseMessageAttachments(item.text || "");
               return (
                 <View
                   style={[
@@ -130,21 +155,43 @@ export default function DMDetailScreen() {
                     isMe ? styles.myMessageWrap : styles.theirMessageWrap,
                   ]}
                 >
-                  {!isMe && <Avatar name={item.author.name} size={28} />}
+                  {!isMe && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedUser({
+                          id: item.author.id,
+                          displayName: item.author.name,
+                          username: item.author.name.toLowerCase().replace(/\s+/g, ""),
+                          avatarUrl: item.author.avatar,
+                          status: "online",
+                        });
+                      }}
+                    >
+                      <Avatar name={item.author.name} size={28} src={item.author.avatar} />
+                    </TouchableOpacity>
+                  )}
                   <View
                     style={[
                       styles.bubble,
                       isMe ? styles.myBubble : styles.theirBubble,
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.bubbleText,
-                        isMe ? styles.myBubbleText : styles.theirBubbleText,
-                      ]}
-                    >
-                      {item.text}
-                    </Text>
+                    {cleanText ? (
+                      <Text
+                        style={[
+                          styles.bubbleText,
+                          isMe ? styles.myBubbleText : styles.theirBubbleText,
+                        ]}
+                      >
+                        {cleanText}
+                      </Text>
+                    ) : null}
+
+                    {/* Decoded Attachments */}
+                    {attachments.map((att, idx) => (
+                      <AttachmentCard key={idx} attachment={att} />
+                    ))}
+
                     <Text
                       style={[
                         styles.bubbleTime,
@@ -201,6 +248,17 @@ export default function DMDetailScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Detailed Contact Profile Modal */}
+      <UserProfileModal
+        visible={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+        user={selectedUser}
+        onCall={(video) => {
+          setSelectedUser(null);
+          router.push(`/(app)/voice/${convoId}`);
+        }}
+      />
     </SafeAreaView>
   );
 }

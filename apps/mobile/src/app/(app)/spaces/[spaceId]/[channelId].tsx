@@ -34,9 +34,9 @@ import { CanvasChannelView } from "../../../../components/chat/CanvasChannelView
 import { DocsChannelView } from "@/components/chat/DocsChannelView";
 import { BoardChannelView } from "@/components/chat/BoardChannelView";
 import { SpaceDrawerModal } from "@/components/navigation/SpaceDrawerModal";
-import { BottomTabBar, type BottomNavSection } from "@/components/navigation/BottomTabBar";
 import { MobileArchiveView } from "@/components/archive/MobileArchiveView";
 import { MobileNoticeBoardView } from "@/components/notifications/MobileNoticeBoardView";
+import { UserProfileModal, type UserProfileData } from "@/components/profile/UserProfileModal";
 import { colors, radius } from "../../../../theme/tokens";
 import {
   MessageSquare,
@@ -379,75 +379,50 @@ function SelectedSpaceView({
     <View style={styles.selectorView}>
       {/* Space Header */}
       <View style={styles.header}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-          {onOpenDrawer && (
-            <Pressable onPress={onOpenDrawer} style={styles.menuDrawerBtn}>
-              <Text style={styles.menuDrawerIcon}>☰</Text>
-            </Pressable>
-          )}
-          <Pressable onPress={onOpenSettings} style={styles.serverTitleRow}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.spaceBadgeCapsule}>
-                <Sparkles size={11} color={colors.accent} />
-                <Text style={styles.spaceBadgeText}>{spaceBadgeLabel}</Text>
-              </View>
-              <Text style={styles.serverName}>{server.name}</Text>
-              {server.description ? (
-                <Text style={styles.serverDescription} numberOfLines={1}>
-                  {server.description}
-                </Text>
-              ) : null}
+        <Pressable onPress={onOpenSettings} style={styles.serverTitleRow}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.spaceBadgeCapsule}>
+              <Sparkles size={11} color={colors.accent} />
+              <Text style={styles.spaceBadgeText}>{spaceBadgeLabel}</Text>
             </View>
-          </Pressable>
-        </View>
+            <Text style={styles.serverName}>{server.name}</Text>
+            {server.description ? (
+              <Text style={styles.serverDescription} numberOfLines={1}>
+                {server.description}
+              </Text>
+            ) : null}
+          </View>
+        </Pressable>
 
         <View style={styles.headerActions}>
-          <Pressable onPress={onSearch} style={styles.searchButton}>
-            <Search size={15} color={colors.textPrimary} />
-            <Text style={styles.searchText}>Search</Text>
+          <Pressable onPress={onSearch} style={styles.squareButton}>
+            <Search size={16} color={colors.textPrimary} />
           </Pressable>
 
           <Pressable onPress={onAdd} style={styles.squareButton}>
-            <Plus size={18} color={colors.textPrimary} />
+            <Plus size={16} color={colors.textPrimary} />
           </Pressable>
 
           <Pressable onPress={onEvents} style={styles.squareButton}>
-            <Calendar size={18} color={colors.textPrimary} />
+            <Calendar size={16} color={colors.textPrimary} />
           </Pressable>
 
           {onOpenSettings && (
             <Pressable onPress={onOpenSettings} style={styles.squareButton}>
-              <Settings size={18} color={colors.accent} />
+              <Settings size={16} color={colors.accent} />
             </Pressable>
           )}
         </View>
       </View>
 
-      {/* Notice / Announcement Bar */}
+      {/* Compact Notice Strip (Accessible, non-dominating) */}
       {notice ? (
         <Pressable onPress={onNotice} style={styles.noticeBar}>
-          <View style={{ flex: 1 }}>
-            <View style={styles.noticeBadgeRow}>
-              <Text style={styles.noticeBadgeText}>NOTICE</Text>
-              {canCreateNotice && (
-                <Pressable onPress={onCreateNotice} hitSlop={8}>
-                  <Text style={styles.noticeCreateLink}>+ Publish</Text>
-                </Pressable>
-              )}
-            </View>
-            <Text style={styles.noticeTitle}>{notice.title || "Announcement"}</Text>
-            {!!(notice.message || notice.content) && (
-              <Text style={styles.noticeMessage} numberOfLines={1}>
-                {notice.message || notice.content}
-              </Text>
-            )}
-          </View>
-          <ChevronRight size={18} color={colors.textMuted} />
-        </Pressable>
-      ) : canCreateNotice ? (
-        <Pressable onPress={onCreateNotice} style={styles.emptyNoticeBar}>
-          <Bell size={15} color={colors.accent} />
-          <Text style={styles.emptyNoticeText}>Publish a space notice / announcement</Text>
+          <Bell size={14} color={colors.accent} />
+          <Text style={styles.noticeTitle} numberOfLines={1}>
+            {notice.title || "Announcement"}
+          </Text>
+          <ChevronRight size={14} color={colors.textMuted} />
         </Pressable>
       ) : null}
 
@@ -512,12 +487,14 @@ function ChannelRouter({
   onBack,
   onSend,
   onToggleReaction,
+  onOpenProfile,
 }: {
   channel: Channel;
   messages: Message[];
   onBack: () => void;
   onSend: (content: string, replyToId?: string) => Promise<void>;
   onToggleReaction?: (messageId: string, emoji: string) => void;
+  onOpenProfile?: (user: UserProfileData) => void;
 }) {
   switch (channel.type) {
     case "voice":
@@ -589,6 +566,7 @@ function ChannelRouter({
           onBack={onBack}
           onSend={onSend}
           onToggleReaction={onToggleReaction}
+          onOpenProfile={onOpenProfile}
         />
       );
   }
@@ -604,12 +582,14 @@ function TextChannelScreen({
   onBack,
   onSend,
   onToggleReaction,
+  onOpenProfile,
 }: {
   channel: Channel;
   messages: Message[];
   onBack: () => void;
   onSend: (content: string, replyToId?: string) => Promise<void>;
   onToggleReaction?: (messageId: string, emoji: string) => void;
+  onOpenProfile?: (user: UserProfileData) => void;
 }) {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
@@ -648,6 +628,7 @@ function TextChannelScreen({
         messages={messages}
         onToggleReaction={onToggleReaction}
         onReply={(msg) => setReplyingTo(msg)}
+        onOpenProfile={onOpenProfile}
       />
 
       {/* Message Composer with Reply Banner */}
@@ -674,10 +655,12 @@ function NativeMessageList({
   messages,
   onToggleReaction,
   onReply,
+  onOpenProfile,
 }: {
   messages: Message[];
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onReply?: (message: Message) => void;
+  onOpenProfile?: (user: UserProfileData) => void;
 }) {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
@@ -717,15 +700,28 @@ function NativeMessageList({
                   pressed && { backgroundColor: "rgba(255, 255, 255, 0.03)", borderRadius: 10 },
                 ]}
               >
-                {item.user?.avatarUrl ? (
-                  <Image source={{ uri: item.user.avatarUrl }} style={styles.messageAvatar} />
-                ) : (
-                  <View style={styles.messageAvatarFallback}>
-                    <Text style={styles.avatarLetter}>
-                      {(item.user?.displayName || "U").charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
+                <Pressable
+                  onPress={() => {
+                    onOpenProfile?.({
+                      id: item.user.id,
+                      displayName: item.user.displayName,
+                      username: item.user.displayName.toLowerCase().replace(/\s+/g, ""),
+                      avatarUrl: item.user.avatarUrl,
+                      status: "online",
+                    });
+                  }}
+                  hitSlop={6}
+                >
+                  {item.user?.avatarUrl ? (
+                    <Image source={{ uri: item.user.avatarUrl }} style={styles.messageAvatar} />
+                  ) : (
+                    <View style={styles.messageAvatarFallback}>
+                      <Text style={styles.avatarLetter}>
+                        {(item.user?.displayName || "U").charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
 
                 <View style={styles.messageBody}>
                   <View style={styles.messageHeader}>
@@ -1263,6 +1259,7 @@ export default function AIICDiscordApp() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [createNoticeOpen, setCreateNoticeOpen] = useState(false);
   const [spaceSettingsOpen, setSpaceSettingsOpen] = useState(false);
+  const [selectedMemberProfile, setSelectedMemberProfile] = useState<UserProfileData | null>(null);
 
   // Authority & Role calculation from Supabase profile data
   const userRole = (user?.role || "member").toLowerCase().trim();
@@ -1405,9 +1402,46 @@ export default function AIICDiscordApp() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <View style={styles.mobileRoot}>
+      <View style={styles.root}>
         {/* =================================================
-            LEVEL 1: MAIN FULL-WIDTH MOBILE CONTENT
+            LEVEL 1: DISCORD LEFT SPACE / SERVER RAIL
+            ================================================= */}
+        <SpaceRail
+          servers={servers}
+          selectedServerId={selectedServerId}
+          onSelectServer={(id) => {
+            setSelectedServerId(id);
+            setActiveSpace(id);
+            setSelectedChannelId(null);
+            setCurrentSection("space");
+          }}
+          onDM={() => {
+            setCurrentSection("dm");
+            setSelectedChannelId(null);
+          }}
+          currentSection={currentSection}
+          isAdmin={isAdmin}
+          onNotice={() => {
+            setCurrentSection("notices");
+            setSelectedChannelId(null);
+          }}
+          onArchive={() => {
+            setCurrentSection("archive");
+            setSelectedChannelId(null);
+          }}
+          onAdmin={() => {
+            setCurrentSection("admin");
+            setSelectedChannelId(null);
+          }}
+          currentUser={user}
+          onOpenProfile={() => {
+            setCurrentSection("profile");
+            setSelectedChannelId(null);
+          }}
+        />
+
+        {/* =================================================
+            LEVEL 2: MAIN CONTENT & CHAT STREAM
             ================================================= */}
         <View style={styles.mainContentFull}>
           {currentSection === "space" && selectedServer && (
@@ -1423,6 +1457,7 @@ export default function AIICDiscordApp() {
                     toggleReaction(selectedChannelId, msgId, emoji);
                   }
                 }}
+                onOpenProfile={(prof) => setSelectedMemberProfile(prof)}
               />
             ) : (
               /* SELECTED SPACE VIEW (CHANNEL SELECTOR VIEW ONLY) */
@@ -1438,7 +1473,6 @@ export default function AIICDiscordApp() {
                 onAdd={() => router.push("/(app)/projects/index" as any)}
                 onEvents={() => router.push("/(app)/events/index" as any)}
                 onOpenSettings={() => setSpaceSettingsOpen(true)}
-                onOpenDrawer={() => setDrawerOpen(true)}
               />
             )
           )}
@@ -1509,33 +1543,85 @@ export default function AIICDiscordApp() {
             <AdminPage data={adminData} />
           )}
 
-          {/* PROFILE & SETTINGS */}
+          {/* DETAILED MEMBER PROFILE & IDENTITY */}
           {currentSection === "profile" && (
-            <ScrollView style={styles.page}>
+            <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
               <Text style={styles.pageTitle}>Member Identity</Text>
               <View style={styles.profileCard}>
-                {user?.avatar ? (
-                  <Image source={{ uri: user.avatar }} style={styles.profileAvatar} />
-                ) : (
-                  <View style={styles.profileAvatarFallback}>
-                    <Text style={styles.profileAvatarLetter}>
-                      {(user?.displayName || user?.username || "U").charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
+                <View style={styles.profileAvatarWrap}>
+                  {user?.avatar ? (
+                    <Image source={{ uri: user.avatar }} style={styles.profileAvatar} />
+                  ) : (
+                    <View style={styles.profileAvatarFallback}>
+                      <Text style={styles.profileAvatarLetter}>
+                        {(user?.displayName || user?.username || "U").charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.profileStatusDot} />
+                </View>
 
                 <Text style={styles.profileName}>
                   {user?.displayName || user?.username || "Member"}
                 </Text>
-                <Text style={styles.profileEmail}>{user?.email}</Text>
+                <Text style={styles.profileUsername}>@{user?.username || "member"}</Text>
 
                 <View style={styles.roleTag}>
                   <Shield size={13} color={colors.accent} />
-                  <Text style={styles.roleTagText}>{(user?.role || "MEMBER").toUpperCase()}</Text>
+                  <Text style={styles.roleTagText}>
+                    {(user?.role || "MEMBER").replace(/_/g, " ").toUpperCase()}
+                  </Text>
                 </View>
 
                 {user?.bio ? (
-                  <Text style={styles.profileBio}>{user.bio}</Text>
+                  <View style={styles.profileSectionBox}>
+                    <Text style={styles.profileSectionLabel}>ABOUT</Text>
+                    <Text style={styles.profileBio}>{user.bio}</Text>
+                  </View>
+                ) : null}
+
+                {(user?.classYear || user?.section) ? (
+                  <View style={styles.profileSectionBox}>
+                    <Text style={styles.profileSectionLabel}>ACADEMIC AFFILIATION</Text>
+                    <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                      {user.classYear && (
+                        <View style={styles.profileAffilPill}>
+                          <Text style={styles.profileAffilText}>Class of {user.classYear}</Text>
+                        </View>
+                      )}
+                      {user.section && (
+                        <View style={styles.profileAffilPill}>
+                          <Text style={styles.profileAffilText}>Squad: {user.section}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ) : null}
+
+                {user?.skills && user.skills.length > 0 ? (
+                  <View style={styles.profileSectionBox}>
+                    <Text style={styles.profileSectionLabel}>SKILLS & EXPERTISE</Text>
+                    <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                      {user.skills.map((s, i) => (
+                        <View key={i} style={styles.profileSkillChip}>
+                          <Text style={styles.profileSkillText}>{s}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+
+                {user?.interests && user.interests.length > 0 ? (
+                  <View style={styles.profileSectionBox}>
+                    <Text style={styles.profileSectionLabel}>RESEARCH & TOPIC INTERESTS</Text>
+                    <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                      {user.interests.map((it, i) => (
+                        <View key={i} style={styles.profileInterestChip}>
+                          <Text style={styles.profileInterestText}>#{it}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
                 ) : null}
 
                 <View style={styles.profileActionRow}>
@@ -1543,29 +1629,13 @@ export default function AIICDiscordApp() {
                     onPress={() => router.push("/(app)/profile/settings" as any)}
                     style={styles.profileEditBtn}
                   >
-                    <Text style={styles.profileEditBtnText}>Edit Settings & Preferences</Text>
+                    <Text style={styles.profileEditBtnText}>Edit Profile & Settings</Text>
                   </Pressable>
                 </View>
               </View>
             </ScrollView>
           )}
         </View>
-
-        {/* =================================================
-            LEVEL 2: MOBILE BOTTOM NAVIGATION BAR
-            ================================================= */}
-        <BottomTabBar
-          currentSection={currentSection}
-          onSelectSection={(sec) => {
-            if (sec === "chat") {
-              setCurrentSection("space");
-            } else {
-              setCurrentSection(sec);
-              setSelectedChannelId(null);
-            }
-          }}
-          isAdmin={isAdmin}
-        />
       </View>
 
       {/* Slide-out Drawer for Spaces & Channels */}
@@ -1622,6 +1692,23 @@ export default function AIICDiscordApp() {
           }}
         />
       )}
+
+      {/* Detailed Member Profile Modal */}
+      <UserProfileModal
+        visible={!!selectedMemberProfile}
+        onClose={() => setSelectedMemberProfile(null)}
+        user={selectedMemberProfile}
+        onMessage={() => {
+          setSelectedMemberProfile(null);
+          setCurrentSection("dm");
+        }}
+        onCall={() => {
+          setSelectedMemberProfile(null);
+          if (selectedChannelId) {
+            router.push(`/(app)/voice/${selectedChannelId}`);
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -2775,5 +2862,94 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 11,
     flex: 1,
+  },
+
+  profileAvatarWrap: {
+    position: "relative",
+    marginBottom: 8,
+  },
+
+  profileStatusDot: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.statusOnline,
+    borderWidth: 2,
+    borderColor: "#12141D",
+  },
+
+  profileUsername: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontFamily: "monospace",
+    marginTop: 2,
+    marginBottom: 8,
+  },
+
+  profileSectionBox: {
+    width: "100%",
+    backgroundColor: "rgba(255, 255, 255, 0.025)",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    gap: 6,
+    marginTop: 10,
+  },
+
+  profileSectionLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: "800",
+    fontFamily: "monospace",
+    letterSpacing: 0.8,
+  },
+
+  profileAffilPill: {
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+
+  profileAffilText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  profileSkillChip: {
+    backgroundColor: "rgba(45, 212, 191, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(45, 212, 191, 0.25)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+
+  profileSkillText: {
+    color: colors.accentTeal,
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: "monospace",
+  },
+
+  profileInterestChip: {
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.25)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+
+  profileInterestText: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: "monospace",
   },
 });
