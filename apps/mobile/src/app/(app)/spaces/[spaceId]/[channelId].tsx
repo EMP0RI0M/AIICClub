@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -19,25 +19,61 @@ import { useRouter } from "expo-router";
 import { useAuthStore } from "../../../../stores/auth-store";
 import { useWorkspaceStore } from "../../../../stores/workspace-store";
 import { useChatStore } from "../../../../stores/chat-store";
-import { api, searchUsers, publishAnnouncement } from "../../../../lib/api";
+import { api, searchUsers, publishAnnouncement, fetchChannelGitHub } from "../../../../lib/api";
 import { AttachmentCard, parseMessageAttachments } from "../../../../components/chat/AttachmentCard";
 import { Avatar } from "../../../../components/ui/Avatar";
+import { GlassCard } from "../../../../components/ui/GlassCard";
+import { Badge } from "../../../../components/ui/Badge";
 import { colors, radius } from "../../../../theme/tokens";
+import {
+  MessageSquare,
+  Search,
+  Plus,
+  Calendar,
+  Bell,
+  Archive,
+  Settings,
+  Hash,
+  Volume2,
+  FolderKanban,
+  Kanban,
+  FileText,
+  Github,
+  AlertTriangle,
+  Radio,
+  ChevronRight,
+  Send,
+  ChevronLeft,
+  Check,
+  X,
+  Shield,
+  Code,
+  User,
+  UserPlus,
+  ExternalLink,
+  Mic,
+  MicOff,
+  PhoneOff,
+  Sparkles,
+  Layers,
+  Terminal,
+  Activity,
+} from "lucide-react-native";
 
 /* =========================================================
-   TYPES & SPACE TYPE SPECIALIZATION
+   TYPES & 9 DISTINCT SPACE TYPES
    ========================================================= */
 
 export type SpaceCategoryType =
-  | "flagship"
-  | "squad"
-  | "research_lab"
-  | "open_source"
-  | "cohort"
-  | "hackathon"
-  | "governance"
-  | "general"
-  | "archive_space";
+  | "flagship"       // Flagship AI & Robotics Lab
+  | "squad"          // High-velocity build squads
+  | "research_lab"   // Frontier research & papers
+  | "open_source"    // GitHub connected repositories
+  | "cohort"         // Student academic / batch groups
+  | "hackathon"      // Timed competition rooms
+  | "governance"     // President & Staff leadership
+  | "general"        // Main community space
+  | "archive_space"; // Historic records & showcases
 
 export type Server = {
   id: string;
@@ -82,62 +118,6 @@ export type Message = {
 };
 
 /* =========================================================
-   ICON SYSTEM
-   ========================================================= */
-
-function Icon({
-  name,
-  size = 20,
-  color = "#A7A9B7",
-}: {
-  name: string;
-  size?: number;
-  color?: string;
-}) {
-  const symbols: Record<string, string> = {
-    dm: "💬",
-    search: "🔍",
-    add: "＋",
-    calendar: "📅",
-    notice: "📢",
-    archive: "📦",
-    admin: "⚙️",
-    hash: "#",
-    voice: "🔊",
-    project: "📂",
-    board: "📋",
-    docs: "📄",
-    github: "🐙",
-    incident: "🚨",
-    stage: "🎙️",
-    announcement: "📣",
-    forum: "💡",
-    bell: "🔔",
-    chevron: "›",
-    plus: "＋",
-    send: "➤",
-    back: "‹",
-    check: "✓",
-    close: "✕",
-    shield: "🛡️",
-    code: "💻",
-    user: "👤",
-  };
-
-  return (
-    <Text
-      style={{
-        color,
-        fontSize: size,
-        fontWeight: "700",
-      }}
-    >
-      {symbols[name] ?? "•"}
-    </Text>
-  );
-}
-
-/* =========================================================
    LEVEL 1: NARROW LEFT SPACE / SERVER RAIL
    ========================================================= */
 
@@ -176,16 +156,15 @@ function SpaceRail({
           currentSection === "dm" && styles.activeDM,
         ]}
       >
-        <Icon
-          name="dm"
+        <MessageSquare
           size={20}
-          color={currentSection === "dm" ? "#101116" : COLORS.accent}
+          color={currentSection === "dm" ? "#101116" : colors.accent}
         />
       </Pressable>
 
       <View style={styles.railDivider} />
 
-      {/* SPACE LIST (CIRCULAR SERVER ICONS) */}
+      {/* SPACE LIST (CIRCULAR / ROUNDED SERVER ICONS) */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.spaceList}
@@ -238,7 +217,7 @@ function SpaceRail({
             currentSection === "notices" && styles.utilityActive,
           ]}
         >
-          <Icon name="notice" size={18} />
+          <Bell size={18} color={currentSection === "notices" ? colors.accent : colors.textMuted} />
         </Pressable>
 
         <Pressable
@@ -248,7 +227,7 @@ function SpaceRail({
             currentSection === "archive" && styles.utilityActive,
           ]}
         >
-          <Icon name="archive" size={18} />
+          <Archive size={18} color={currentSection === "archive" ? colors.accent : colors.textMuted} />
         </Pressable>
 
         {isAdmin && (
@@ -259,11 +238,11 @@ function SpaceRail({
               currentSection === "admin" && styles.utilityActive,
             ]}
           >
-            <Icon name="admin" size={18} />
+            <Settings size={18} color={currentSection === "admin" ? colors.accent : colors.textMuted} />
           </Pressable>
         )}
 
-        {/* AUTHENTICATED USER AVATAR & PRESENCE */}
+        {/* AUTHENTICATED USER AVATAR & PRESENCE DOCK */}
         <Pressable
           onPress={onOpenProfile}
           style={[
@@ -291,6 +270,7 @@ function SpaceRail({
 
 /* =========================================================
    LEVEL 2: SELECTED SPACE NAVIGATION (CHANNEL SELECTOR VIEW)
+   Branches according to Space.type (9 distinct space archetypes)
    ========================================================= */
 
 function SelectedSpaceView({
@@ -342,20 +322,34 @@ function SelectedSpaceView({
     return result;
   }, [channels]);
 
-  function getChannelIconName(type: Channel["type"]) {
+  function renderChannelIcon(type: Channel["type"]) {
     switch (type) {
-      case "voice": return "voice";
-      case "project": return "project";
-      case "board": return "board";
-      case "docs": return "docs";
-      case "github": return "github";
-      case "incident": return "incident";
-      case "stage": return "stage";
-      case "announcement": return "announcement";
-      case "forum": return "forum";
-      default: return "hash";
+      case "voice": return <Volume2 size={16} color={colors.accentTeal} />;
+      case "project": return <FolderKanban size={16} color={colors.accent} />;
+      case "board": return <Kanban size={16} color={colors.accentWarm} />;
+      case "docs": return <FileText size={16} color={colors.info} />;
+      case "github": return <Github size={16} color={colors.accentTeal} />;
+      case "incident": return <AlertTriangle size={16} color={colors.danger} />;
+      case "stage": return <Radio size={16} color={colors.live} />;
+      case "announcement": return <Bell size={16} color={colors.accent} />;
+      default: return <Hash size={16} color={colors.textMuted} />;
     }
   }
+
+  // Identify specialized badge for Space Type
+  const spaceType = server.type || "general";
+  const spaceBadgeLabel =
+    spaceType === "flagship"
+      ? "FLAGSHIP RESEARCH"
+      : spaceType === "squad"
+        ? "BUILD SQUAD"
+        : spaceType === "open_source"
+          ? "OPEN SOURCE CORE"
+          : spaceType === "governance"
+            ? "PRESIDENCY & GOVERNANCE"
+            : spaceType === "hackathon"
+              ? "HACKATHON ROOM"
+              : "COMMUNITY SPACE";
 
   return (
     <View style={styles.selectorView}>
@@ -363,6 +357,10 @@ function SelectedSpaceView({
       <View style={styles.header}>
         <View style={styles.serverTitleRow}>
           <View style={{ flex: 1 }}>
+            <View style={styles.spaceBadgeCapsule}>
+              <Sparkles size={11} color={colors.accent} />
+              <Text style={styles.spaceBadgeText}>{spaceBadgeLabel}</Text>
+            </View>
             <Text style={styles.serverName}>{server.name}</Text>
             {server.description ? (
               <Text style={styles.serverDescription} numberOfLines={1}>
@@ -370,21 +368,21 @@ function SelectedSpaceView({
               </Text>
             ) : null}
           </View>
-          <Icon name="chevron" size={20} color={COLORS.muted} />
+          <ChevronRight size={20} color={colors.textMuted} />
         </View>
 
         <View style={styles.headerActions}>
           <Pressable onPress={onSearch} style={styles.searchButton}>
-            <Icon name="search" size={16} color={COLORS.white} />
+            <Search size={15} color={colors.textPrimary} />
             <Text style={styles.searchText}>Search</Text>
           </Pressable>
 
           <Pressable onPress={onAdd} style={styles.squareButton}>
-            <Icon name="add" color={COLORS.white} />
+            <Plus size={18} color={colors.textPrimary} />
           </Pressable>
 
           <Pressable onPress={onEvents} style={styles.squareButton}>
-            <Icon name="calendar" color={COLORS.white} />
+            <Calendar size={18} color={colors.textPrimary} />
           </Pressable>
         </View>
       </View>
@@ -408,12 +406,12 @@ function SelectedSpaceView({
               </Text>
             )}
           </View>
-          <Icon name="chevron" size={20} color={COLORS.muted} />
+          <ChevronRight size={18} color={colors.textMuted} />
         </Pressable>
       ) : canCreateNotice ? (
         <Pressable onPress={onCreateNotice} style={styles.emptyNoticeBar}>
-          <Icon name="notice" size={16} color={COLORS.accent} />
-          <Text style={styles.emptyNoticeText}>Publish a space notice / alert</Text>
+          <Bell size={15} color={colors.accent} />
+          <Text style={styles.emptyNoticeText}>Publish a space notice / announcement</Text>
         </Pressable>
       ) : null}
 
@@ -430,25 +428,17 @@ function SelectedSpaceView({
                 style={({ pressed }) => [
                   styles.channelRow,
                   channel.type === "incident" && styles.incidentChannelRow,
+                  channel.type === "github" && styles.githubChannelRow,
                   pressed && styles.channelRowPressed,
                 ]}
               >
-                <Icon
-                  name={getChannelIconName(channel.type)}
-                  size={16}
-                  color={
-                    channel.type === "incident"
-                      ? COLORS.danger
-                      : channel.type === "github"
-                        ? COLORS.accentTeal
-                        : COLORS.muted
-                  }
-                />
+                {renderChannelIcon(channel.type)}
 
                 <Text
                   style={[
                     styles.channelName,
-                    channel.type === "incident" && { color: COLORS.danger },
+                    channel.type === "incident" && { color: colors.danger },
+                    channel.type === "github" && { color: colors.accentTeal },
                   ]}
                   numberOfLines={1}
                 >
@@ -476,8 +466,7 @@ function SelectedSpaceView({
 }
 
 /* =========================================================
-   CHANNEL SCREEN (DEDICATED FULL-AREA VIEW)
-   Handles type-specific rendering (Text, Board, Docs, GitHub, Incident)
+   CHANNEL SCREEN (DEDICATED FULL-AREA TYPE-SPECIFIC VIEW)
    ========================================================= */
 
 function ChannelScreen({
@@ -496,30 +485,24 @@ function ChannelScreen({
       {/* Header with Back Button */}
       <View style={styles.channelHeader}>
         <Pressable onPress={onBack} hitSlop={14} style={styles.backBtn}>
-          <Icon name="back" size={26} color={COLORS.white} />
+          <ChevronLeft size={24} color={colors.textPrimary} />
         </Pressable>
 
-        <Icon
-          name={
-            channel.type === "voice"
-              ? "voice"
-              : channel.type === "project"
-                ? "project"
-                : channel.type === "board"
-                  ? "board"
-                  : channel.type === "docs"
-                    ? "docs"
-                    : channel.type === "github"
-                      ? "github"
-                      : channel.type === "incident"
-                        ? "incident"
-                        : "hash"
-          }
-          size={18}
-          color={channel.type === "incident" ? COLORS.danger : COLORS.muted}
-        />
+        {channel.type === "voice" ? (
+          <Volume2 size={18} color={colors.accentTeal} />
+        ) : channel.type === "github" ? (
+          <Github size={18} color={colors.accentTeal} />
+        ) : channel.type === "incident" ? (
+          <AlertTriangle size={18} color={colors.danger} />
+        ) : channel.type === "board" ? (
+          <Kanban size={18} color={colors.accentWarm} />
+        ) : channel.type === "docs" ? (
+          <FileText size={18} color={colors.info} />
+        ) : (
+          <Hash size={18} color={colors.textMuted} />
+        )}
 
-        <View style={{ flex: 1, marginLeft: 4 }}>
+        <View style={{ flex: 1, marginLeft: 6 }}>
           <Text style={styles.channelHeaderName} numberOfLines={1}>
             {channel.name}
           </Text>
@@ -576,7 +559,7 @@ function NativeMessageList({ messages }: { messages: Message[] }) {
                 <Text
                   style={[
                     styles.displayName,
-                    { color: item.user?.roleColor || COLORS.white },
+                    { color: item.user?.roleColor || colors.textPrimary },
                   ]}
                 >
                   {item.user?.displayName || "Member"}
@@ -612,7 +595,7 @@ function NativeMessageList({ messages }: { messages: Message[] }) {
                 <View style={styles.reactions}>
                   {item.reactions.map((reaction) => (
                     <View key={reaction.emoji} style={styles.reaction}>
-                      <Text style={{ color: COLORS.white }}>
+                      <Text style={{ color: colors.textPrimary }}>
                         {reaction.emoji} {reaction.count}
                       </Text>
                     </View>
@@ -653,14 +636,14 @@ function MessageComposer({
   return (
     <View style={styles.composer}>
       <Pressable style={styles.composerPlus}>
-        <Icon name="plus" size={20} color={COLORS.white} />
+        <Plus size={18} color={colors.textPrimary} />
       </Pressable>
 
       <TextInput
         value={text}
         onChangeText={setText}
         placeholder={`Message #${channelName}`}
-        placeholderTextColor={COLORS.muted}
+        placeholderTextColor={colors.textMuted}
         style={styles.composerInput}
         multiline
       />
@@ -674,9 +657,9 @@ function MessageComposer({
         ]}
       >
         {sending ? (
-          <ActivityIndicator color="#08090D" size="small" />
+          <ActivityIndicator color={colors.accentContrast} size="small" />
         ) : (
-          <Icon name="send" size={16} color="#08090D" />
+          <Send size={15} color={colors.accentContrast} />
         )}
       </Pressable>
     </View>
@@ -736,7 +719,7 @@ function ArchivePage({ archive }: { archive: any[] }) {
         keyExtractor={(item, index) => String(item.id || item.archiveId || index)}
         renderItem={({ item }) => (
           <View style={styles.archiveRow}>
-            <Icon name="archive" color={COLORS.muted} />
+            <Archive size={18} color={colors.textMuted} />
             <View style={{ flex: 1 }}>
               <Text style={styles.archiveTitle}>{item.title || item.name || "Archive record"}</Text>
               {!!(item.description || item.summary) && (
@@ -830,17 +813,17 @@ function SearchModal({
       <View style={styles.modalBackdrop}>
         <View style={styles.searchModalCard}>
           <View style={styles.searchModalHeader}>
-            <Icon name="search" size={18} color={COLORS.accent} />
+            <Search size={16} color={colors.accent} />
             <TextInput
               autoFocus
               placeholder="Search channels, topics, members..."
-              placeholderTextColor={COLORS.muted}
+              placeholderTextColor={colors.textMuted}
               value={query}
               onChangeText={setQuery}
               style={styles.searchModalInput}
             />
             <Pressable onPress={onClose} hitSlop={10}>
-              <Icon name="close" size={18} color={COLORS.muted} />
+              <X size={18} color={colors.textMuted} />
             </Pressable>
           </View>
 
@@ -857,7 +840,7 @@ function SearchModal({
                     }}
                     style={styles.searchResultRow}
                   >
-                    <Icon name="hash" size={16} color={COLORS.muted} />
+                    <Hash size={14} color={colors.textMuted} />
                     <Text style={styles.searchResultName}>{ch.name}</Text>
                   </Pressable>
                 ))}
@@ -869,7 +852,7 @@ function SearchModal({
                 <Text style={styles.searchSectionTitle}>MEMBERS</Text>
                 {userResults.map((u) => (
                   <View key={u.id} style={styles.searchResultRow}>
-                    <Avatar name={u.displayName || u.username} size={30} />
+                    <Avatar name={u.displayName || u.username} size={28} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.searchResultName}>{u.displayName || u.username}</Text>
                       <Text style={styles.searchResultSub}>@{u.username}</Text>
@@ -884,7 +867,7 @@ function SearchModal({
             )}
 
             {isSearching && (
-              <ActivityIndicator color={COLORS.accent} style={{ marginTop: 16 }} />
+              <ActivityIndicator color={colors.accent} style={{ marginTop: 16 }} />
             )}
           </ScrollView>
         </View>
@@ -943,13 +926,13 @@ function CreateNoticeModal({
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Publish Space Notice</Text>
             <Pressable onPress={onClose} hitSlop={10}>
-              <Icon name="close" size={18} color={COLORS.muted} />
+              <X size={18} color={colors.textMuted} />
             </Pressable>
           </View>
 
           <TextInput
             placeholder="Notice Title (e.g. Server Maintenance, Hackathon Brief)"
-            placeholderTextColor={COLORS.muted}
+            placeholderTextColor={colors.textMuted}
             value={title}
             onChangeText={setTitle}
             style={styles.noticeModalInput}
@@ -957,7 +940,7 @@ function CreateNoticeModal({
 
           <TextInput
             placeholder="Notice Content / Details..."
-            placeholderTextColor={COLORS.muted}
+            placeholderTextColor={colors.textMuted}
             value={content}
             onChangeText={setContent}
             multiline
@@ -973,7 +956,7 @@ function CreateNoticeModal({
             ]}
           >
             {publishing ? (
-              <ActivityIndicator color="#08090D" size="small" />
+              <ActivityIndicator color={colors.accentContrast} size="small" />
             ) : (
               <Text style={styles.publishBtnText}>Publish Notice</Text>
             )}
@@ -1278,7 +1261,7 @@ export default function AIICDiscordApp() {
                 )}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
-                    <Icon name="dm" size={36} color={COLORS.muted} />
+                    <MessageSquare size={36} color={colors.textMuted} />
                     <Text style={styles.emptyTitle}>No Direct Messages</Text>
                     <Text style={styles.emptySubtitle}>
                       Connect with peers, squad mates, and faculty mentors.
@@ -1329,7 +1312,7 @@ export default function AIICDiscordApp() {
                 <Text style={styles.profileEmail}>{user?.email}</Text>
 
                 <View style={styles.roleTag}>
-                  <Icon name="shield" size={13} color={COLORS.accent} />
+                  <Shield size={13} color={colors.accent} />
                   <Text style={styles.roleTagText}>{(user?.role || "MEMBER").toUpperCase()}</Text>
                 </View>
 
@@ -1373,42 +1356,24 @@ export default function AIICDiscordApp() {
    GLASSMORPHISM & THEME STYLES (MATCHING DISCORD REFERENCE)
    ========================================================= */
 
-const COLORS = {
-  bg: "#08090D",
-  rail: "rgba(14, 16, 23, 0.96)",
-  panel: "rgba(22, 24, 33, 0.85)",
-  panel2: "rgba(28, 30, 42, 0.88)",
-  selected: "rgba(58, 60, 78, 0.75)",
-  white: "#F5F6FA",
-  muted: "#8F93A8",
-  dim: "#5D6075",
-  border: "rgba(255, 255, 255, 0.08)",
-  borderGlass: "rgba(255, 255, 255, 0.12)",
-  accent: "#E8A33D",
-  accentSoft: "rgba(232, 163, 61, 0.16)",
-  accentTeal: "#2DD4BF",
-  danger: "#EF4444",
-  success: "#22C55E",
-};
-
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: colors.background,
   },
 
   root: {
     flex: 1,
     flexDirection: "row",
-    backgroundColor: COLORS.bg,
+    backgroundColor: colors.background,
   },
 
   /* LEVEL 1: NARROW LEFT SPACE RAIL */
   rail: {
     width: 78,
-    backgroundColor: COLORS.rail,
+    backgroundColor: "rgba(14, 16, 23, 0.96)",
     borderRightWidth: 1,
-    borderRightColor: COLORS.borderGlass,
+    borderRightColor: "rgba(255, 255, 255, 0.12)",
     alignItems: "center",
     paddingTop: 8,
     paddingBottom: 8,
@@ -1426,13 +1391,13 @@ const styles = StyleSheet.create({
   },
 
   activeDM: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent,
   },
 
   railDivider: {
     width: 36,
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     marginVertical: 10,
   },
 
@@ -1452,7 +1417,7 @@ const styles = StyleSheet.create({
   },
 
   activeSpace: {
-    backgroundColor: COLORS.selected,
+    backgroundColor: "rgba(58, 60, 78, 0.75)",
   },
 
   spaceImage: {
@@ -1469,11 +1434,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(36, 39, 54, 0.8)",
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   spaceLetter: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: "800",
   },
@@ -1485,14 +1450,14 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: COLORS.danger,
+    backgroundColor: colors.danger,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
   },
 
   unreadText: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 10,
     fontWeight: "800",
   },
@@ -1512,7 +1477,7 @@ const styles = StyleSheet.create({
   },
 
   utilityActive: {
-    backgroundColor: COLORS.selected,
+    backgroundColor: "rgba(58, 60, 78, 0.75)",
   },
 
   userDockAvatarBtn: {
@@ -1527,7 +1492,7 @@ const styles = StyleSheet.create({
 
   userDockActive: {
     borderWidth: 2,
-    borderColor: COLORS.accent,
+    borderColor: colors.accent,
   },
 
   dockAvatarImg: {
@@ -1540,15 +1505,15 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   dockAvatarLetter: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: "800",
   },
@@ -1560,21 +1525,21 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: COLORS.success,
+    backgroundColor: colors.statusOnline,
     borderWidth: 2,
-    borderColor: COLORS.bg,
+    borderColor: colors.background,
   },
 
   /* LEVEL 2: MAIN CONTENT AREA */
   mainContent: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: colors.background,
   },
 
   /* SELECTED SPACE VIEW (CHANNEL SELECTOR) */
   selectorView: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: colors.background,
   },
 
   header: {
@@ -1582,7 +1547,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderGlass,
+    borderBottomColor: "rgba(255, 255, 255, 0.12)",
   },
 
   serverTitleRow: {
@@ -1592,15 +1557,34 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
+  spaceBadgeCapsule: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+    marginBottom: 4,
+  },
+
+  spaceBadgeText: {
+    color: colors.accent,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+  },
+
   serverName: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 21,
     fontWeight: "800",
     letterSpacing: -0.3,
   },
 
   serverDescription: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 11,
     marginTop: 1,
   },
@@ -1614,17 +1598,17 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 46,
     borderRadius: 14,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
     gap: 8,
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   searchText: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: "600",
   },
@@ -1633,11 +1617,11 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 14,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   noticeBar: {
@@ -1660,9 +1644,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: COLORS.panel,
+    backgroundColor: "rgba(22, 24, 33, 0.85)",
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
     borderStyle: "dashed",
     flexDirection: "row",
     alignItems: "center",
@@ -1670,7 +1654,7 @@ const styles = StyleSheet.create({
   },
 
   emptyNoticeText: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -1683,26 +1667,26 @@ const styles = StyleSheet.create({
   },
 
   noticeBadgeText: {
-    color: COLORS.accent,
+    color: colors.accent,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
   },
 
   noticeCreateLink: {
-    color: COLORS.accent,
+    color: colors.accent,
     fontSize: 11,
     fontWeight: "700",
   },
 
   noticeTitle: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: "700",
   },
 
   noticeMessage: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     marginTop: 2,
     fontSize: 12,
   },
@@ -1718,7 +1702,7 @@ const styles = StyleSheet.create({
   },
 
   categoryTitle: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.7,
@@ -1734,10 +1718,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 10,
     borderRadius: 12,
-    backgroundColor: COLORS.panel,
+    backgroundColor: "rgba(22, 24, 33, 0.85)",
     marginBottom: 6,
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   incidentChannelRow: {
@@ -1745,13 +1729,18 @@ const styles = StyleSheet.create({
     borderColor: "rgba(239, 68, 68, 0.25)",
   },
 
+  githubChannelRow: {
+    backgroundColor: "rgba(45, 212, 191, 0.08)",
+    borderColor: "rgba(45, 212, 191, 0.25)",
+  },
+
   channelRowPressed: {
-    backgroundColor: COLORS.selected,
+    backgroundColor: "rgba(58, 60, 78, 0.75)",
   },
 
   channelName: {
     flex: 1,
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: "600",
   },
@@ -1764,7 +1753,7 @@ const styles = StyleSheet.create({
   },
 
   voiceBadgeText: {
-    color: COLORS.accentTeal,
+    color: colors.accentTeal,
     fontSize: 9,
     fontWeight: "800",
     letterSpacing: 0.5,
@@ -1774,7 +1763,7 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: COLORS.danger,
+    backgroundColor: colors.danger,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
@@ -1783,13 +1772,13 @@ const styles = StyleSheet.create({
   /* DEDICATED CHANNEL SCREEN */
   channelScreen: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: colors.background,
   },
 
   channelHeader: {
     height: 54,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderGlass,
+    borderBottomColor: "rgba(255, 255, 255, 0.12)",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
@@ -1802,17 +1791,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 18,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
   },
 
   channelHeaderName: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: "800",
   },
 
   channelHeaderTopic: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 11,
   },
 
@@ -1842,13 +1831,13 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
     alignItems: "center",
     justifyContent: "center",
   },
 
   avatarLetter: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontWeight: "800",
   },
 
@@ -1868,7 +1857,7 @@ const styles = StyleSheet.create({
   },
 
   timestamp: {
-    color: COLORS.dim,
+    color: colors.textFaint,
     fontSize: 10,
   },
 
@@ -1885,18 +1874,18 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 12,
     marginTop: 8,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
   },
 
   fileCard: {
     marginTop: 8,
     padding: 12,
     borderRadius: 10,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
   },
 
   fileName: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontWeight: "600",
   },
 
@@ -1907,7 +1896,7 @@ const styles = StyleSheet.create({
   },
 
   reaction: {
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 4,
@@ -1917,12 +1906,12 @@ const styles = StyleSheet.create({
     minHeight: 54,
     margin: 10,
     borderRadius: 16,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   composerPlus: {
@@ -1935,7 +1924,7 @@ const styles = StyleSheet.create({
   composerInput: {
     flex: 1,
     maxHeight: 100,
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 14,
     paddingHorizontal: 8,
     paddingVertical: 8,
@@ -1945,7 +1934,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1958,7 +1947,7 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     padding: 16,
-    backgroundColor: COLORS.bg,
+    backgroundColor: colors.background,
   },
 
   pageHeaderRow: {
@@ -1969,13 +1958,13 @@ const styles = StyleSheet.create({
   },
 
   pageTitle: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: "800",
   },
 
   createBtn: {
-    backgroundColor: COLORS.accentSoft,
+    backgroundColor: "rgba(232, 163, 61, 0.16)",
     borderWidth: 1,
     borderColor: "rgba(232, 163, 61, 0.3)",
     paddingHorizontal: 12,
@@ -1984,7 +1973,7 @@ const styles = StyleSheet.create({
   },
 
   createBtnText: {
-    color: COLORS.accent,
+    color: colors.accent,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -1994,9 +1983,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 12,
     borderRadius: 14,
-    backgroundColor: COLORS.panel,
+    backgroundColor: "rgba(22, 24, 33, 0.85)",
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
     marginBottom: 8,
     gap: 12,
   },
@@ -2012,18 +2001,18 @@ const styles = StyleSheet.create({
   },
 
   dmName: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: "700",
   },
 
   dmTime: {
-    color: COLORS.dim,
+    color: colors.textFaint,
     fontSize: 10,
   },
 
   dmSnippet: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
@@ -2036,14 +2025,14 @@ const styles = StyleSheet.create({
   },
 
   emptyTitle: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: "700",
     marginTop: 8,
   },
 
   emptySubtitle: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 12,
     textAlign: "center",
     maxWidth: 240,
@@ -2052,10 +2041,10 @@ const styles = StyleSheet.create({
   noticeCard: {
     padding: 16,
     borderRadius: 14,
-    backgroundColor: COLORS.panel,
+    backgroundColor: "rgba(22, 24, 33, 0.85)",
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   noticeCardHeader: {
@@ -2066,26 +2055,26 @@ const styles = StyleSheet.create({
   },
 
   noticeCardCategory: {
-    color: COLORS.accent,
+    color: colors.accent,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.8,
   },
 
   pinnedBadge: {
-    color: COLORS.accentTeal,
+    color: colors.accentTeal,
     fontSize: 9,
     fontWeight: "800",
   },
 
   noticeCardTitle: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: "800",
   },
 
   noticeCardText: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     marginTop: 6,
     lineHeight: 20,
     fontSize: 13,
@@ -2097,20 +2086,20 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 14,
     borderRadius: 14,
-    backgroundColor: COLORS.panel,
+    backgroundColor: "rgba(22, 24, 33, 0.85)",
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   archiveTitle: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontWeight: "700",
     fontSize: 14,
   },
 
   archiveDescription: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 3,
   },
@@ -2127,19 +2116,19 @@ const styles = StyleSheet.create({
     minHeight: 100,
     padding: 14,
     borderRadius: 16,
-    backgroundColor: COLORS.panel,
+    backgroundColor: "rgba(22, 24, 33, 0.85)",
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   adminStatTitle: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "600",
   },
 
   adminStatValue: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 24,
     fontWeight: "800",
     marginTop: 12,
@@ -2149,9 +2138,9 @@ const styles = StyleSheet.create({
   profileCard: {
     padding: 20,
     borderRadius: 18,
-    backgroundColor: COLORS.panel,
+    backgroundColor: "rgba(22, 24, 33, 0.85)",
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
     alignItems: "center",
     marginTop: 10,
   },
@@ -2167,28 +2156,28 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   profileAvatarLetter: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 28,
     fontWeight: "800",
   },
 
   profileName: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: "800",
   },
 
   profileEmail: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 13,
     marginTop: 2,
   },
@@ -2207,7 +2196,7 @@ const styles = StyleSheet.create({
   },
 
   roleTagText: {
-    color: COLORS.accent,
+    color: colors.accent,
     fontSize: 11,
     fontWeight: "800",
   },
@@ -2228,15 +2217,15 @@ const styles = StyleSheet.create({
   profileEditBtn: {
     height: 44,
     borderRadius: 12,
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
     alignItems: "center",
     justifyContent: "center",
   },
 
   profileEditBtnText: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: "700",
   },
@@ -2253,7 +2242,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#111219",
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
     maxHeight: "80%",
     overflow: "hidden",
   },
@@ -2263,13 +2252,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 14,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderGlass,
+    borderBottomColor: "rgba(255, 255, 255, 0.12)",
     gap: 10,
   },
 
   searchModalInput: {
     flex: 1,
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 15,
   },
 
@@ -2282,7 +2271,7 @@ const styles = StyleSheet.create({
   },
 
   searchSectionTitle: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
@@ -2297,18 +2286,18 @@ const styles = StyleSheet.create({
   },
 
   searchResultName: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: "600",
   },
 
   searchResultSub: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 11,
   },
 
   emptySearchText: {
-    color: COLORS.muted,
+    color: colors.textMuted,
     fontSize: 13,
     textAlign: "center",
     paddingVertical: 20,
@@ -2318,7 +2307,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#111219",
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.12)",
     padding: 18,
     gap: 12,
   },
@@ -2331,17 +2320,17 @@ const styles = StyleSheet.create({
   },
 
   modalTitle: {
-    color: COLORS.white,
+    color: colors.textPrimary,
     fontSize: 17,
     fontWeight: "800",
   },
 
   noticeModalInput: {
-    backgroundColor: COLORS.panel2,
+    backgroundColor: "rgba(28, 30, 42, 0.88)",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
-    color: COLORS.white,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    color: colors.textPrimary,
     padding: 12,
     fontSize: 14,
   },
@@ -2349,14 +2338,14 @@ const styles = StyleSheet.create({
   publishBtn: {
     height: 48,
     borderRadius: 14,
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 6,
   },
 
   publishBtnText: {
-    color: "#08090D",
+    color: colors.accentContrast,
     fontSize: 14,
     fontWeight: "800",
   },
