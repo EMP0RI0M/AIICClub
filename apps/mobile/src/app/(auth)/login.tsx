@@ -1,65 +1,108 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
-  ActivityIndicator,
+  Platform,
   Animated,
   Easing,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuthStore } from "../../stores/auth-store";
 
 const COLORS = {
-  bg: "#07090D",
-  surface: "#10141D",
-  surface2: "#151A24",
+  bg: "#080A0F",
 
   amber: "#E8A33D",
   amberLight: "#F3C56B",
+  amberDeep: "#C98527",
 
   teal: "#2DD4BF",
 
   text: "#F5F7FA",
-  muted: "rgba(245,247,250,0.62)",
+  muted: "rgba(245,247,250,0.66)",
   faint: "rgba(245,247,250,0.38)",
 
-  border: "rgba(255,255,255,0.11)",
-  borderStrong: "rgba(255,255,255,0.16)",
-
-  input: "rgba(255,255,255,0.055)",
-  inputFocused: "rgba(255,255,255,0.085)",
+  glass: "rgba(255,255,255,0.075)",
+  glassStrong: "rgba(255,255,255,0.11)",
+  border: "rgba(255,255,255,0.12)",
 };
 
 function FadeSlide({
   children,
   delay,
-  style,
+  distance = 12,
 }: {
   children: React.ReactNode;
   delay: number;
-  style?: any;
+  distance?: number;
 }) {
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(12)).current;
+  const translateY = useRef(new Animated.Value(distance)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
-        duration: 500,
+        duration: 550,
         delay,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(translateY, {
         toValue: 0,
-        duration: 500,
+        duration: 550,
+        delay,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [delay, distance]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity,
+        transform: [{ translateY }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+function ScaleIn({
+  children,
+  delay,
+}: {
+  children: React.ReactNode;
+  delay: number;
+}) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.6)).current;
+  const translateY = useRef(new Animated.Value(12)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 180,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        delay,
+        friction: 6,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 600,
         delay,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
@@ -69,34 +112,31 @@ function FadeSlide({
 
   return (
     <Animated.View
-      style={[
-        style,
-        {
-          opacity,
-          transform: [{ translateY }],
-        },
-      ]}
+      style={{
+        opacity,
+        transform: [{ scale }, { translateY }],
+      }}
     >
       {children}
     </Animated.View>
   );
 }
 
-function AmbientGlow() {
+function AmbientBackground() {
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(60)).current;
+  const translateY = useRef(new Animated.Value(90)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
-        duration: 900,
+        duration: 1100,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(translateY, {
         toValue: 0,
-        duration: 900,
+        duration: 1100,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -107,230 +147,233 @@ function AmbientGlow() {
     <Animated.View
       pointerEvents="none"
       style={[
-        StyleSheet.absoluteFillObject,
+        StyleSheet.absoluteFill,
         {
           opacity,
           transform: [{ translateY }],
         },
       ]}
     >
-      <View style={styles.amberGlow} />
+      <LinearGradient
+        colors={[
+          "rgba(8,10,15,0)",
+          "rgba(201,133,39,0.03)",
+          "rgba(232,163,61,0.09)",
+        ]}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <View style={styles.bottomGlow} />
       <View style={styles.tealGlow} />
-      <View style={styles.centerGlow} />
     </Animated.View>
   );
 }
 
-function InputField({
-  icon,
-  placeholder,
-  value,
-  onChangeText,
-  secureTextEntry,
-  keyboardType,
-  autoCapitalize = "none",
-  autoCorrect = false,
+function Glass({
+  children,
+  style,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
-  placeholder: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  secureTextEntry?: boolean;
-  keyboardType?: any;
-  autoCapitalize?: any;
-  autoCorrect?: boolean;
+  children: React.ReactNode;
+  style?: any;
 }) {
-  const [focused, setFocused] = useState(false);
-
   return (
-    <View
-      style={[
-        styles.inputContainer,
-        focused && styles.inputFocused,
-      ]}
-    >
-      <Ionicons
-        name={icon}
-        size={20}
-        color={focused ? COLORS.amber : COLORS.muted}
+    <View style={[styles.glassContainer, style]}>
+      <BlurView
+        intensity={18}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
       />
-
-      <TextInput
-        style={styles.input}
-        placeholder={placeholder}
-        placeholderTextColor={COLORS.faint}
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={secureTextEntry}
-        keyboardType={keyboardType}
-        autoCapitalize={autoCapitalize}
-        autoCorrect={autoCorrect}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        selectionColor={COLORS.amber}
-      />
+      <View pointerEvents="none" style={styles.glassOverlay} />
+      {children}
     </View>
   );
 }
 
-export default function LoginScreen() {
-  const router = useRouter();
-  const { login, isLoading } = useAuthStore();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+function AIICMark() {
+  return (
+    <View style={styles.brandIcon}>
+      <View style={styles.brandRing}>
+        <View style={styles.brandEyeRow}>
+          <View style={styles.brandEye} />
+          <View style={styles.brandEye} />
+        </View>
+      </View>
+    </View>
+  );
+}
 
-  const ready =
-    email.includes("@") &&
-    email.includes(".") &&
-    password.length >= 6;
+function GoogleIcon() {
+  return (
+    <View style={styles.googleIcon}>
+      <Text style={styles.googleG}>G</Text>
+    </View>
+  );
+}
 
-  const handleSignIn = async () => {
-    if (!ready) return;
-    setError(null);
-    try {
-      await login(email, password);
-      router.replace("/(app)/spaces/space-aiic-main/c-general" as any);
-    } catch (err: any) {
-      setError(err?.message || "Invalid credentials or sign-in failed.");
-    }
-  };
+function AppleIcon() {
+  return (
+    <Ionicons
+      name="logo-apple"
+      size={20}
+      color="#FFFFFF"
+    />
+  );
+}
+
+function LoginButton({
+  children,
+  onPress,
+  variant,
+}: {
+  children: React.ReactNode;
+  onPress?: () => void;
+  variant: "google" | "apple";
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View style={StyleSheet.absoluteFill}>
-        <View style={styles.background} />
-        <AmbientGlow />
-      </View>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => {
+          Animated.timing(scale, {
+            toValue: 0.97,
+            duration: 120,
+            useNativeDriver: true,
+          }).start();
+        }}
+        onPressOut={() => {
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 220,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }).start();
+        }}
+        style={[
+          styles.providerButton,
+          variant === "google"
+            ? styles.googleButton
+            : styles.appleButton,
+        ]}
+      >
+        {variant === "google" ? <GoogleIcon /> : <AppleIcon />}
 
-      {/* Back button */}
-      <FadeSlide delay={300} style={styles.backWrapper}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && styles.backPressed,
+        <Text
+          style={[
+            styles.providerText,
+            variant === "google"
+              ? styles.googleText
+              : styles.appleText,
           ]}
         >
-          <Ionicons
-            name="chevron-back"
-            size={22}
-            color={COLORS.text}
-          />
-        </Pressable>
-      </FadeSlide>
+          {children}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
-      <View style={styles.body}>
-        {/* Header */}
-        <FadeSlide delay={200}>
-          <View>
-            <View style={styles.smallBrand}>
-              <View style={styles.brandDot} />
-              <Text style={styles.brandText}>AIIC</Text>
-            </View>
+export default function LoginHubScreen() {
+  const router = useRouter();
 
-            <Text style={styles.title}>
-              Welcome back.
-            </Text>
+  return (
+    <View style={styles.container}>
+      <AmbientBackground />
 
-            <Text style={styles.subtitle}>
-              Sign in to continue to your AIIC space.
-            </Text>
-          </View>
-        </FadeSlide>
+      <View style={styles.content}>
+        {/* Brand + heading */}
+        <View style={styles.copy}>
+          <ScaleIn delay={300}>
+            <Glass style={styles.brandGlass}>
+              <AIICMark />
+            </Glass>
+          </ScaleIn>
 
-        {/* Error message */}
-        {error ? (
-          <FadeSlide delay={350} style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </FadeSlide>
-        ) : null}
-
-        {/* Form */}
-        <View style={styles.form}>
           <FadeSlide delay={420}>
-            <InputField
-              icon="mail-outline"
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-            />
+            <Text style={styles.heading}>
+              Take a breath.
+            </Text>
           </FadeSlide>
 
-          <FadeSlide delay={500}>
-            <InputField
-              icon="lock-closed-outline"
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </FadeSlide>
-
-          <FadeSlide delay={580}>
-            <Pressable
-              onPress={() => router.push("/(auth)/forgot-password" as any)}
-              style={({ pressed }) => [
-                styles.forgotButton,
-                pressed && { opacity: 0.65 },
-              ]}
-            >
-              <Text style={styles.forgotText}>
-                Forgot password?
-              </Text>
-            </Pressable>
-          </FadeSlide>
-
-          <FadeSlide delay={660}>
-            <Pressable
-              disabled={!ready || isLoading}
-              onPress={handleSignIn}
-              style={({ pressed }) => [
-                styles.signInButton,
-                (!ready || isLoading) && styles.signInDisabled,
-                pressed && ready && styles.signInPressed,
-              ]}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#080A0D" />
-              ) : (
-                <>
-                  <Text style={styles.signInText}>
-                    Sign in
-                  </Text>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={19}
-                    color="#080A0D"
-                  />
-                </>
-              )}
-            </Pressable>
+          <FadeSlide delay={540}>
+            <Text style={styles.subtitle}>
+              Sign in and settle into your AIIC space.
+            </Text>
           </FadeSlide>
         </View>
 
-        {/* Create account */}
-        <FadeSlide delay={800}>
+        {/* Login sheet */}
+        <FadeSlide delay={620} distance={26}>
+          <Glass style={styles.sheet}>
+            {/* Google */}
+            <FadeSlide delay={720}>
+              <LoginButton
+                variant="google"
+                onPress={() => router.push("/(auth)/email-login" as any)}
+              >
+                Continue with Google
+              </LoginButton>
+            </FadeSlide>
+
+            {/* Apple */}
+            <FadeSlide delay={800}>
+              <LoginButton
+                variant="apple"
+                onPress={() => router.push("/(auth)/email-login" as any)}
+              >
+                Continue with Apple
+              </LoginButton>
+            </FadeSlide>
+
+            {/* Email */}
+            <FadeSlide delay={880}>
+              <Pressable
+                onPress={() => router.push("/(auth)/email-login" as any)}
+                style={({ pressed }) => [
+                  styles.emailButton,
+                  pressed && styles.emailPressed,
+                ]}
+              >
+                <Ionicons
+                  name="mail-outline"
+                  size={18}
+                  color={COLORS.text}
+                />
+
+                <Text style={styles.emailText}>
+                  Continue with email
+                </Text>
+              </Pressable>
+            </FadeSlide>
+
+            {/* Terms */}
+            <FadeSlide delay={980}>
+              <Text style={styles.terms}>
+                By continuing you agree to our Terms and Privacy Policy.
+              </Text>
+            </FadeSlide>
+          </Glass>
+        </FadeSlide>
+
+        {/* Register */}
+        <FadeSlide delay={1060}>
           <Pressable
             onPress={() => router.push("/(auth)/register" as any)}
-            style={styles.createAccount}
+            style={styles.registerButton}
           >
-            <Text style={styles.createNormal}>
-              New here?{" "}
+            <Text style={styles.registerNormal}>
+              Don't have an account?{" "}
             </Text>
 
-            <Text style={styles.createLink}>
-              Create an account
+            <Text style={styles.registerLink}>
+              Create one
             </Text>
           </Pressable>
         </FadeSlide>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -341,19 +384,21 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  background: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: COLORS.bg,
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "ios" ? 80 : 58,
+    paddingBottom: Platform.OS === "ios" ? 28 : 20,
   },
 
-  amberGlow: {
+  bottomGlow: {
     position: "absolute",
-    width: 520,
-    height: 520,
-    borderRadius: 260,
-    bottom: -260,
-    left: -120,
-    backgroundColor: "rgba(232,163,61,0.095)",
+    width: 500,
+    height: 500,
+    borderRadius: 250,
+    left: -100,
+    bottom: -300,
+    backgroundColor: "rgba(232,163,61,0.105)",
   },
 
   tealGlow: {
@@ -361,93 +406,59 @@ const styles = StyleSheet.create({
     width: 330,
     height: 330,
     borderRadius: 165,
+    right: -210,
     top: 60,
-    right: -180,
-    backgroundColor: "rgba(45,212,191,0.055)",
+    backgroundColor: "rgba(45,212,191,0.035)",
   },
 
-  centerGlow: {
-    position: "absolute",
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    top: "35%",
-    alignSelf: "center",
-    backgroundColor: "rgba(232,163,61,0.035)",
+  copy: {
+    paddingHorizontal: 14,
+    marginTop: "auto",
   },
 
-  backWrapper: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 58 : 38,
-    left: 18,
-    zIndex: 10,
-  },
-
-  backButton: {
-    width: 43,
-    height: 43,
-    borderRadius: 22,
-
+  brandGlass: {
+    width: 60,
+    height: 60,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-
-    backgroundColor: "rgba(255,255,255,0.065)",
-
-    borderWidth: 1,
-    borderColor: COLORS.border,
-
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    shadowOffset: {
-      width: 0,
-      height: 7,
-    },
-
-    elevation: 8,
+    marginBottom: 17,
   },
 
-  backPressed: {
-    transform: [{ scale: 0.9 }],
-    backgroundColor: "rgba(255,255,255,0.10)",
+  brandIcon: {
+    width: 50,
+    height: 50,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  body: {
-    flex: 1,
-    paddingHorizontal: 25,
-    paddingTop: Platform.OS === "ios" ? 125 : 105,
-    paddingBottom: 30,
+  brandRing: {
+    width: 39,
+    height: 39,
+    borderRadius: 20,
+    borderWidth: 3.2,
+    borderColor: COLORS.amber,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  smallBrand: {
+  brandEyeRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 18,
-    gap: 8,
+    gap: 5,
   },
 
-  brandDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
+  brandEye: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: COLORS.amber,
-
-    shadowColor: COLORS.amber,
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
   },
 
-  brandText: {
-    color: COLORS.amberLight,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 3,
-  },
-
-  title: {
+  heading: {
     color: COLORS.text,
-    fontSize: 31,
-    lineHeight: 37,
+    fontSize: 30,
+    lineHeight: 35,
     fontWeight: "800",
     letterSpacing: -0.8,
   },
@@ -461,134 +472,144 @@ const styles = StyleSheet.create({
     maxWidth: 310,
   },
 
-  errorContainer: {
-    marginTop: 12,
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.3)",
-  },
-
-  errorText: {
-    color: "#EF4444",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-
-  form: {
-    marginTop: 24,
-  },
-
-  inputContainer: {
-    height: 55,
-    width: "100%",
-
-    flexDirection: "row",
-    alignItems: "center",
-
-    paddingHorizontal: 16,
-    gap: 11,
-
-    borderRadius: 17,
-
-    backgroundColor: COLORS.input,
-
+  glassContainer: {
+    position: "relative",
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: COLORS.border,
-
-    marginBottom: 12,
+    backgroundColor: "rgba(255,255,255,0.045)",
   },
 
-  inputFocused: {
-    backgroundColor: COLORS.inputFocused,
-    borderColor: "rgba(232,163,61,0.58)",
+  glassOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.055)",
+    backgroundColor: "rgba(255,255,255,0.018)",
+  },
 
-    shadowColor: COLORS.amber,
-    shadowOpacity: 0.13,
-    shadowRadius: 15,
+  sheet: {
+    marginTop: 20,
+    padding: 14,
+    borderRadius: 28,
+    gap: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.38,
+    shadowRadius: 35,
     shadowOffset: {
       width: 0,
-      height: 0,
+      height: 18,
     },
+    elevation: 14,
   },
 
-  input: {
-    flex: 1,
-    height: "100%",
-
-    color: COLORS.text,
-
-    fontSize: 15,
-    fontWeight: "500",
-  },
-
-  forgotButton: {
-    alignSelf: "flex-end",
-    paddingVertical: 7,
-    paddingHorizontal: 2,
-  },
-
-  forgotText: {
-    color: COLORS.amberLight,
-    fontSize: 12.5,
-    fontWeight: "600",
-  },
-
-  signInButton: {
-    height: 54,
-    borderRadius: 27,
-
-    marginTop: 9,
-
+  providerButton: {
+    height: 52,
+    borderRadius: 26,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-
     gap: 9,
+  },
 
-    backgroundColor: COLORS.amber,
-
-    shadowColor: COLORS.amber,
-    shadowOpacity: 0.32,
-    shadowRadius: 22,
+  googleButton: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
     shadowOffset: {
       width: 0,
-      height: 10,
+      height: 5,
     },
-
-    elevation: 9,
+    elevation: 3,
   },
 
-  signInDisabled: {
-    opacity: 0.38,
+  appleButton: {
+    backgroundColor: "#101114",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    elevation: 4,
   },
 
-  signInPressed: {
-    transform: [{ scale: 0.975 }],
+  providerText: {
+    fontSize: 14.5,
+    fontWeight: "600",
   },
 
-  signInText: {
-    color: "#080A0D",
-    fontSize: 15,
+  googleText: {
+    color: "#292824",
+  },
+
+  appleText: {
+    color: "#FFFFFF",
+  },
+
+  googleIcon: {
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  googleG: {
+    color: "#4285F4",
+    fontSize: 18,
     fontWeight: "800",
   },
 
-  createAccount: {
-    marginTop: "auto",
-    alignSelf: "center",
-
+  emailButton: {
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.24)",
+    backgroundColor: "rgba(255,255,255,0.065)",
     flexDirection: "row",
-    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
 
-  createNormal: {
+  emailPressed: {
+    transform: [{ scale: 0.97 }],
+    backgroundColor: "rgba(255,255,255,0.105)",
+  },
+
+  emailText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  terms: {
+    marginTop: 1,
+    textAlign: "center",
+    color: "rgba(245,247,250,0.48)",
+    fontSize: 9.5,
+    lineHeight: 15,
+    fontWeight: "500",
+  },
+
+  registerButton: {
+    alignSelf: "center",
+    flexDirection: "row",
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    marginTop: 7,
+  },
+
+  registerNormal: {
     color: COLORS.muted,
     fontSize: 13,
     fontWeight: "500",
   },
 
-  createLink: {
+  registerLink: {
     color: COLORS.amberLight,
     fontSize: 13,
     fontWeight: "700",
