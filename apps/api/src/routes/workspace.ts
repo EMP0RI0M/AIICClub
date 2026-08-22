@@ -166,12 +166,54 @@ workspace.get("/servers/:serverId/modules", async (c) => {
     return c.json(await getModuleStateForServer(serverId));
 });
 
+async function getModuleChannel(channelId: string, userId: string) {
+    const access = await verifyChannelAccess(channelId, userId);
+    if (!access) return null;
+    await ensureChannelModuleState(access.channel);
+    return access.channel;
+}
+
+workspace.get("/channels/:channelId/board", async (c) => {
+    const channel = await getModuleChannel(c.req.param("channelId"), c.get("userId"));
+    if (!channel || !["board", "project"].includes(channel.type)) return c.json({ error: "Board channel not found." }, 404);
+    const row = await prisma.channelBoard.findUniqueOrThrow({ where: { channelId: channel.id } });
+    return c.json({ board: row.board });
+});
+
+workspace.get("/channels/:channelId/incident", async (c) => {
+    const channel = await getModuleChannel(c.req.param("channelId"), c.get("userId"));
+    if (!channel || channel.type !== "incident") return c.json({ error: "Incident channel not found." }, 404);
+    const row = await prisma.channelIncident.findUniqueOrThrow({ where: { channelId: channel.id } });
+    return c.json({ incident: row.incident });
+});
+
+workspace.get("/channels/:channelId/docs", async (c) => {
+    const channel = await getModuleChannel(c.req.param("channelId"), c.get("userId"));
+    if (!channel || channel.type !== "docs") return c.json({ error: "Docs channel not found." }, 404);
+    const row = await prisma.channelDocs.findUniqueOrThrow({ where: { channelId: channel.id } });
+    return c.json({ docs: row.docs });
+});
+
+workspace.get("/channels/:channelId/canvas", async (c) => {
+    const channel = await getModuleChannel(c.req.param("channelId"), c.get("userId"));
+    if (!channel || channel.type !== "canvas") return c.json({ error: "Canvas channel not found." }, 404);
+    const row = await prisma.channelCanvas.findUniqueOrThrow({ where: { channelId: channel.id } });
+    return c.json({ data: row.data });
+});
+
+workspace.get("/channels/:channelId/github", async (c) => {
+    const channel = await getModuleChannel(c.req.param("channelId"), c.get("userId"));
+    if (!channel || channel.type !== "github") return c.json({ error: "GitHub channel not found." }, 404);
+    const row = await prisma.channelGitHub.findUniqueOrThrow({ where: { channelId: channel.id } });
+    return c.json({ integration: row.config, repository: (row.config as any)?.repository ?? null, pullRequests: row.pullRequests, authorizedRepositories: [], channel });
+});
+
 workspace.put("/channels/:channelId/board", async (c) => {
     const userId = c.get("userId");
     const channelId = c.req.param("channelId");
     const access = await verifyChannelAccess(channelId, userId);
     if (!access) return c.json({ error: "Channel not found or you are not a member." }, 404);
-    if (access.channel.type !== "board") return c.json({ error: "Channel is not a board channel." }, 400);
+    if (!['board', 'project'].includes(access.channel.type)) return c.json({ error: "Channel is not a board channel." }, 400);
 
     const parsed = boardSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) {

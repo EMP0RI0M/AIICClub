@@ -48,7 +48,7 @@ export function emptyIncident() {
 }
 
 export async function ensureChannelModuleState(channel: ModuleChannel) {
-    if (channel.type === "board") {
+    if (channel.type === "board" || channel.type === "project") {
         await prisma.channelBoard.upsert({
             where: { channelId: channel.id },
             update: {},
@@ -110,11 +110,11 @@ export async function getModuleStateForServer(serverId: string) {
     ]);
 
     return {
-        boardsByChannel: Object.fromEntries(boards.map((row) => [row.channelId, row.board])),
-        docsByChannel: Object.fromEntries(docs.map((row) => [row.channelId, row.docs])),
-        incidentsByChannel: Object.fromEntries(incidents.map((row) => [row.channelId, row.incident])),
-        canvasByChannel: Object.fromEntries(canvases.map((row) => [row.channelId, row.data])),
-        prsByChannel: Object.fromEntries(github.map((row) => [row.channelId, row.pullRequests])),
-        githubConfigByChannel: Object.fromEntries(github.map((row) => [row.channelId, row.config])),
+        boardsByChannel: Object.fromEntries(boards.map((row: any) => [row.channelId, row.board])),
+        docsByChannel: Object.fromEntries(docs.map((row: any) => [row.channelId, row.docs])),
+        incidentsByChannel: Object.fromEntries(incidents.map((row: any) => [row.channelId, row.incident])),
+        canvasByChannel: Object.fromEntries(canvases.map((row: any) => [row.channelId, row.data])),
+        prsByChannel: Object.fromEntries(github.map((row: any) => [row.channelId, row.pullRequests])),
+        githubConfigByChannel: Object.fromEntries(github.map((row: any) => [row.channelId, row.config])),
     };
 }

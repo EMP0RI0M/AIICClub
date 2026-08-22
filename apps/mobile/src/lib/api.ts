@@ -19,7 +19,10 @@ import {
 
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, "") ||
-  "https://aiic-bbs.vercel.app/api";
+  // The web app and API are separate Vercel projects. Keep this fallback on
+  // the API deployment; Expo builds otherwise silently receive the web app's
+  // HTML 404 pages from aiic-bbs.vercel.app/api/*.
+  "https://aiic-api.vercel.app/api";
 
 let memoryToken: string | null = null;
 
@@ -293,6 +296,20 @@ export async function searchUsers(query: string) {
   return api<{ users: any[] }>(`/friends/search?query=${encodeURIComponent(query)}`);
 }
 
+export async function fetchUserProfile(userId: string) {
+  return api<{ user: any }>(`/friends/users/${encodeURIComponent(userId)}/profile`);
+}
+
+export async function fetchVoiceParticipants(channelId: string) {
+  return api<{ participants: Array<{ userId: string; username: string; displayName: string; avatarUrl?: string | null }> }>(
+    `/channels/${channelId}/voice/participants`
+  );
+}
+
+export async function leaveVoiceChannel(channelId: string) {
+  return api<{ message: string }>(`/channels/${channelId}/voice/leave`, { method: "POST" });
+}
+
 // ─────────────────────────────────────────────────────────────
 // 5. GITHUB INTEGRATION & ARCHIVE
 // ─────────────────────────────────────────────────────────────
@@ -378,7 +395,13 @@ export async function fetchOrgMembers(spaceId: string) {
 // ─────────────────────────────────────────────────────────────
 
 export async function joinVoiceChannel(channelId: string) {
-  return api<{ url: string; token: string }>(`/channels/${channelId}/voice/token`);
+  return api<{
+    url: string;
+    token: string;
+    roomName: string;
+    channelName: string;
+    participants: Array<{ userId: string; username: string; displayName: string; avatarUrl?: string | null }>;
+  }>(`/channels/${channelId}/voice/join`, { method: "POST" });
 }
 
 export async function fetchWorkspaceModules(spaceId: string) {

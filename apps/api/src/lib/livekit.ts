@@ -10,6 +10,9 @@ export async function generateVoiceToken(
     participantName: string,
     options?: { canPublish?: boolean; canSubscribe?: boolean }
 ): Promise<string> {
+    if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
+        throw new Error("LiveKit is not configured on the server.");
+    }
     const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
         identity: participantIdentity,
         name: participantName,

@@ -454,7 +454,7 @@ export default function UserSettingsScreen() {
 
               <View style={styles.cardBox}>
                 <Text style={styles.cardBoxLabel}>BACKEND ENDPOINT</Text>
-                <Text style={styles.cardBoxValue}>https://aiic-bbs.vercel.app/api</Text>
+                <Text style={styles.cardBoxValue}>https://aiic-api.vercel.app</Text>
               </View>
             </View>
           )}

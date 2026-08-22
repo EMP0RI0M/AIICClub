@@ -25,7 +25,7 @@ import {
   Sparkles,
 } from "lucide-react-native";
 
-import { joinVoiceChannel } from "../../lib/api";
+import { fetchVoiceParticipants, joinVoiceChannel, leaveVoiceChannel } from "../../lib/api";
 import { useAuthStore } from "../../stores/auth-store";
 
 export interface VoiceParticipant {
@@ -58,11 +58,14 @@ export function VoiceChannelView({
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Join voice session with real credentials & user profile
   useEffect(() => {
     if (!currentUser) return;
     setConnecting(true);
+    setConnectionError(null);
+    let pollTimer: ReturnType<typeof setInterval> | undefined;
 
     const meParticipant: VoiceParticipant = {
       id: currentUser.id,
@@ -80,20 +83,48 @@ export function VoiceChannelView({
     if (channelId) {
       joinVoiceChannel(channelId)
         .then((res) => {
+          const serverParticipants = (res.participants || []).map((p: any) => ({
+            id: p.userId,
+            name: p.displayName || p.username || "Member",
+            avatar: p.avatarUrl || null,
+            role: (isStage ? "listener" : "speaker") as "speaker" | "listener",
+            muted: p.userId === currentUser.id ? isMuted : false,
+          }));
+          setParticipants(serverParticipants.length ? serverParticipants : [meParticipant]);
           setConnected(true);
           setConnecting(false);
+
+          // The API persists shared presence and broadcasts changes. Polling
+          // is retained here as a reliable fallback for clients that are not
+          // subscribed to the Supabase channel yet.
+          pollTimer = setInterval(() => {
+            fetchVoiceParticipants(channelId).then(({ participants: rows }) => {
+              setParticipants(rows.map((p) => ({
+                id: p.userId,
+                name: p.displayName || p.username || "Member",
+                avatar: p.avatarUrl || null,
+                role: (isStage ? "listener" : "speaker") as "speaker" | "listener",
+                muted: p.userId === currentUser.id ? isMuted : false,
+              })));
+            }).catch(() => {});
+          }, 3000);
         })
         .catch((err) => {
-          console.warn("[Voice] livekit token call:", err);
-          // Connected locally for preview
-          setConnected(true);
+          console.warn("[Voice] join failed:", err);
+          setConnectionError(err?.message || "Unable to join voice channel.");
+          setConnected(false);
+          setParticipants([]);
           setConnecting(false);
         });
     } else {
       setConnected(true);
       setConnecting(false);
     }
-  }, [channelId, currentUser]);
+    return () => {
+      if (pollTimer) clearInterval(pollTimer);
+      if (channelId && currentUser) void leaveVoiceChannel(channelId).catch(() => {});
+    };
+  }, [channelId, currentUser?.id, isStage]);
 
   const speakers = isStage ? participants.filter((p) => p.role === "speaker") : participants;
   const listeners = isStage ? participants.filter((p) => p.role === "listener") : [];
@@ -124,7 +155,11 @@ export function VoiceChannelView({
             )}
           </View>
           <Text style={styles.statusText}>
-            {speakers.length} speaking · {listeners.length} listening · WebRTC Connected
+            {connectionError
+              ? connectionError
+              : connecting
+              ? "Connecting…"
+              : `${participants.length} in voice${connected ? " · Connected" : ""}`}
           </Text>
         </View>
 

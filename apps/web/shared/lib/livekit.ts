@@ -1,8 +1,8 @@
 import { AccessToken } from "livekit-server-sdk";
 
-const LIVEKIT_URL = process.env.LIVEKIT_URL || "wss://aiic-blnsii2r.livekit.cloud";
-const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || "APIqytQn9G8y4KL";
-const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || "Wos6eLnZ4w2hVFNzN5mxLqM3etyO8TbxPKZQZ5VRI87";
+const LIVEKIT_URL = process.env.LIVEKIT_URL || "";
+const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || "";
+const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || "";
 
 export async function generateVoiceToken(
     roomName: string,
@@ -10,6 +10,9 @@ export async function generateVoiceToken(
     participantName: string,
     options?: { canPublish?: boolean; canSubscribe?: boolean }
 ): Promise<string> {
+    if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
+        throw new Error("LiveKit is not configured on the server.");
+    }
     const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
         identity: participantIdentity,
         name: participantName,

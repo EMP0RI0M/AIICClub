@@ -19,6 +19,7 @@ import {
   createDMConversation as apiCreateDM,
   fetchChannelGitHub,
 } from "../lib/api";
+import { parseMessageAttachments } from "../components/chat/AttachmentCard";
 
 interface WorkspaceState {
   spaces: SpaceSummary[];
@@ -175,9 +176,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
         let snippet = "Start a conversation";
         if (c.lastMessage?.content) {
-          snippet = c.lastMessage.isMe
-            ? `You: ${c.lastMessage.content}`
-            : c.lastMessage.content;
+          const safeSnippet = parseMessageAttachments(c.lastMessage.content || "").cleanText || "Attachment";
+          snippet = c.lastMessage.isMe ? `You: ${safeSnippet}` : safeSnippet;
         }
 
         return {

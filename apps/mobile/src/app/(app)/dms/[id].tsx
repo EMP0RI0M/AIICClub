@@ -20,6 +20,7 @@ import { useAuthStore } from "../../../stores/auth-store";
 import { ArrowLeft, Send, Phone, Video, MoreVertical, Smile, Paperclip } from "lucide-react-native";
 import { AttachmentCard, parseMessageAttachments } from "../../../components/chat/AttachmentCard";
 import { UserProfileModal, type UserProfileData } from "../../../components/profile/UserProfileModal";
+import { fetchUserProfile } from "../../../lib/api";
 
 export default function DMDetailScreen() {
   const router = useRouter();
@@ -81,8 +82,9 @@ export default function DMDetailScreen() {
 
         <TouchableOpacity
           style={styles.headerCenter}
-          onPress={() => {
-            setSelectedUser({
+          onPress={async () => {
+            const profile = await fetchUserProfile((conversation as any).user_id || conversation.id).catch(() => null);
+            setSelectedUser(profile?.user || {
               id: (conversation as any).user_id || conversation.id,
               displayName: conversation.name,
               username: (conversation as any).username || conversation.name.toLowerCase().replace(/\s+/g, ""),
@@ -158,13 +160,13 @@ export default function DMDetailScreen() {
                   {!isMe && (
                     <TouchableOpacity
                       onPress={() => {
-                        setSelectedUser({
+                        fetchUserProfile(item.author.id).then((res) => setSelectedUser(res.user)).catch(() => setSelectedUser({
                           id: item.author.id,
                           displayName: item.author.name,
                           username: item.author.name.toLowerCase().replace(/\s+/g, ""),
                           avatarUrl: item.author.avatar,
                           status: "online",
-                        });
+                        }));
                       }}
                     >
                       <Avatar name={item.author.name} size={28} url={item.author.avatar} />

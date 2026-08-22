@@ -54,6 +54,7 @@ export function BoardChannelView({
   const [loading, setLoading] = useState(true);
   const [addingColId, setAddingColId] = useState<string | null>(null);
   const [newCardTitle, setNewCardTitle] = useState("");
+  const [editingCard, setEditingCard] = useState<{ cardId: string; columnId: string } | null>(null);
 
   const loadBoard = async () => {
     if (!channelId) return;
@@ -124,6 +125,21 @@ export function BoardChannelView({
       c.id === colId ? { ...c, cards: c.cards.filter((x) => x.id !== cardId) } : c
     );
     saveBoard({ ...board, columns: nextCols });
+  };
+
+  const handleEditCard = () => {
+    if (!board || !editingCard || !newCardTitle.trim()) return;
+    const next = {
+      ...board,
+      columns: board.columns.map((column) =>
+        column.id === editingCard.columnId
+          ? { ...column, cards: column.cards.map((card) => card.id === editingCard.cardId ? { ...card, title: newCardTitle.trim() } : card) }
+          : column
+      ),
+    };
+    saveBoard(next);
+    setEditingCard(null);
+    setNewCardTitle("");
   };
 
   return (
@@ -215,7 +231,19 @@ export function BoardChannelView({
                           <Trash2 size={12} color={colors.textMuted} />
                         </Pressable>
                       </View>
-                      <Text style={styles.cardTitle}>{card.title}</Text>
+                      {editingCard?.cardId === card.id ? (
+                        <View style={styles.newCardForm}>
+                          <TextInput value={newCardTitle} onChangeText={setNewCardTitle} style={styles.newCardInput} autoFocus />
+                          <View style={styles.rowAlign}>
+                            <Pressable onPress={handleEditCard} style={styles.saveCardBtn}><Text style={styles.saveCardBtnText}>Save</Text></Pressable>
+                            <Pressable onPress={() => { setEditingCard(null); setNewCardTitle(""); }} style={styles.cancelCardBtn}><Text style={styles.cancelCardBtnText}>Cancel</Text></Pressable>
+                          </View>
+                        </View>
+                      ) : <Text style={styles.cardTitle}>{card.title}</Text>}
+
+                      {!editingCard && <Pressable onPress={() => { setEditingCard({ cardId: card.id, columnId: column.id }); setNewCardTitle(card.title); }} style={styles.moveBtn}>
+                        <Text style={styles.moveBtnText}>Edit card</Text>
+                      </Pressable>}
 
                       {/* Move Actions */}
                       <View style={styles.cardActions}>

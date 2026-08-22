@@ -9,6 +9,14 @@ export interface User {
     googleId?: string | null;
     avatarUrl?: string | null;
     bio?: string | null;
+    role?: string | null;
+    classYear?: string | null;
+    section?: string | null;
+    githubUrl?: string | null;
+    linkedinUrl?: string | null;
+    websiteUrl?: string | null;
+    interests?: string[];
+    skills?: string[];
     status: string;
     onboardingCompleted: boolean;
     emailVerified: boolean;
@@ -31,6 +39,14 @@ function mapToUser(row: any): User | null {
         googleId: row.google_id,
         avatarUrl: row.avatar_url,
         bio: row.bio,
+        role: row.role ?? null,
+        classYear: row.class_year ?? null,
+        section: row.section ?? null,
+        githubUrl: row.github_url ?? null,
+        linkedinUrl: row.linkedin_url ?? null,
+        websiteUrl: row.website_url ?? null,
+        interests: Array.isArray(row.interests) ? row.interests : [],
+        skills: Array.isArray(row.skills) ? row.skills : [],
         status: row.status ?? "offline",
         onboardingCompleted: Boolean(row.onboarding_completed),
         emailVerified: Boolean(row.email_verified),
@@ -100,6 +116,13 @@ export const userRepository = {
         if (data.username !== undefined) dbData.username = data.username;
         if (data.onboardingCompleted !== undefined) dbData.onboarding_completed = data.onboardingCompleted;
         if (data.emailVerified !== undefined) dbData.email_verified = data.emailVerified;
+        if (data.classYear !== undefined) dbData.class_year = data.classYear;
+        if (data.section !== undefined) dbData.section = data.section;
+        if (data.githubUrl !== undefined) dbData.github_url = data.githubUrl;
+        if (data.linkedinUrl !== undefined) dbData.linkedin_url = data.linkedinUrl;
+        if (data.websiteUrl !== undefined) dbData.website_url = data.websiteUrl;
+        if (data.interests !== undefined) dbData.interests = data.interests;
+        if (data.skills !== undefined) dbData.skills = data.skills;
 
         const { data: updated, error } = await supabase.from("users").update(dbData).eq("id", id).select().single();
         if (error) {

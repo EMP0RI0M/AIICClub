@@ -110,14 +110,12 @@ export function parseMessageAttachments(rawText: string): {
   let cleanText = rawText;
 
   // Regex to detect attachment JSON payloads: attachment:{...} or [attachment: {...}]
-  const attachmentRegex = /attachment:(?:%7B|{)(.*?)(?:%7D|})/g;
+  const attachmentRegex = /attachment:((?:%7B.*?%7D)|(?:\{.*?\}))/gi;
   let match;
 
   while ((match = attachmentRegex.exec(rawText)) !== null) {
     try {
-      const decodedStr = match[0].startsWith("attachment:%7B")
-        ? decodeURIComponent(match[0].replace("attachment:", ""))
-        : match[0].replace("attachment:", "");
+      const decodedStr = decodeURIComponent(match[1]);
       const parsed = JSON.parse(decodedStr);
       if (parsed.url) {
         attachments.push(parsed);
@@ -137,7 +135,7 @@ export function parseMessageAttachments(rawText: string): {
   }
 
   cleanText = cleanText
-    .replace(/attachment:(?:%7B|{).*?(?:%7D|})/g, "")
+    .replace(/attachment:((?:%7B.*?%7D)|(?:\{.*?\}))/gi, "")
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, "")
     .trim();
 

@@ -5,7 +5,7 @@ import { ChannelGlyph } from "@/shared/components/ui";
 import { ArrowLeft, Mic } from "lucide-react";
 import type { VoiceParticipant } from "./types";
 import { Room, RoomEvent, Track, RemoteParticipant, RemoteTrack } from "livekit-client";
-import { joinVoiceChannel, leaveVoiceChannel } from "@/shared/lib/api";
+import { fetchVoiceParticipants, joinVoiceChannel, leaveVoiceChannel } from "@/shared/lib/api";
 import { useToastStore } from "@/shared/stores/toast-store";
 import {
   CallControls,
@@ -64,6 +64,30 @@ export function VoiceView({
       setRemoteParticipants(peers);
     };
 
+    const syncApiParticipants = async () => {
+      try {
+        const response = await fetchVoiceParticipants(channelId);
+        const localId = room.localParticipant.identity;
+        const peers = response.participants
+          .filter((p) => p.userId !== localId)
+          .map((p) => ({
+            id: p.userId,
+            name: p.displayName || p.username || p.userId,
+            speaking: false,
+            muted: false,
+          }));
+        if (!disposed) setRemoteParticipants(peers);
+        console.info("[VOICE_PARTICIPANTS_SYNC]", {
+          channelId,
+          roomName: `channel_${channelId}`,
+          localUserId: localId,
+          participantUserIds: response.participants.map((p) => p.userId),
+        });
+      } catch (error) {
+        console.warn("[VOICE_PARTICIPANTS_SYNC_ERROR]", { channelId, error });
+      }
+    };
+
     room.on(RoomEvent.ParticipantConnected, () => updateParticipantList());
     room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
       updateParticipantList();
@@ -112,12 +136,22 @@ export function VoiceView({
         if (disposed) return;
 
         await room.connect(transport.url, transport.token);
+        console.info("[VOICE_ROOM_CONNECTED]", {
+          channelId,
+          roomName: transport.roomName,
+          livekitIdentity: room.localParticipant.identity,
+          livekitUrl: transport.url,
+        });
         await room.startAudio().catch(() => undefined);
         await room.localParticipant.setMicrophoneEnabled(!state.muted);
         if (state.camera) await room.localParticipant.setCameraEnabled(true);
 
         updateParticipantList();
+        await syncApiParticipants();
         setConnecting(false);
+        const syncTimer = window.setInterval(() => void syncApiParticipants(), 3000);
+        roomRef.current = room;
+        (room as Room & { __aiicParticipantSyncTimer?: number }).__aiicParticipantSyncTimer = syncTimer;
       } catch (err: any) {
         if (!disposed) {
           console.error("[VOICE_ROOM_CONNECT_ERROR]", err);
@@ -135,6 +169,8 @@ export function VoiceView({
       disposed = true;
       if (channelId) void leaveVoiceChannel(channelId).catch(() => undefined);
       room.disconnect();
+      const syncTimer = (room as Room & { __aiicParticipantSyncTimer?: number }).__aiicParticipantSyncTimer;
+      if (syncTimer) window.clearInterval(syncTimer);
       roomRef.current = null;
       audioHost?.replaceChildren();
       setRemoteParticipants([]);

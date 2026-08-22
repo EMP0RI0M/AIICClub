@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import {
   Send,
 } from "lucide-react-native";
 
-import { saveIncidentState } from "../../lib/api";
+import { api, saveIncidentState } from "../../lib/api";
 import { useAuthStore } from "../../stores/auth-store";
 
 export type IncidentStatus = "active" | "monitoring" | "resolved";
@@ -51,6 +51,22 @@ export function IncidentChannelView({
   const [timeline, setTimeline] = useState<Array<{ time: string; author: string; message: string; status: string }>>(
     initialIncident?.timeline || []
   );
+
+  useEffect(() => {
+    if (!channelId) return;
+    api<{ incident: any }>(`/channels/${channelId}/incident`).then(({ incident }) => {
+      if (!incident) return;
+      setStatus(incident.status || "active");
+      setSeverity(incident.severity || "P2");
+      setCommander(incident.commander?.name || commander);
+      setTimeline((incident.timeline || []).map((entry: any) => ({
+        time: entry.time || entry.at || "",
+        author: entry.author || "System",
+        message: entry.message || entry.text || "",
+        status: entry.status || "investigating",
+      })));
+    }).catch(() => {});
+  }, [channelId]);
 
   const persistIncident = (
     nextStatus: IncidentStatus,
@@ -123,14 +139,14 @@ export function IncidentChannelView({
           <Text style={styles.subText}>Active Incident Response & Live War Room</Text>
         </View>
 
-        {status !== "resolved" && (
+        {status !== "resolved" ? (
           <Pressable
             onPress={() => handleStatusChange("resolved")}
             style={styles.resolveBtn}
           >
-            <Text style={styles.resolveBtnText}>Resolve</Text>
+            <Text style={styles.resolveBtnText}>Close</Text>
           </Pressable>
-        )}
+        ) : <Pressable onPress={() => handleStatusChange("active")} style={styles.resolveBtn}><Text style={styles.resolveBtnText}>Reopen</Text></Pressable>}
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>

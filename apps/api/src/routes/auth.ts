@@ -4,7 +4,7 @@ import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "../lib/prisma.js";
 import { userRepository } from "../repositories/userRepository.js";
 import { signToken, verifyToken } from "../lib/jwt.js";
-import { reauthenticateSupabaseUser, verifySupabaseToken } from "../lib/supabase.js";
+import { getSupabaseAdmin, reauthenticateSupabaseUser, verifySupabaseToken } from "../lib/supabase.js";
 import { broadcastToUsers } from "../services/realtime.js";
 
 const auth = new Hono();
@@ -85,6 +85,13 @@ const profileUpdateSchema = z.object({
     avatarUrl: z.string().url().nullable().optional(),
     status: z.enum(["online", "idle", "dnd", "invisible", "offline"]).optional(),
     onboardingCompleted: z.boolean().optional(),
+    classYear: z.string().max(30).nullable().optional(),
+    section: z.string().max(100).nullable().optional(),
+    githubUrl: z.string().url().nullable().optional(),
+    linkedinUrl: z.string().url().nullable().optional(),
+    websiteUrl: z.string().url().nullable().optional(),
+    interests: z.array(z.string().max(80)).max(30).optional(),
+    skills: z.array(z.string().max(80)).max(30).optional(),
 }).strict();
 
 function serializeUser(user: {
@@ -92,10 +99,18 @@ function serializeUser(user: {
     email: string;
     displayName: string;
     username: string;
-    avatarUrl: string | null;
-    bio: string | null;
+    avatarUrl?: string | null;
+    bio?: string | null;
     status: string;
     onboardingCompleted: boolean;
+    role?: string | null;
+    classYear?: string | null;
+    section?: string | null;
+    githubUrl?: string | null;
+    linkedinUrl?: string | null;
+    websiteUrl?: string | null;
+    interests?: string[];
+    skills?: string[];
 }) {
     return {
         id: user.id,
@@ -106,11 +121,52 @@ function serializeUser(user: {
         bio: user.bio,
         status: user.status,
         onboardingCompleted: user.onboardingCompleted,
+        role: user.role ?? null,
+        classYear: user.classYear ?? null,
+        section: user.section ?? null,
+        githubUrl: user.githubUrl ?? null,
+        linkedinUrl: user.linkedinUrl ?? null,
+        websiteUrl: user.websiteUrl ?? null,
+        interests: user.interests ?? [],
+        skills: user.skills ?? [],
     };
 }
 
 function normalizeUsernameCandidate(value: string): string {
     return value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase().slice(0, 30);
+}
+
+async function resolveOrganizationRole(userId: string, legacyRole?: string | null) {
+    const supabase = getSupabaseAdmin();
+    const { data: assignments } = await supabase
+        .from("organization_role_assignments")
+        .select("role:organization_roles(key, name, hierarchy_level)")
+        .eq("user_id", userId)
+        .eq("is_active", true);
+    const roles = ((assignments || []) as any[]).map((a) => a.role).filter(Boolean);
+    roles.sort((a, b) => (b.hierarchy_level || 0) - (a.hierarchy_level || 0));
+    const top = roles[0];
+    if (top) return { role: top.key, roleName: top.name };
+    return {
+        role: legacyRole || "member",
+        roleName: (legacyRole || "member").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+    };
+}
+
+async function resolveAuthenticatedUser(authHeader: string | undefined) {
+    if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized.");
+    const token = authHeader.slice(7);
+    try {
+        const payload = await verifyToken(token);
+        const user = await userRepository.findById(payload.userId);
+        if (!user) throw new Error("User not found.");
+        return { user, payload };
+    } catch {
+        const supabaseUser = await verifySupabaseToken(token);
+        const user = await userRepository.findByEmailInsensitive(supabaseUser.email);
+        if (!user) throw new Error("User profile not found.");
+        return { user, payload: { userId: user.id, email: user.email, username: user.username } };
+    }
 }
 
 async function findUserByEmail(email: string) {
@@ -285,7 +341,7 @@ auth.delete("/account", async (c) => {
         }
 
         // Cascade delete handles most relations. Transfer server ownership or delete owned servers.
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: any) => {
             await tx.server.deleteMany({
                 where: { ownerId: user.id },
             });
@@ -317,37 +373,32 @@ auth.get("/check-username", async (c) => {
 // ─── GET /auth/me (requires token) ─────────────────────────────
 
 auth.get("/me", async (c) => {
-    const authHeader = c.req.header("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-        return c.json({ error: "Unauthorized." }, 401);
-    }
-
     try {
-        const payload = await verifyToken(authHeader.slice(7));
-        const user = await userRepository.findById(payload.userId);
-
-        if (!user) {
-            return c.json({ error: "User not found." }, 404);
-        }
-
+        const { user } = await resolveAuthenticatedUser(c.req.header("Authorization"));
         return c.json({
-            user: serializeUser(user),
+            user: { ...serializeUser(user), ...(await resolveOrganizationRole(user.id, user.role)) },
         });
-    } catch {
-        return c.json({ error: "Invalid or expired token." }, 401);
+    } catch (error) {
+        return c.json({ error: error instanceof Error ? error.message : "Invalid or expired token." }, 401);
+    }
+});
+
+// Mobile and web clients use /auth/profile as the canonical current-user read.
+auth.get("/profile", async (c) => {
+    try {
+        const { user } = await resolveAuthenticatedUser(c.req.header("Authorization"));
+        const authority = await resolveOrganizationRole(user.id, user.role);
+        return c.json({ user: { ...serializeUser(user), ...authority } });
+    } catch (error) {
+        return c.json({ error: error instanceof Error ? error.message : "Invalid or expired token." }, 401);
     }
 });
 
 // ─── PATCH /auth/profile (requires token) ───────────────────────
 
 auth.patch("/profile", async (c) => {
-    const authHeader = c.req.header("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-        return c.json({ error: "Unauthorized." }, 401);
-    }
-
     try {
-        const payload = await verifyToken(authHeader.slice(7));
+        const { payload } = await resolveAuthenticatedUser(c.req.header("Authorization"));
         const body = await c.req.json();
 
         const result = profileUpdateSchema.safeParse(body);
@@ -362,6 +413,10 @@ auth.patch("/profile", async (c) => {
         if (result.data.status !== undefined) updateData.status = result.data.status;
         if (result.data.onboardingCompleted !== undefined)
             updateData.onboardingCompleted = result.data.onboardingCompleted;
+        for (const key of ["classYear", "section", "githubUrl", "linkedinUrl", "websiteUrl", "interests", "skills"] as const) {
+            const value = result.data[key];
+            if (value !== undefined) (updateData as any)[key] = value;
+        }
 
         if (result.data.username !== undefined) {
             const nextUsername = result.data.username.toLowerCase();
@@ -375,15 +430,15 @@ auth.patch("/profile", async (c) => {
             updateData.username = nextUsername;
         }
 
-        const user = await userRepository.update(payload.userId, updateData);
+        const user = await userRepository.update(payload.userId, updateData as any);
 
         if (result.data.status !== undefined) {
-            const friendships = await prisma.friend.findMany({
+            const friendships: Array<{ userId: string; friendId: string }> = await prisma.friend.findMany({
                 where: { OR: [{ userId: payload.userId }, { friendId: payload.userId }] },
                 select: { userId: true, friendId: true },
             });
-            const friendIds = new Set(
-                friendships.map((friendship) =>
+            const friendIds = new Set<string>(
+                friendships.map((friendship): string =>
                     friendship.userId === payload.userId
                         ? friendship.friendId
                         : friendship.userId

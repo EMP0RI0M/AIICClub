@@ -56,32 +56,16 @@ export default function VoiceStageScreen() {
     }
   }, [id]);
 
-  const participants = [
-    {
-      id: user?.id || "u-me",
-      name: user?.displayName || "Me",
-      role: "speaker",
-      speaking: !isMuted,
-      roleColor: colors.accent,
-    },
-    {
-      id: "u-alex",
-      name: "Alex Rivera",
-      role: "speaker",
-      speaking: false,
-      roleColor: colors.accent,
-    },
-    {
-      id: "u-sarah",
-      name: "Sarah Chen",
-      role: "listener",
-      speaking: false,
-      handRaised: false,
-    },
-  ];
+  const participants = (session?.participants || []).map((p: any) => ({
+    id: p.userId,
+    name: p.displayName || p.username || "Member",
+    role: "speaker",
+    speaking: p.userId === user?.id && !isMuted,
+    roleColor: colors.accent,
+  }));
 
-  const speakers = participants.filter((p) => p.role === "speaker");
-  const listeners = participants.filter((p) => p.role === "listener");
+  const speakers = participants.filter((p: any) => p.role === "speaker");
+  const listeners = participants.filter((p: any) => p.role === "listener");
 
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
@@ -112,7 +96,7 @@ export default function VoiceStageScreen() {
           {/* Stage Speakers */}
           <Text style={styles.sectionTitle}>STAGE SPEAKERS ({speakers.length})</Text>
           <View style={styles.grid}>
-            {speakers.map((s) => (
+            {speakers.map((s: any) => (
               <GlassCard
                 key={s.id}
                 elevated
@@ -136,7 +120,7 @@ export default function VoiceStageScreen() {
           {/* Audience */}
           <Text style={styles.sectionTitle}>AUDIENCE ({listeners.length})</Text>
           <View style={styles.audienceList}>
-            {listeners.map((l) => (
+            {listeners.map((l: any) => (
               <View key={l.id} style={styles.audienceRow}>
                 <Avatar name={l.name} size={36} />
                 <Text style={styles.audienceName}>{l.name}</Text>

@@ -19,7 +19,7 @@ import { useRouter } from "expo-router";
 import { useAuthStore } from "../../../../stores/auth-store";
 import { useWorkspaceStore } from "../../../../stores/workspace-store";
 import { useChatStore } from "../../../../stores/chat-store";
-import { api, searchUsers, publishAnnouncement } from "../../../../lib/api";
+import { api, searchUsers, publishAnnouncement, fetchUserProfile } from "../../../../lib/api";
 import { AttachmentCard, parseMessageAttachments } from "../../../../components/chat/AttachmentCard";
 import { Avatar } from "../../../../components/ui/Avatar";
 import { GlassCard } from "../../../../components/ui/GlassCard";
@@ -747,7 +747,7 @@ function NativeMessageList({
                   <CornerUpLeft size={12} color={colors.accent} />
                   <Text style={styles.messageReplyAuthor}>{item.replyTo.authorName}:</Text>
                   <Text style={styles.messageReplySnippet} numberOfLines={1}>
-                    {item.replyTo.text}
+                    {parseMessageAttachments(item.replyTo.text || "").cleanText || "Attachment"}
                   </Text>
                 </View>
               )}
@@ -764,13 +764,13 @@ function NativeMessageList({
               >
                 <Pressable
                   onPress={() => {
-                    onOpenProfile?.({
+                    fetchUserProfile(item.user.id).then((res) => onOpenProfile?.(res.user)).catch(() => onOpenProfile?.({
                       id: item.user.id,
                       displayName: item.user.displayName,
                       username: item.user.displayName.toLowerCase().replace(/\s+/g, ""),
                       avatarUrl: item.user.avatarUrl,
                       status: "online",
-                    });
+                    }));
                   }}
                   hitSlop={6}
                 >

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { authMiddleware, type AuthEnv } from "../middleware/auth.js";
+import { getSupabaseAdmin } from "../lib/supabase.js";
 
 const friends = new Hono<AuthEnv>();
 // Intentional `any`: the friend-system models may be absent at runtime when the
@@ -27,6 +28,32 @@ friends.use("*", async (c, next) => {
     }
 
     await next();
+});
+
+friends.get("/users/:userId/profile", async (c) => {
+    const userId = c.req.param("userId");
+    const { data: user, error } = await getSupabaseAdmin()
+        .from("users")
+        .select("id, email, username, display_name, avatar_url, status, bio, class_year, section, github_url, linkedin_url, website_url, interests, skills, role")
+        .eq("id", userId)
+        .maybeSingle();
+    if (error || !user) return c.json({ error: "User not found." }, 404);
+
+    const { data: assignments } = await getSupabaseAdmin()
+        .from("organization_role_assignments")
+        .select("role:organization_roles(key, name, hierarchy_level)")
+        .eq("user_id", userId)
+        .eq("is_active", true);
+    const roles = ((assignments || []) as any[]).map((a) => a.role).filter(Boolean)
+        .sort((a, b) => (b.hierarchy_level || 0) - (a.hierarchy_level || 0));
+    const role = roles[0];
+    return c.json({ user: {
+        id: user.id, email: user.email, username: user.username, displayName: user.display_name,
+        avatarUrl: user.avatar_url, status: user.status, bio: user.bio, classYear: user.class_year,
+        section: user.section, githubUrl: user.github_url, linkedinUrl: user.linkedin_url,
+        websiteUrl: user.website_url, interests: user.interests || [], skills: user.skills || [],
+        role: role?.key || user.role || "member", roleName: role?.name || (user.role || "member").replace(/_/g, " "),
+    }});
 });
 
 const friendRequestSchema = z.object({

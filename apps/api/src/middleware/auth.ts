@@ -1,5 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { verifyToken } from "../lib/jwt.js";
+import { verifySupabaseToken } from "../lib/supabase.js";
+import { userRepository } from "../repositories/userRepository.js";
 
 export type AuthEnv = {
     Variables: {
@@ -16,7 +18,18 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
     }
 
     try {
-        const payload = await verifyToken(authHeader.slice(7));
+        let payload;
+        try {
+            payload = await verifyToken(authHeader.slice(7));
+        } catch {
+            // Mobile Supabase sessions are access tokens, not Corvus JWTs.
+            // Resolve them to the canonical public.users record before
+            // entering any protected route.
+            const supabaseUser = await verifySupabaseToken(authHeader.slice(7));
+            const user = await userRepository.findByEmailInsensitive(supabaseUser.email);
+            if (!user) return c.json({ error: "User profile not found." }, 404);
+            payload = { userId: user.id, email: user.email, username: user.username };
+        }
         c.set("userId", payload.userId);
         c.set("userEmail", payload.email);
         c.set("username", payload.username);
