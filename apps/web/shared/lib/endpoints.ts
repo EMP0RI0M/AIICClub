@@ -9,10 +9,11 @@ function apiBase(url: string) {
 
 const envApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || "";
 
-// In production the browser must use the dedicated API deployment. The old
-// browser-only "/api" fallback silently routed requests to aiic-bbs (the web
-// deployment), which returned HTML 404s for Hono endpoints.
-export const API_URL = apiBase(envApiUrl || (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"));
+export const API_URL = envApiUrl
+    ? apiBase(envApiUrl)
+    : typeof window !== "undefined"
+      ? "/api"
+      : "http://localhost:3000/api";
 
 export function ensureApiUrl() {
     return API_URL;
