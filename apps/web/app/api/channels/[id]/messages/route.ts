@@ -19,13 +19,17 @@ export async function GET(
 
         const supabase = getSupabaseAdmin();
 
-        // Resolve real channel ID if slug or name was passed
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId);
         let targetChannelId = channelId;
-        const { data: matchedChannel } = await supabase
-            .from("channels")
-            .select("id")
-            .or(`id.eq.${channelId},name.eq.${channelId}`)
-            .maybeSingle();
+        let matchedChannel: { id: string } | null = null;
+        if (isUUID) {
+            const { data } = await supabase.from("channels").select("id").eq("id", channelId).maybeSingle();
+            matchedChannel = data;
+        }
+        if (!matchedChannel) {
+            const { data } = await supabase.from("channels").select("id").ilike("name", channelId).maybeSingle();
+            matchedChannel = data;
+        }
 
         if (matchedChannel?.id) {
             targetChannelId = matchedChannel.id;
@@ -222,11 +226,17 @@ export async function POST(
 
         // 2. Resolve channel_id -> Must exist in public.channels.id
         let actualChannelId = channelId;
-        const { data: channelRow } = await supabase
-            .from("channels")
-            .select("id")
-            .or(`id.eq.${channelId},name.eq.${channelId}`)
-            .maybeSingle();
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId);
+
+        let channelRow: { id: string } | null = null;
+        if (isUUID) {
+            const { data } = await supabase.from("channels").select("id").eq("id", channelId).maybeSingle();
+            channelRow = data;
+        }
+        if (!channelRow) {
+            const { data } = await supabase.from("channels").select("id").ilike("name", channelId).maybeSingle();
+            channelRow = data;
+        }
 
         if (channelRow?.id) {
             actualChannelId = channelRow.id;
@@ -241,6 +251,31 @@ export async function POST(
 
             if (defaultChannel?.id) {
                 actualChannelId = defaultChannel.id;
+            } else {
+                let serverId: string | null = null;
+                const { data: server } = await supabase.from("servers").select("id").limit(1).maybeSingle();
+                serverId = server?.id || null;
+                if (!serverId) {
+                    const { data: newServer } = await supabase.from("servers").insert({
+                        name: "Main Space",
+                        owner_id: actualAuthorId,
+                    }).select("id").maybeSingle();
+                    serverId = newServer?.id || null;
+                }
+
+                if (serverId) {
+                    const cleanName = channelId.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 30) || "general";
+                    const { data: newChan } = await supabase.from("channels").insert({
+                        server_id: serverId,
+                        name: cleanName,
+                        type: "text",
+                        category: "General",
+                        position: 0,
+                    }).select("id").maybeSingle();
+                    if (newChan?.id) {
+                        actualChannelId = newChan.id;
+                    }
+                }
             }
         }
 

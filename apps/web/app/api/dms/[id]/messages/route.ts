@@ -23,6 +23,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     if (userRow?.id) actualUserId = userRow.id;
 
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conversationId);
+    if (!isUUID) {
+        return NextResponse.json({ messages: [], nextCursor: null, hasMore: false });
+    }
+
     const { data: isParticipant } = await supabase
         .from("dm_participants")
         .select("user_id")
@@ -31,6 +36,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         .maybeSingle();
 
     if (!isParticipant) {
+        // Check if conversation exists at all
+        const { data: convo } = await supabase.from("dm_conversations").select("id").eq("id", conversationId).maybeSingle();
+        if (!convo) {
+            return NextResponse.json({ messages: [], nextCursor: null, hasMore: false });
+        }
         return NextResponse.json({ error: "Access denied. Private DM." }, { status: 403 });
     }
 
@@ -178,7 +188,38 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
             actualAuthorId = userRow.id;
         }
 
-        // 2. Validate reply_to_id in public.dm_messages
+        // 2. Resolve or provision dm_conversation
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conversationId);
+        let actualConversationId = conversationId;
+
+        let existingConvo: { id: string } | null = null;
+        if (isUUID) {
+            const { data } = await supabase.from("dm_conversations").select("id").eq("id", conversationId).maybeSingle();
+            existingConvo = data;
+        }
+
+        if (!existingConvo) {
+            const { data: createdConvo } = await supabase
+                .from("dm_conversations")
+                .insert({
+                    id: isUUID ? conversationId : undefined,
+                    type: "direct",
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                })
+                .select("id")
+                .maybeSingle();
+
+            if (createdConvo?.id) {
+                actualConversationId = createdConvo.id;
+                await supabase.from("dm_participants").insert({
+                    conversation_id: actualConversationId,
+                    user_id: actualAuthorId,
+                });
+            }
+        }
+
+        // 3. Validate reply_to_id in public.dm_messages
         let actualReplyToId: string | null = null;
         if (replyToId && typeof replyToId === "string") {
             const { data: parentMsg } = await supabase
@@ -195,7 +236,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         const { data: message, error } = await supabase
             .from("dm_messages")
             .insert({
-                conversation_id: conversationId,
+                conversation_id: actualConversationId,
                 author_id: actualAuthorId,
                 content,
                 reply_to_id: actualReplyToId,

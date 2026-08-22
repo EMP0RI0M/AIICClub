@@ -18,6 +18,14 @@ export async function PATCH(
 
         const supabase = getSupabaseAdmin();
 
+        let actualAuthorId = user.id;
+        const { data: userRow } = await supabase
+            .from("users")
+            .select("id")
+            .or(`id.eq.${user.id},auth_user_id.eq.${user.id}`)
+            .maybeSingle();
+        if (userRow?.id) actualAuthorId = userRow.id;
+
         const { data: message, error } = await supabase
             .from("messages")
             .update({
@@ -25,7 +33,7 @@ export async function PATCH(
                 edited_at: new Date().toISOString(),
             })
             .eq("id", messageId)
-            .eq("author_id", user.id)
+            .or(`author_id.eq.${user.id},author_id.eq.${actualAuthorId}`)
             .select(`
                 id,
                 channel_id,
@@ -33,7 +41,7 @@ export async function PATCH(
                 type,
                 edited_at,
                 created_at,
-                author:users!messages_author_id_fkey (
+                author:users!author_id (
                     id,
                     username,
                     display_name,
@@ -56,7 +64,7 @@ export async function PATCH(
                 editedAt: message.edited_at,
                 createdAt: message.created_at,
                 author: {
-                    id: (message.author as any)?.id || user.id,
+                    id: (message.author as any)?.id || actualAuthorId,
                     username: (message.author as any)?.username || user.username,
                     displayName: (message.author as any)?.display_name || user.displayName,
                     avatarUrl: (message.author as any)?.avatar_url,
@@ -82,11 +90,19 @@ export async function DELETE(
     const { id: messageId } = await context.params;
     const supabase = getSupabaseAdmin();
 
+    let actualAuthorId = user.id;
+    const { data: userRow } = await supabase
+        .from("users")
+        .select("id")
+        .or(`id.eq.${user.id},auth_user_id.eq.${user.id}`)
+        .maybeSingle();
+    if (userRow?.id) actualAuthorId = userRow.id;
+
     const { error } = await supabase
         .from("messages")
         .delete()
         .eq("id", messageId)
-        .eq("author_id", user.id);
+        .or(`author_id.eq.${user.id},author_id.eq.${actualAuthorId}`);
 
     if (error) {
         return NextResponse.json({ error: "Could not delete message" }, { status: 403 });

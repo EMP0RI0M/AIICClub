@@ -34,7 +34,7 @@ export async function verifyAdminBoardAccess(req: NextRequest): Promise<AdminAut
     let actualUserId = authUser.id;
     const { data: userRow } = await supabase
         .from("users")
-        .select("id, email, username, display_name, role, is_leadership, leadership_title")
+        .select("id, email, username, display_name, role")
         .or(`id.eq.${authUser.id},auth_user_id.eq.${authUser.id},email.eq.${authUser.email}`)
         .maybeSingle();
 
@@ -56,22 +56,27 @@ export async function verifyAdminBoardAccess(req: NextRequest): Promise<AdminAut
     let highestRole = activeRoles[0];
 
     // Fallback: If no explicit assignment exists in organization_role_assignments, check userRow.role
-    if (!highestRole && userRow) {
-        if (["president_admin", "admin", "president"].includes(userRow.role)) {
-            const { data: directRole } = await supabase
-                .from("organization_roles")
-                .select("id, key, name, hierarchy_level")
-                .eq("key", userRow.role)
-                .maybeSingle();
+    if (!highestRole && userRow?.role) {
+        const { data: directRole } = await supabase
+            .from("organization_roles")
+            .select("id, key, name, hierarchy_level")
+            .eq("key", userRow.role)
+            .maybeSingle();
 
-            if (directRole) {
-                highestRole = directRole;
-            }
+        if (directRole) {
+            highestRole = directRole;
+        } else {
+            highestRole = {
+                id: "direct",
+                key: userRow.role,
+                name: userRow.role.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+                hierarchy_level: ["president_admin", "president", "admin", "owner"].includes(userRow.role) ? 100 : 10,
+            };
         }
     }
 
-    const allowedRoles = ["president_admin", "admin", "president"];
-    const isAuthorized = highestRole && allowedRoles.includes(highestRole.key);
+    const allowedRoles = ["president_admin", "admin", "president", "owner", "superadmin"];
+    const isAuthorized = (highestRole && allowedRoles.includes(highestRole.key)) || (userRow?.role && allowedRoles.includes(userRow.role));
 
     if (!isAuthorized) {
         return {

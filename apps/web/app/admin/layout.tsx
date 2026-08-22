@@ -110,7 +110,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </p>
           <div className="mt-6 flex justify-center">
             <Link
-              href="/app"
+              href="/spaces"
               className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-2.5 text-xs font-semibold text-text-primary hover:bg-white/15 transition-all"
             >
               <ArrowLeft size={14} />
@@ -194,7 +194,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Footer Back to Hub */}
         <div className="p-3 border-t border-white/[0.06]">
           <Link
-            href="/app"
+            href="/spaces"
             className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] text-xs font-medium text-text-secondary hover:bg-white/[0.06] hover:text-text-primary transition-all"
           >
             <ArrowLeft size={14} />
@@ -220,7 +220,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <Link
-            href="/app"
+            href="/spaces"
             className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] px-2.5 text-[11px] font-medium text-text-secondary hover:text-text-primary"
           >
             <ArrowLeft size={12} />
