@@ -23,11 +23,11 @@ export async function GET(
 
         const targetId = channel?.id || channelId;
 
-        const { data: moduleRecord } = await supabase
-            .from("channel_modules")
-            .select("data")
+        // Query real Supabase channel_boards table
+        const { data: boardRecord, error: boardErr } = await supabase
+            .from("channel_boards")
+            .select("board, updated_at")
             .eq("channel_id", targetId)
-            .eq("type", "board")
             .maybeSingle();
 
         const defaultBoard = {
@@ -40,9 +40,12 @@ export async function GET(
             ],
         };
 
+        const board = boardRecord?.board || defaultBoard;
+
         return NextResponse.json({
-            board: moduleRecord?.data?.board || defaultBoard,
+            board,
             channelId: targetId,
+            updatedAt: boardRecord?.updated_at,
         });
     } catch (err: any) {
         console.error("[API GET /channels/[id]/board] error:", err);
@@ -74,18 +77,21 @@ export async function PUT(
 
         const targetId = channel?.id || channelId;
 
-        try {
-            await supabase
-                .from("channel_modules")
-                .upsert(
-                    {
-                        channel_id: targetId,
-                        type: "board",
-                        data: { board, updated_at: new Date().toISOString(), updated_by: user.id },
-                    },
-                    { onConflict: "channel_id,type" }
-                );
-        } catch {}
+        const { error: upsertErr } = await supabase
+            .from("channel_boards")
+            .upsert(
+                {
+                    channel_id: targetId,
+                    board,
+                    updated_at: new Date().toISOString(),
+                },
+                { onConflict: "channel_id" }
+            );
+
+        if (upsertErr) {
+            console.error("[API PUT /channels/[id]/board] Supabase upsert error:", upsertErr);
+            return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+        }
 
         return NextResponse.json({
             success: true,

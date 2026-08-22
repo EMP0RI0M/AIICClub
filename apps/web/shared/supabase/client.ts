@@ -8,8 +8,15 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * when the user lands back on the app.
  */
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "") || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || "";
+const supabaseUrl = (
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    "https://tgbjgyhcfhqvwayvvwkl.supabase.co"
+).trim().replace(/\/+$/, "");
+
+const supabaseAnonKey = (
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnYmpneWhjZmhxdndheXZ2d2tsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MTcwNjIsImV4cCI6MjEwMjI5MzA2Mn0.Cjj6oY9s7FwTywXlw-9h4Um01cBvfllKQqapobmYXNY"
+).trim();
 
 let cachedClient: SupabaseClient | null = null;
 

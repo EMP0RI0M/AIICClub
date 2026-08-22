@@ -68,10 +68,13 @@ export function SignupForm() {
         email: email.trim(),
         password,
       });
+      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const redirect = params?.get("redirect") || "/spaces";
+      const targetUrl = redirect.startsWith("/") ? redirect : `/${redirect}`;
       if (result.confirmEmail) {
         router.push(`/confirm-email?email=${encodeURIComponent(email.trim())}`);
       } else {
-        router.push("/spaces");
+        router.push(targetUrl);
       }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Registration failed. Please try again.");

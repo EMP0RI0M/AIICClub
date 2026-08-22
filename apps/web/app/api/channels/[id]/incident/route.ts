@@ -23,14 +23,13 @@ export async function GET(
 
         const targetId = channel?.id || channelId;
 
-        const { data: moduleRecord } = await supabase
-            .from("channel_modules")
-            .select("data")
+        const { data: incidentRecord } = await supabase
+            .from("channel_incidents")
+            .select("incident, updated_at")
             .eq("channel_id", targetId)
-            .eq("type", "incident")
             .maybeSingle();
 
-        const incident = moduleRecord?.data?.incident || {
+        const defaultIncident = {
             status: "active",
             severity: "P2",
             commander: { name: user.displayName || user.username, id: user.id },
@@ -38,7 +37,13 @@ export async function GET(
             services: ["Edge Gateway", "Auth Cluster"],
         };
 
-        return NextResponse.json({ incident, channelId: targetId });
+        const incident = incidentRecord?.incident || defaultIncident;
+
+        return NextResponse.json({
+            incident,
+            channelId: targetId,
+            updatedAt: incidentRecord?.updated_at,
+        });
     } catch (err: any) {
         return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
     }
@@ -68,18 +73,21 @@ export async function PUT(
 
         const targetId = channel?.id || channelId;
 
-        try {
-            await supabase
-                .from("channel_modules")
-                .upsert(
-                    {
-                        channel_id: targetId,
-                        type: "incident",
-                        data: { incident, updated_at: new Date().toISOString(), updated_by: user.id },
-                    },
-                    { onConflict: "channel_id,type" }
-                );
-        } catch {}
+        const { error: upsertErr } = await supabase
+            .from("channel_incidents")
+            .upsert(
+                {
+                    channel_id: targetId,
+                    incident,
+                    updated_at: new Date().toISOString(),
+                },
+                { onConflict: "channel_id" }
+            );
+
+        if (upsertErr) {
+            console.error("[API PUT /channels/[id]/incident] Supabase upsert error:", upsertErr);
+            return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+        }
 
         return NextResponse.json({ success: true, incident });
     } catch (err: any) {

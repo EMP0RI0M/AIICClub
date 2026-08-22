@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/shared/supabase/admin";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-jwt-key-change-in-production-12345";
+const JWT_SECRET = process.env.JWT_SECRET || "super-secret-corvus-jwt-key-for-local-development-12345";
 
 export interface AuthenticatedUser {
     id: string;
@@ -47,7 +47,7 @@ export async function getAuthUser(req: NextRequest): Promise<AuthenticatedUser |
                 if (decoded.username && decoded.displayName) {
                     return {
                         id: decoded.userId,
-                        email: decoded.email || `${decoded.userId}@aiic.internal`,
+                        email: decoded.email || `${decoded.userId}@corvus.internal`,
                         username: decoded.username,
                         displayName: decoded.displayName,
                     };
@@ -56,7 +56,7 @@ export async function getAuthUser(req: NextRequest): Promise<AuthenticatedUser |
                 const { data: user } = await supabase
                     .from("users")
                     .select("id, auth_user_id, email, username, display_name")
-                    .eq("id", decoded.userId)
+                    .or(`id.eq.${decoded.userId},auth_user_id.eq.${decoded.userId}`)
                     .maybeSingle();
 
                 if (user) {
@@ -95,6 +95,9 @@ export async function getAuthUser(req: NextRequest): Promise<AuthenticatedUser |
                 }
 
                 if (user) {
+                    if (!user.auth_user_id) {
+                        await supabase.from("users").update({ auth_user_id: authUser.id }).eq("id", user.id);
+                    }
                     return {
                         id: user.id,
                         email: user.email,
@@ -109,21 +112,21 @@ export async function getAuthUser(req: NextRequest): Promise<AuthenticatedUser |
                 const fallbackDisplayName = authUser.user_metadata?.display_name || authUser.user_metadata?.full_name || fallbackUsername;
 
                 // Ensure row exists in public.users
-                await supabase.from("users").upsert({
+                const { data: createdUser } = await supabase.from("users").upsert({
                     id: authUser.id,
                     auth_user_id: authUser.id,
-                    email: authUser.email || `${authUser.id}@aiic.internal`,
+                    email: authUser.email || `${authUser.id}@corvus.internal`,
                     username: fallbackUsername,
                     display_name: fallbackDisplayName,
                     avatar_url: authUser.user_metadata?.avatar_url || null,
                     status: "online",
                     onboarding_completed: true,
                     email_verified: true,
-                }, { onConflict: "id" });
+                }, { onConflict: "id" }).select().maybeSingle();
 
                 return {
-                    id: authUser.id,
-                    email: authUser.email || `${authUser.id}@aiic.internal`,
+                    id: createdUser?.id || authUser.id,
+                    email: authUser.email || `${authUser.id}@corvus.internal`,
                     username: fallbackUsername,
                     displayName: fallbackDisplayName,
                     authUserId: authUser.id,

@@ -163,8 +163,24 @@ async function resolveAuthenticatedUser(authHeader: string | undefined) {
         return { user, payload };
     } catch {
         const supabaseUser = await verifySupabaseToken(token);
-        const user = await userRepository.findByEmailInsensitive(supabaseUser.email);
-        if (!user) throw new Error("User profile not found.");
+        let user = await userRepository.findByEmailInsensitive(supabaseUser.email);
+        if (!user) {
+            const username = await findAvailableUsername(
+                undefined,
+                supabaseUser.email,
+                supabaseUser.displayName
+            );
+            user = await userRepository.create({
+                email: supabaseUser.email,
+                username,
+                displayName: supabaseUser.displayName,
+                passwordHash: null,
+                avatarUrl: supabaseUser.avatarUrl,
+                status: "online",
+                emailVerified: supabaseUser.emailVerified,
+                onboardingCompleted: true,
+            });
+        }
         return { user, payload: { userId: user.id, email: user.email, username: user.username } };
     }
 }

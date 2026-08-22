@@ -12,11 +12,29 @@ export async function GET(req: NextRequest) {
     }
 
     const supabase = getSupabaseAdmin();
-    const { data: userRecord, error } = await supabase
+    let { data: userRecord, error } = await supabase
         .from("users")
         .select("*")
-        .eq("id", user.id)
+        .or(`id.eq.${user.id},auth_user_id.eq.${user.id}`)
         .maybeSingle();
+
+    if (!userRecord && user.authUserId) {
+        const { data: byAuthId } = await supabase
+            .from("users")
+            .select("*")
+            .or(`id.eq.${user.authUserId},auth_user_id.eq.${user.authUserId}`)
+            .maybeSingle();
+        userRecord = byAuthId;
+    }
+
+    if (!userRecord && user.email) {
+        const { data: byEmail } = await supabase
+            .from("users")
+            .select("*")
+            .ilike("email", user.email)
+            .maybeSingle();
+        userRecord = byEmail;
+    }
 
     if (error || !userRecord) {
         return NextResponse.json({ error: "User not found" }, { status: 404 });

@@ -29,7 +29,8 @@ function AuthCallbackContent() {
                 }
 
                 if (!cancelled) {
-                    router.replace("/spaces");
+                    const redirect = searchParams.get("redirect") || "/spaces";
+                    router.replace(redirect.startsWith("/") ? redirect : `/${redirect}`);
                 }
             } catch (err) {
                 if (!cancelled) {

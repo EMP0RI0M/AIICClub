@@ -230,7 +230,7 @@ export const useAuthStore = create<AuthState>()(
                     const displayName = data.displayName.trim();
                     const username = data.username.trim().toLowerCase();
 
-                    const { needsConfirmation } = await signUpWithEmail({
+                    const { needsConfirmation, session } = await signUpWithEmail({
                         email: normalizedEmail,
                         password: data.password,
                         displayName,
@@ -246,10 +246,13 @@ export const useAuthStore = create<AuthState>()(
                     // If email confirmation is disabled, Supabase returns a live
                     // session immediately and we can finish sign-in now.
                     if (!needsConfirmation) {
-                        const exchanged = await exchangeSupabaseSession({
-                            displayName,
-                            username,
-                        });
+                        const exchanged = await exchangeSupabaseSession(
+                            {
+                                displayName,
+                                username,
+                            },
+                            session?.access_token
+                        );
 
                         if (exchanged) {
                             clearPendingSignupProfile(normalizedEmail);
@@ -276,14 +279,14 @@ export const useAuthStore = create<AuthState>()(
             },
 
             restoreSession: async () => {
-                if (get().token) {
+                if (get().token && get().user) {
                     return true;
                 }
 
                 const session = await getActiveSupabaseSession();
                 const email = session?.user?.email?.trim().toLowerCase();
 
-                if (!email) {
+                if (!session || !email) {
                     return false;
                 }
 
@@ -294,7 +297,8 @@ export const useAuthStore = create<AuthState>()(
                             displayName: pendingSignup.displayName,
                             username: pendingSignup.username,
                         }
-                        : undefined
+                        : undefined,
+                    session.access_token
                 );
 
                 if (!data) {
@@ -484,9 +488,19 @@ export const useAuthStore = create<AuthState>()(
                         maxRetries: 0,
                     });
                     set({ user: data.user, isAuthenticated: true });
-                } catch {
-                    // Token expired or invalid
-                    set({ user: null, token: null, isAuthenticated: false });
+                } catch (err: any) {
+                    const is401 =
+                        err?.status === 401 ||
+                        err?.message?.includes("Unauthorized") ||
+                        err?.message?.includes("401") ||
+                        err?.message?.includes("Invalid or expired token");
+
+                    if (is401) {
+                        const restored = await get().restoreSession().catch(() => false);
+                        if (!restored) {
+                            set({ user: null, token: null, isAuthenticated: false });
+                        }
+                    }
                 }
             },
         }),

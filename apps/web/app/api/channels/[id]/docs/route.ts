@@ -23,16 +23,16 @@ export async function GET(
 
         const targetId = channel?.id || channelId;
 
-        const { data: moduleRecord } = await supabase
-            .from("channel_modules")
-            .select("data")
+        const { data: docRecord } = await supabase
+            .from("channel_docs")
+            .select("docs, updated_at")
             .eq("channel_id", targetId)
-            .eq("type", "docs")
             .maybeSingle();
 
         return NextResponse.json({
-            docs: moduleRecord?.data?.docs || [],
+            docs: docRecord?.docs || [],
             channelId: targetId,
+            updatedAt: docRecord?.updated_at,
         });
     } catch (err: any) {
         console.error("[API GET /channels/[id]/docs] error:", err);
@@ -64,18 +64,21 @@ export async function PUT(
 
         const targetId = channel?.id || channelId;
 
-        try {
-            await supabase
-                .from("channel_modules")
-                .upsert(
-                    {
-                        channel_id: targetId,
-                        type: "docs",
-                        data: { docs, updated_at: new Date().toISOString(), updated_by: user.id },
-                    },
-                    { onConflict: "channel_id,type" }
-                );
-        } catch {}
+        const { error: upsertErr } = await supabase
+            .from("channel_docs")
+            .upsert(
+                {
+                    channel_id: targetId,
+                    docs,
+                    updated_at: new Date().toISOString(),
+                },
+                { onConflict: "channel_id" }
+            );
+
+        if (upsertErr) {
+            console.error("[API PUT /channels/[id]/docs] Supabase upsert error:", upsertErr);
+            return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+        }
 
         return NextResponse.json({
             success: true,

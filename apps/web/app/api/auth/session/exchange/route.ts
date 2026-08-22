@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from "@/shared/supabase/admin";
 import { getSupabaseClient } from "@/shared/supabase/client";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-jwt-key-change-in-production-12345";
+const JWT_SECRET = process.env.JWT_SECRET || "super-secret-corvus-jwt-key-for-local-development-12345";
 
 export async function POST(req: NextRequest) {
     try {
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         let { data: userRecord } = await supabase
             .from("users")
             .select("*")
-            .eq("id", authUser.id)
+            .or(`auth_user_id.eq.${authUser.id},id.eq.${authUser.id}`)
             .maybeSingle();
 
         if (!userRecord && authUser.email) {
@@ -44,16 +44,25 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        if (userRecord && !userRecord.auth_user_id) {
+            await supabase
+                .from("users")
+                .update({ auth_user_id: authUser.id })
+                .eq("id", userRecord.id);
+            userRecord.auth_user_id = authUser.id;
+        }
+
         if (!userRecord) {
             // Create user row in public.users
-            const email = authUser.email?.toLowerCase() || `${authUser.id}@aiic.internal`;
+            const email = authUser.email?.toLowerCase() || `${authUser.id}@corvus.internal`;
             const baseUsername = preferredUsername || email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 20) || "user";
-            const displayName = preferredDisplayName || authUser.user_metadata?.display_name || baseUsername;
+            const displayName = preferredDisplayName || authUser.user_metadata?.display_name || authUser.user_metadata?.full_name || baseUsername;
 
             const { data: createdUser, error: createErr } = await supabase
                 .from("users")
                 .insert({
                     id: authUser.id,
+                    auth_user_id: authUser.id,
                     email,
                     username: baseUsername,
                     display_name: displayName,
@@ -72,6 +81,7 @@ export async function POST(req: NextRequest) {
                     .from("users")
                     .insert({
                         id: authUser.id,
+                        auth_user_id: authUser.id,
                         email,
                         username: uniqueUsername,
                         display_name: displayName,
@@ -92,9 +102,9 @@ export async function POST(req: NextRequest) {
         if (!userRecord) {
             userRecord = {
                 id: authUser.id,
-                email: authUser.email || `${authUser.id}@aiic.internal`,
+                email: authUser.email || `${authUser.id}@corvus.internal`,
                 username: (authUser.email?.split("@")[0] || "user").replace(/[^a-zA-Z0-9_]/g, "_"),
-                display_name: authUser.user_metadata?.display_name || authUser.email?.split("@")[0] || "User",
+                display_name: authUser.user_metadata?.display_name || authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "User",
                 avatar_url: authUser.user_metadata?.avatar_url || null,
                 bio: null,
                 status: "online",

@@ -26,8 +26,24 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
             // Resolve them to the canonical public.users record before
             // entering any protected route.
             const supabaseUser = await verifySupabaseToken(authHeader.slice(7));
-            const user = await userRepository.findByEmailInsensitive(supabaseUser.email);
-            if (!user) return c.json({ error: "User profile not found." }, 404);
+            let user = await userRepository.findByEmailInsensitive(supabaseUser.email);
+            if (!user) {
+                const supabaseAdmin = (await import("../lib/supabase.js")).getSupabaseAdmin();
+                const baseUsername = (supabaseUser.displayName || supabaseUser.email.split("@")[0]).replace(/[^a-zA-Z0-9_]/g, "").toLowerCase().slice(0, 20) || "user";
+                const { data: existing } = await supabaseAdmin.from("users").select("username").eq("username", baseUsername).maybeSingle();
+                const username = existing ? `${baseUsername.slice(0, 15)}_${Math.floor(1000 + Math.random() * 9000)}` : baseUsername;
+
+                user = await userRepository.create({
+                    email: supabaseUser.email,
+                    username,
+                    displayName: supabaseUser.displayName,
+                    passwordHash: null,
+                    avatarUrl: supabaseUser.avatarUrl,
+                    status: "online",
+                    emailVerified: supabaseUser.emailVerified,
+                    onboardingCompleted: true,
+                });
+            }
             payload = { userId: user.id, email: user.email, username: user.username };
         }
         c.set("userId", payload.userId);

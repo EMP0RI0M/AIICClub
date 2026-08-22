@@ -114,7 +114,7 @@ export async function signUpWithEmail(params: {
     password: string;
     displayName: string;
     username?: string;
-}): Promise<{ needsConfirmation: boolean }> {
+}): Promise<{ needsConfirmation: boolean; session?: Session | null }> {
     const { data, error } = await getSupabaseClient().auth.signUp({
         email: normalizeEmail(params.email),
         password: params.password,
@@ -130,7 +130,7 @@ export async function signUpWithEmail(params: {
 
     // When email confirmation is enabled, Supabase returns a user but no session.
     const needsConfirmation = !data.session;
-    return { needsConfirmation };
+    return { needsConfirmation, session: data.session };
 }
 
 
@@ -199,10 +199,37 @@ export async function getActiveSupabaseSession(timeoutMs = 4000): Promise<Sessio
     if (data.session) return data.session;
 
     // If we're in the browser, check if the URL has any hash or query params indicating
-    // an active OAuth / email link exchange. If not, don't wait for onAuthStateChange.
+    // an active OAuth / email link exchange.
     if (typeof window !== "undefined") {
         const hash = window.location.hash || "";
         const search = window.location.search || "";
+        const searchParams = new URLSearchParams(search);
+
+        const code = searchParams.get("code");
+        if (code) {
+            try {
+                const { data: codeData, error: codeErr } = await supabase.auth.exchangeCodeForSession(code);
+                if (!codeErr && codeData?.session) {
+                    return codeData.session;
+                }
+            } catch (err) {
+                console.warn("exchangeCodeForSession error:", err);
+            }
+        }
+
+        const token_hash = searchParams.get("token_hash");
+        const type = searchParams.get("type") as any;
+        if (token_hash && type) {
+            try {
+                const { data: otpData, error: otpErr } = await supabase.auth.verifyOtp({ token_hash, type });
+                if (!otpErr && otpData?.session) {
+                    return otpData.session;
+                }
+            } catch (err) {
+                console.warn("verifyOtp error:", err);
+            }
+        }
+
         const hasAuthParams =
             hash.includes("access_token=") ||
             hash.includes("id_token=") ||
@@ -210,6 +237,7 @@ export async function getActiveSupabaseSession(timeoutMs = 4000): Promise<Sessio
             hash.includes("error=") ||
             search.includes("code=") ||
             search.includes("token=") ||
+            search.includes("token_hash=") ||
             search.includes("type=");
 
         if (!hasAuthParams) {
@@ -249,11 +277,10 @@ export async function exchangeSupabaseSession(
     explicitToken?: string
 ): Promise<SessionExchangeResponse | null> {
     const supabase = getSupabaseClient();
-    const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     const token = explicitToken || session?.access_token;
-    const authUser = session?.user;
 
-    if (!authUser || !token) return null;
+    if (!token) return null;
 
     // Try calling the App Router endpoint first
     try {
@@ -281,12 +308,30 @@ export async function exchangeSupabaseSession(
 
     // Direct browser-side Supabase client resolution (zero network API failure)
     try {
+        let authUser = session?.user;
+        if (!authUser) {
+            const userRes = await supabase.auth.getUser(token);
+            authUser = userRes.data?.user || undefined;
+        }
+        if (!authUser) return null;
+
         const email = authUser.email?.toLowerCase() || `${authUser.id}@corvus.internal`;
-        const { data: existingUser } = await supabase
+        let { data: existingUser } = await supabase
             .from("users")
             .select("*")
-            .eq("id", authUser.id)
+            .or(`auth_user_id.eq.${authUser.id},id.eq.${authUser.id}`)
             .maybeSingle();
+
+        if (!existingUser && authUser.email) {
+            const { data: byEmail } = await supabase
+                .from("users")
+                .select("*")
+                .ilike("email", email)
+                .maybeSingle();
+            if (byEmail) {
+                existingUser = byEmail;
+            }
+        }
 
         const baseUsername = profile?.username?.trim().toLowerCase() ||
             existingUser?.username ||
@@ -295,11 +340,13 @@ export async function exchangeSupabaseSession(
         const displayName = profile?.displayName?.trim() ||
             existingUser?.display_name ||
             authUser.user_metadata?.display_name ||
+            authUser.user_metadata?.full_name ||
             baseUsername;
 
         if (!existingUser) {
-            await supabase.from("users").upsert({
+            const { data: inserted } = await supabase.from("users").upsert({
                 id: authUser.id,
+                auth_user_id: authUser.id,
                 email,
                 username: baseUsername,
                 display_name: displayName,
@@ -308,13 +355,17 @@ export async function exchangeSupabaseSession(
                 onboarding_completed: true,
                 email_verified: true,
                 updated_at: new Date().toISOString(),
-            }, { onConflict: "id" });
+            }, { onConflict: "id" }).select().maybeSingle();
+
+            if (inserted) {
+                existingUser = inserted;
+            }
         }
 
         return {
             token: token,
             user: {
-                id: authUser.id,
+                id: existingUser?.id || authUser.id,
                 email,
                 displayName: existingUser?.display_name || displayName,
                 username: existingUser?.username || baseUsername,
@@ -327,19 +378,6 @@ export async function exchangeSupabaseSession(
         };
     } catch (err: any) {
         console.error("Direct Supabase profile resolution fallback failed:", err);
-        return {
-            token: token,
-            user: {
-                id: authUser.id,
-                email: authUser.email || `${authUser.id}@corvus.internal`,
-                displayName: authUser.user_metadata?.display_name || "User",
-                username: (authUser.email?.split("@")[0] || "user").replace(/[^a-zA-Z0-9_]/g, "_"),
-                avatar: authUser.user_metadata?.avatar_url || null,
-                bio: null,
-                status: "online",
-                onboardingCompleted: true,
-            },
-            isNewUser: false,
-        };
+        return null;
     }
 }

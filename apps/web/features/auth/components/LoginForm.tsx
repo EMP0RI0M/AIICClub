@@ -40,7 +40,9 @@ export function LoginForm() {
     if (!validate()) return;
     try {
       await login(email.trim(), password);
-      window.location.href = "/spaces";
+      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const redirect = params?.get("redirect") || "/spaces";
+      window.location.href = redirect.startsWith("/") ? redirect : `/${redirect}`;
     } catch (err) {
       setFormError(
         err instanceof Error && err.message
