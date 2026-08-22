@@ -58,14 +58,30 @@ export function IncidentChannelView({
       if (!incident) return;
       setStatus(incident.status || "active");
       setSeverity(incident.severity || "P2");
-      setCommander(incident.commander?.name || commander);
-      setTimeline((incident.timeline || []).map((entry: any) => ({
-        time: entry.time || entry.at || "",
-        author: entry.author || "System",
-        message: entry.message || entry.text || "",
-        status: entry.status || "investigating",
-      })));
-    }).catch(() => {});
+      if (incident.commander?.name) {
+        setCommander(incident.commander.name);
+      }
+      if (Array.isArray(incident.timeline)) {
+        setTimeline(
+          incident.timeline.map((entry: any) => {
+            const rawText = entry.text || entry.message || "";
+            let author = entry.author;
+            let message = rawText;
+            if (!author && rawText.includes(": ")) {
+              const parts = rawText.split(": ");
+              author = parts[0];
+              message = parts.slice(1).join(": ");
+            }
+            return {
+              time: entry.time || entry.at || "",
+              author: author || "System",
+              message: message,
+              status: entry.status || "investigating",
+            };
+          })
+        );
+      }
+    }).catch((err) => console.warn("[IncidentChannelView] Load failed:", err?.message));
   }, [channelId]);
 
   const persistIncident = (
@@ -79,7 +95,15 @@ export function IncidentChannelView({
       status: nextStatus,
       severity: nextSev,
       commander: { name: nextCmd, id: currentUser?.id },
-      timeline: nextTimeline.map((t) => ({ at: t.time, text: `${t.author}: ${t.message}` })),
+      services: ["Edge Gateway", "Auth Cluster"],
+      timeline: nextTimeline.map((t) => ({
+        at: t.time,
+        time: t.time,
+        author: t.author,
+        message: t.message,
+        text: `${t.author}: ${t.message}`,
+        status: t.status,
+      })),
     }).catch(console.warn);
   };
 
