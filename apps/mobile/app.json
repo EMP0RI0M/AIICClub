@@ -8,6 +8,9 @@
     "scheme": "aiic",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "updates": {
+      "enabled": false
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
