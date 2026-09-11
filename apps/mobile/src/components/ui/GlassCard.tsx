@@ -34,15 +34,31 @@ export const GlassCard: React.FC<GlassCardProps> = ({
         tint="dark"
         style={StyleSheet.absoluteFillObject}
       />
+      {/* Specular sheen gradient mirroring Glasscord */}
       <LinearGradient
         colors={
           elevated
-            ? ["rgba(255,255,255,0.12)", "rgba(255,255,255,0.02)"]
-            : ["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]
+            ? [
+                "rgba(255, 255, 255, 0.18)",
+                "rgba(255, 255, 255, 0.04)",
+                "rgba(232, 163, 61, 0.08)",
+              ]
+            : [
+                "rgba(255, 255, 255, 0.12)",
+                "rgba(255, 255, 255, 0.02)",
+                "rgba(0, 0, 0, 0.05)",
+              ]
         }
         style={StyleSheet.absoluteFillObject}
         start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+      {/* Top inner specular highlight line */}
+      <LinearGradient
+        colors={["rgba(255, 255, 255, 0.30)", "rgba(255, 255, 255, 0)"]}
+        start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
+        style={styles.topInnerShine}
       />
       {children}
     </View>
@@ -53,21 +69,29 @@ const styles = StyleSheet.create({
   base: {
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: "rgba(18, 22, 30, 0.65)",
     padding: 16,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 6,
   },
   elevated: {
-    borderColor: "rgba(212, 160, 23, 0.35)",
+    borderColor: "rgba(232, 163, 61, 0.40)",
     shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  topInnerShine: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
   },
 });

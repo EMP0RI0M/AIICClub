@@ -7,6 +7,7 @@ import {
   Animated,
   Easing,
   useWindowDimensions,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../stores/auth-store";
@@ -170,6 +171,10 @@ function AnimatedText({
   );
 }
 
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import { GlassView } from "../components/ui/liquid-glass";
+
 export default function HomeScreen() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
@@ -218,7 +223,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Ambient background */}
+      {/* Ambient background & Glowing Orbs for Refraction */}
       <View style={styles.backgroundBase} />
 
       <Animated.View
@@ -231,53 +236,80 @@ export default function HomeScreen() {
       >
         <View style={styles.amberAmbient} />
         <View style={styles.tealAmbient} />
+        <View style={styles.purpleAmbient} />
       </Animated.View>
 
-      {/* Top glass layer */}
-      <View pointerEvents="none" style={styles.topGlass} />
-
-      {/* AIIC Orb */}
+      {/* AIIC Breathing Liquid Orb */}
       <AnimatedOrb />
 
-      {/* Main content */}
+      {/* Floating Liquid Glass Card */}
       <View style={styles.content}>
-        <AnimatedText delay={1050} style={styles.title}>
-          Welcome to AIIC
-        </AnimatedText>
-
-        <AnimatedText delay={1150} style={styles.subtitle}>
-          A space to connect,
-          {"\n"}
-          collaborate, and build together.
-        </AnimatedText>
-
-        <View style={styles.actions}>
-          <Pressable
-            onPress={handleGetStarted}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
+        <View style={styles.glassCardWrapper}>
+          <BlurView intensity={Platform.OS === "ios" ? 40 : 25} tint="dark" style={StyleSheet.absoluteFill} />
+          <LinearGradient
+            colors={[
+              "rgba(255, 255, 255, 0.14)",
+              "rgba(255, 255, 255, 0.03)",
+              "rgba(232, 163, 61, 0.06)",
             ]}
-          >
-            <Text style={styles.primaryButtonText}>
-              {isAuthenticated ? "Open Workspace" : "Get started"}
-            </Text>
-          </Pressable>
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          
+          <View style={styles.badgePill}>
+            <Text style={styles.badgeText}>✨ AIIC Liquid Edition</Text>
+          </View>
 
-          <Animated.View style={{ opacity: loginOpacity }}>
+          <AnimatedText delay={1050} style={styles.title}>
+            Welcome to AIIC
+          </AnimatedText>
+
+          <AnimatedText delay={1150} style={styles.subtitle}>
+            A space to connect, collaborate, and build together.
+          </AnimatedText>
+
+          <View style={styles.actions}>
             <Pressable
-              onPress={handleLogin}
-              hitSlop={12}
+              onPress={handleGetStarted}
               style={({ pressed }) => [
-                styles.loginButton,
-                pressed && styles.loginButtonPressed,
+                styles.primaryButton,
+                pressed && styles.primaryButtonPressed,
               ]}
             >
-              <Text style={styles.loginText}>
-                {isAuthenticated ? "Enter as logged in" : "I already have an account"}
+              <LinearGradient
+                colors={["#F59E0B", "#D97706"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <LinearGradient
+                colors={["rgba(255,255,255,0.35)", "rgba(255,255,255,0)"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={styles.buttonSpecular}
+              />
+              <Text style={styles.primaryButtonText}>
+                {isAuthenticated ? "Open Workspace" : "Get started"}
               </Text>
             </Pressable>
-          </Animated.View>
+
+            <Animated.View style={{ opacity: loginOpacity }}>
+              <Pressable
+                onPress={handleLogin}
+                hitSlop={12}
+                style={({ pressed }) => [
+                  styles.loginButton,
+                  pressed && styles.loginButtonPressed,
+                ]}
+              >
+                <BlurView intensity={15} tint="dark" style={StyleSheet.absoluteFill} />
+                <Text style={styles.loginText}>
+                  {isAuthenticated ? "Enter as logged in" : "I already have an account"}
+                </Text>
+              </Pressable>
+            </Animated.View>
+          </View>
         </View>
       </View>
     </View>
@@ -320,20 +352,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(45, 212, 191, 0.09)",
   },
 
-  topGlass: {
+  purpleAmbient: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 180,
-    backgroundColor: "rgba(255,255,255,0.018)",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.035)",
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    top: "35%",
+    right: -80,
+    backgroundColor: "rgba(139, 92, 246, 0.08)",
   },
 
   orbWrap: {
     position: "absolute",
-    top: "13%",
+    top: "10%",
     alignSelf: "center",
     width: 170,
     height: 170,
@@ -448,88 +479,119 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 28,
-    paddingBottom: 34,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+
+  glassCardWrapper: {
+    borderRadius: 32,
+    overflow: "hidden",
+    padding: 24,
+    backgroundColor: "rgba(18, 22, 30, 0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+
+  badgePill: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    backgroundColor: "rgba(232, 163, 61, 0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.35)",
+    marginBottom: 12,
+  },
+
+  badgeText: {
+    color: "#F3C56B",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
 
   title: {
     color: COLORS.text,
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: "800",
-    lineHeight: 35,
-    letterSpacing: -0.6,
-
-    textShadowColor: "rgba(0,0,0,0.45)",
-    textShadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    textShadowRadius: 12,
+    lineHeight: 34,
+    letterSpacing: -0.5,
   },
 
   subtitle: {
-    marginTop: 12,
-    maxWidth: "88%",
+    marginTop: 8,
     color: COLORS.muted,
     fontSize: 14,
-    lineHeight: 21,
+    lineHeight: 20,
     fontWeight: "500",
   },
 
   actions: {
-    marginTop: 24,
+    marginTop: 20,
+    gap: 10,
   },
 
   primaryButton: {
-    height: 54,
-    borderRadius: 27,
-
+    height: 52,
+    borderRadius: 26,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-
-    backgroundColor: COLORS.amber,
-
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.20)",
-
+    borderColor: "rgba(255, 255, 255, 0.28)",
     shadowColor: COLORS.amber,
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.35,
     shadowRadius: 18,
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-
+    shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
 
+  buttonSpecular: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "50%",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+  },
+
   primaryButtonPressed: {
-    transform: [{ scale: 0.975 }],
+    transform: [{ scale: 0.98 }],
     opacity: 0.9,
   },
 
   primaryButtonText: {
     color: "#101114",
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: "800",
     letterSpacing: -0.2,
   },
 
   loginButton: {
-    marginTop: 14,
-    minHeight: 42,
+    minHeight: 46,
+    borderRadius: 23,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   loginButtonPressed: {
-    opacity: 0.65,
+    opacity: 0.75,
     transform: [{ scale: 0.98 }],
   },
 
   loginText: {
-    color: "rgba(245,247,250,0.78)",
-    fontSize: 13.5,
+    color: "rgba(245, 247, 250, 0.88)",
+    fontSize: 14,
     fontWeight: "600",
   },
 });

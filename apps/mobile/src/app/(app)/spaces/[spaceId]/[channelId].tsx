@@ -16,6 +16,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "../../../../stores/auth-store";
 import { useWorkspaceStore } from "../../../../stores/workspace-store";
 import { useChatStore } from "../../../../stores/chat-store";
@@ -598,10 +600,21 @@ function TextChannelScreen({
       keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
       style={styles.channelScreen}
     >
-      {/* Header with Back Button and Mode Toggle */}
+      {/* Ambient Color Glows for Liquid Glass Refraction */}
+      <View style={styles.ambientGlowAmber} pointerEvents="none" />
+      <View style={styles.ambientGlowTeal} pointerEvents="none" />
+
+      {/* Curved Liquid Glass Header */}
       <View style={styles.channelHeader}>
+        <BlurView intensity={Platform.OS === "ios" ? 30 : 20} tint="dark" style={StyleSheet.absoluteFill} />
+        <LinearGradient
+          colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.01)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
         <Pressable onPress={onBack} hitSlop={14} style={styles.backBtn}>
-          <ChevronLeft size={24} color={colors.textPrimary} />
+          <ChevronLeft size={22} color={colors.textPrimary} />
         </Pressable>
 
         {channel.type === "github" ? (
@@ -1145,9 +1158,10 @@ function MessageComposer({
         </View>
       )}
 
-      {/* WhatsApp-Style Rounded Pill + Detached Floating Circle */}
+      {/* WhatsApp-Style Rounded Liquid Pill + Detached Floating Circle */}
       <View style={styles.composerRow}>
         <View style={styles.composerPill}>
+          <BlurView intensity={Platform.OS === "ios" ? 25 : 15} tint="dark" style={StyleSheet.absoluteFill} />
           {/* Emoji button inside left of pill */}
           <Pressable
             onPress={() => {
@@ -1217,6 +1231,14 @@ function MessageComposer({
           ]}
           hitSlop={6}
         >
+          {hasContent && (
+            <LinearGradient
+              colors={["#F59E0B", "#D97706"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          )}
           {sending ? (
             <ActivityIndicator color="#000" size="small" />
           ) : hasContent ? (
@@ -2530,14 +2552,36 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
+  ambientGlowAmber: {
+    position: "absolute",
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+    backgroundColor: "rgba(212, 160, 23, 0.05)",
+    top: 60,
+    left: -100,
+  },
+
+  ambientGlowTeal: {
+    position: "absolute",
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    backgroundColor: "rgba(45, 212, 191, 0.04)",
+    bottom: 120,
+    right: -100,
+  },
+
   channelHeader: {
-    height: 54,
+    height: 56,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.12)",
+    borderBottomColor: "rgba(255, 255, 255, 0.10)",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     gap: 8,
+    overflow: "hidden",
+    backgroundColor: "rgba(18, 22, 30, 0.75)",
   },
 
   backBtn: {
@@ -2546,7 +2590,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 18,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   channelHeaderName: {
@@ -2572,8 +2618,13 @@ const styles = StyleSheet.create({
 
   messageRow: {
     flexDirection: "row",
-    marginBottom: 16,
+    marginBottom: 12,
     gap: 10,
+    padding: 10,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.04)",
   },
 
   messageAvatar: {
@@ -2586,13 +2637,16 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    backgroundColor: "rgba(232, 163, 61, 0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.35)",
     alignItems: "center",
     justifyContent: "center",
   },
 
   avatarLetter: {
-    color: colors.textPrimary,
+    color: colors.accent,
+    fontSize: 15,
     fontWeight: "800",
   },
 
@@ -2627,7 +2681,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 280,
     height: 180,
-    borderRadius: 12,
+    borderRadius: 14,
     marginTop: 8,
     backgroundColor: "rgba(28, 30, 42, 0.88)",
   },
@@ -2635,8 +2689,10 @@ const styles = StyleSheet.create({
   fileCard: {
     marginTop: 8,
     padding: 12,
-    borderRadius: 10,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   fileName: {
@@ -2651,16 +2707,18 @@ const styles = StyleSheet.create({
   },
 
   reaction: {
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
-    borderRadius: 8,
-    paddingHorizontal: 7,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: 12,
+    paddingHorizontal: 8,
     paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   composer: {
     minHeight: 54,
     margin: 10,
-    borderRadius: 16,
+    borderRadius: 20,
     backgroundColor: "rgba(28, 30, 42, 0.88)",
     flexDirection: "row",
     alignItems: "center",
@@ -2681,14 +2739,15 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 46,
     maxHeight: 120,
-    backgroundColor: "#171924",
+    backgroundColor: "rgba(23, 25, 36, 0.75)",
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.09)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 6,
     paddingVertical: 2,
+    overflow: "hidden",
   },
 
   pillIconBtn: {
@@ -2710,11 +2769,12 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: "#171924",
+    backgroundColor: "rgba(23, 25, 36, 0.75)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.09)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
 
   detachedActionButtonActive: {
