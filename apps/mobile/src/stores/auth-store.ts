@@ -6,7 +6,11 @@ import { getSupabaseClient } from "../lib/supabase";
 import { NativeStorage } from "../lib/storage";
 import { api, setAuthToken } from "../lib/api";
 
-WebBrowser.maybeCompleteAuthSession();
+import { Platform } from "react-native";
+
+if (Platform.OS === "web") {
+  WebBrowser.maybeCompleteAuthSession();
+}
 
 export interface User {
   id: string;
@@ -261,25 +265,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       if (!data?.url) throw new Error("No authorization URL returned from Supabase.");
 
-      let result;
+      let result: WebBrowser.WebBrowserAuthSessionResult | null = null;
       try {
         result = await WebBrowser.openAuthSessionAsync(
           data.url,
           redirectTo
         );
       } catch (browserErr: any) {
-        console.warn("[AIIC OAuth] openAuthSessionAsync failed, dismissing:", browserErr?.message);
+        console.warn("[AIIC OAuth] openAuthSessionAsync encountered state conflict, using openBrowserAsync:", browserErr?.message);
         try {
           WebBrowser.dismissAuthSession();
         } catch {}
-        // Retry once after clean dismissal
-        result = await WebBrowser.openAuthSessionAsync(
-          data.url,
-          redirectTo
-        );
+        await WebBrowser.openBrowserAsync(data.url);
       }
 
-      if (result.type === "success" && result.url) {
+      if (result && result.type === "success" && result.url) {
         await get().handleOAuthCallback(result.url);
       } else {
         // In case deep linking resumed outside WebBrowser return
