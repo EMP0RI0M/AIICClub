@@ -833,7 +833,8 @@ function NativeMessageList({
                 }}
                 style={({ pressed }) => [
                   styles.messageRow,
-                  pressed && { backgroundColor: "rgba(255, 255, 255, 0.03)", borderRadius: 10 },
+                  isOwnMessage && styles.ownMessageRow,
+                  pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] },
                 ]}
               >
                 <Pressable
@@ -2148,9 +2149,9 @@ const styles = StyleSheet.create({
   /* LEVEL 1: NARROW LEFT SPACE RAIL */
   rail: {
     width: 78,
-    backgroundColor: "rgba(14, 16, 23, 0.96)",
+    backgroundColor: "rgba(14, 18, 26, 0.82)",
     borderRightWidth: 1,
-    borderRightColor: "rgba(255, 255, 255, 0.12)",
+    borderRightColor: "rgba(255, 255, 255, 0.10)",
     alignItems: "center",
     paddingTop: 8,
     paddingBottom: 8,
@@ -2164,17 +2165,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(232, 163, 61, 0.12)",
     borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.25)",
+    borderColor: "rgba(232, 163, 61, 0.28)",
   },
 
   activeDM: {
     backgroundColor: colors.accent,
+    borderColor: "rgba(255, 255, 255, 0.40)",
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 6,
   },
 
   railDivider: {
     width: 36,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.10)",
     marginVertical: 10,
   },
 
@@ -2191,10 +2198,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
 
   activeSpace: {
-    backgroundColor: "rgba(58, 60, 78, 0.75)",
+    backgroundColor: "rgba(232, 163, 61, 0.18)",
+    borderColor: "rgba(232, 163, 61, 0.45)",
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
   },
 
   spaceImage: {
@@ -2618,13 +2633,18 @@ const styles = StyleSheet.create({
 
   messageRow: {
     flexDirection: "row",
-    marginBottom: 12,
+    marginBottom: 10,
     gap: 10,
-    padding: 10,
-    borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    padding: 12,
+    borderRadius: 18,
+    backgroundColor: "rgba(22, 26, 36, 0.65)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+
+  ownMessageRow: {
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    borderColor: "rgba(232, 163, 61, 0.30)",
   },
 
   messageAvatar: {

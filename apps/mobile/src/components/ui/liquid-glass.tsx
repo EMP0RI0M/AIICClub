@@ -116,6 +116,108 @@ export const GlassContainer: React.FC<GlassContainerProps> = ({
   );
 };
 
+export interface LiquidGlassCardProps extends ViewProps {
+  glowIntensity?: "none" | "sm" | "md" | "lg";
+  shadowIntensity?: "none" | "sm" | "md" | "lg";
+  borderRadius?: number | string;
+  blurIntensity?: "none" | "sm" | "md" | "lg" | number;
+  draggable?: boolean;
+  className?: string;
+  style?: StyleProp<ViewStyle>;
+  children?: React.ReactNode;
+}
+
+export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
+  glowIntensity = "sm",
+  shadowIntensity = "sm",
+  borderRadius = 20,
+  blurIntensity = "sm",
+  draggable = false,
+  style,
+  children,
+  ...rest
+}) => {
+  const numericRadius =
+    typeof borderRadius === "number"
+      ? borderRadius
+      : typeof borderRadius === "string" && borderRadius.endsWith("px")
+      ? parseInt(borderRadius, 10) || 20
+      : 20;
+
+  const calculatedBlur =
+    typeof blurIntensity === "number"
+      ? blurIntensity
+      : blurIntensity === "none"
+      ? 0
+      : blurIntensity === "sm"
+      ? 20
+      : blurIntensity === "md"
+      ? 35
+      : 50;
+
+  const glowBorderColor =
+    glowIntensity === "none"
+      ? "rgba(255, 255, 255, 0.10)"
+      : glowIntensity === "sm"
+      ? "rgba(255, 255, 255, 0.18)"
+      : glowIntensity === "md"
+      ? "rgba(232, 163, 61, 0.35)"
+      : "rgba(232, 163, 61, 0.55)";
+
+  const shadowElevation =
+    shadowIntensity === "none"
+      ? 0
+      : shadowIntensity === "sm"
+      ? 4
+      : shadowIntensity === "md"
+      ? 8
+      : 14;
+
+  return (
+    <View
+      style={[
+        styles.liquidGlassBase,
+        {
+          borderRadius: numericRadius,
+          borderColor: glowBorderColor,
+          elevation: shadowElevation,
+        },
+        style,
+      ]}
+      {...rest}
+    >
+      {calculatedBlur > 0 && (
+        <BlurView
+          intensity={calculatedBlur}
+          tint="dark"
+          style={StyleSheet.absoluteFillObject}
+        />
+      )}
+      {/* Specular sheen gradient */}
+      <LinearGradient
+        colors={[
+          "rgba(255, 255, 255, 0.16)",
+          "rgba(255, 255, 255, 0.03)",
+          glowIntensity === "md" || glowIntensity === "lg"
+            ? "rgba(232, 163, 61, 0.08)"
+            : "rgba(0, 0, 0, 0.04)",
+        ]}
+        style={StyleSheet.absoluteFillObject}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+      {/* Top specular reflection edge highlight */}
+      <LinearGradient
+        colors={["rgba(255, 255, 255, 0.32)", "rgba(255, 255, 255, 0)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.topSpecular}
+      />
+      {children}
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   glassWrapper: {
     position: "relative",
@@ -128,6 +230,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 4,
+  },
+  liquidGlassBase: {
+    position: "relative",
+    overflow: "hidden",
+    backgroundColor: "rgba(18, 22, 30, 0.68)",
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+  },
+  topSpecular: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
   },
   containerRoot: {
     position: "relative",
