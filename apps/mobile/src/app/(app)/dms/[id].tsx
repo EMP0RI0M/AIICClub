@@ -353,8 +353,8 @@ export default function DMDetailScreen() {
                         <LinearGradient
                           colors={
                             isMe
-                              ? ["rgba(212,160,23,0.92)", "rgba(180,130,12,0.88)"]
-                              : ["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]
+                              ? ["rgba(232, 163, 61, 0.12)", "rgba(232, 163, 61, 0.04)"]
+                              : ["rgba(255, 255, 255, 0.04)", "rgba(255, 255, 255, 0.01)"]
                           }
                           style={StyleSheet.absoluteFillObject}
                           start={{ x: 0, y: 0 }}
@@ -963,26 +963,26 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 6,
   },
   bubbleInner: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
     overflow: "hidden",
-    borderWidth: 1,
+    borderWidth: 0.5,
   },
   myBubbleInner: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 22,
-    borderBottomRightRadius: 6,
-    borderBottomLeftRadius: 24,
-    borderColor: "rgba(232, 163, 61, 0.35)",
-    backgroundColor: "rgba(232, 163, 61, 0.14)",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 4,
+    borderBottomLeftRadius: 22,
+    borderColor: "rgba(232, 163, 61, 0.18)",
+    backgroundColor: "transparent",
   },
   theirBubbleInner: {
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 28,
-    borderBottomRightRadius: 24,
-    borderBottomLeftRadius: 6,
-    borderColor: "rgba(255, 255, 255, 0.10)",
-    backgroundColor: "rgba(20, 24, 36, 0.60)",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 24,
+    borderBottomRightRadius: 22,
+    borderBottomLeftRadius: 4,
+    borderColor: "rgba(255, 255, 255, 0.07)",
+    backgroundColor: "transparent",
   },
   bubbleText: {
     fontSize: 14.5,

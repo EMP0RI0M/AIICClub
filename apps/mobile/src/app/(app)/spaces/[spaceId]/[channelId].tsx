@@ -857,81 +857,71 @@ function NativeMessageList({
                   </Pressable>
                 )}
 
-                <Pressable
-                  delayLongPress={150}
-                  onLongPress={() => {
-                    NativeHaptics.medium();
-                    setSelectedMessage(item);
-                    setActionMenuOpen(true);
-                  }}
-                  style={({ pressed }) => [
-                    styles.organicBubble,
-                    isOwnMessage
-                      ? styles.organicBubbleOwn
-                      : (item.user?.displayName?.includes("Bot") || item.user?.id === "00000000-0000-0000-0000-000000000001")
-                      ? styles.organicBubbleBot
-                      : styles.organicBubbleOther,
-                    pressed && { opacity: 0.88, transform: [{ scale: 0.985 }] },
-                  ]}
-                >
-                  <LinearGradient
-                    colors={
-                      isOwnMessage
-                        ? ["rgba(255, 255, 255, 0.18)", "rgba(255, 255, 255, 0.02)"]
-                        : ["rgba(255, 255, 255, 0.10)", "rgba(255, 255, 255, 0.01)"]
-                    }
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={styles.bubbleTopSpecular}
-                  />
+                <View style={[styles.messageContentColumn, isOwnMessage && styles.messageContentColumnOwn]}>
+                  {/* Floating Author Metadata Line */}
+                  <View style={[styles.messageHeader, isOwnMessage && { justifyContent: "flex-end" }]}>
+                    <Text
+                      style={[
+                        styles.displayName,
+                        {
+                          color:
+                            item.user?.displayName?.includes("Bot") ||
+                            item.user?.id === "00000000-0000-0000-0000-000000000001"
+                              ? "#818CF8"
+                              : isOwnMessage
+                              ? "rgba(243, 197, 107, 0.9)"
+                              : item.user?.roleColor || colors.textPrimary,
+                        },
+                      ]}
+                    >
+                      {isOwnMessage ? "You" : item.user?.displayName || "Member"}
+                    </Text>
 
-                  <View style={styles.messageBody}>
-                    <View style={styles.messageHeader}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                        <Text
-                          style={[
-                            styles.displayName,
-                            {
-                              color:
-                                item.user?.displayName?.includes("Bot") ||
-                                item.user?.id === "00000000-0000-0000-0000-000000000001"
-                                  ? "#818CF8"
-                                  : isOwnMessage
-                                  ? "#F59E0B"
-                                  : item.user?.roleColor || colors.textPrimary,
-                            },
-                          ]}
-                        >
-                          {isOwnMessage ? "You" : item.user?.displayName || "Member"}
-                        </Text>
-                        {(item.user?.displayName?.includes("Bot") ||
-                          item.user?.id === "00000000-0000-0000-0000-000000000001") && (
-                          <View
-                            style={{
-                              backgroundColor: "rgba(99, 102, 241, 0.2)",
-                              borderColor: "rgba(99, 102, 241, 0.4)",
-                              borderWidth: 1,
-                              borderRadius: 4,
-                              paddingHorizontal: 4,
-                              paddingVertical: 1,
-                            }}
-                          >
-                            <Text style={{ color: "#818CF8", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>
-                              BOT
-                            </Text>
-                          </View>
-                        )}
+                    {(item.user?.displayName?.includes("Bot") ||
+                      item.user?.id === "00000000-0000-0000-0000-000000000001") && (
+                      <View style={styles.botBadge}>
+                        <Text style={styles.botBadgeText}>AI</Text>
                       </View>
+                    )}
 
-                      <Text style={styles.timestamp}>
-                        {item.createdAt
-                          ? new Date(item.createdAt).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          : ""}
-                      </Text>
-                    </View>
+                    <Text style={styles.timestamp}>
+                      {item.createdAt
+                        ? new Date(item.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : ""}
+                    </Text>
+                  </View>
+
+                  {/* Translucent Fluid Glass Message Body */}
+                  <Pressable
+                    delayLongPress={150}
+                    onLongPress={() => {
+                      NativeHaptics.medium();
+                      setSelectedMessage(item);
+                      setActionMenuOpen(true);
+                    }}
+                    style={({ pressed }) => [
+                      styles.visionGlassBubble,
+                      isOwnMessage
+                        ? styles.visionGlassBubbleOwn
+                        : (item.user?.displayName?.includes("Bot") || item.user?.id === "00000000-0000-0000-0000-000000000001")
+                        ? styles.visionGlassBubbleBot
+                        : styles.visionGlassBubbleOther,
+                      pressed && { opacity: 0.82, transform: [{ scale: 0.985 }] },
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={
+                        isOwnMessage
+                          ? ["rgba(255, 255, 255, 0.12)", "rgba(255, 255, 255, 0)"]
+                          : ["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0)"]
+                      }
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      style={styles.bubbleTopSpecular}
+                    />
 
                     {cleanText ? <Text style={styles.messageText}>{cleanText}</Text> : null}
 
@@ -963,8 +953,8 @@ function NativeMessageList({
                         </Text>
                       </Pressable>
                     )}
-                  </View>
-                </Pressable>
+                  </Pressable>
+                </View>
               </View>
 
               {/* Reaction Pills & Add Reaction Button */}
@@ -2670,8 +2660,8 @@ const styles = StyleSheet.create({
 
   messageRowWrapper: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    marginBottom: 10,
+    alignItems: "flex-start",
+    marginBottom: 8,
     gap: 8,
     width: "100%",
   },
@@ -2681,47 +2671,68 @@ const styles = StyleSheet.create({
   },
 
   avatarGlowContainer: {
-    marginBottom: 2,
+    marginTop: 2,
   },
 
-  organicBubble: {
-    maxWidth: "86%",
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+  messageContentColumn: {
+    flex: 1,
+    maxWidth: "85%",
+    alignItems: "flex-start",
+  },
+
+  messageContentColumnOwn: {
+    alignItems: "flex-end",
+  },
+
+  botBadge: {
+    backgroundColor: "rgba(99, 102, 241, 0.15)",
+    borderColor: "rgba(99, 102, 241, 0.3)",
+    borderWidth: 0.5,
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+
+  botBadgeText: {
+    color: "#818CF8",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+
+  visionGlassBubble: {
+    paddingHorizontal: 13,
+    paddingVertical: 8,
     overflow: "hidden",
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 2,
+    borderWidth: 0.5,
+    marginTop: 2,
   },
 
-  organicBubbleOther: {
-    backgroundColor: "rgba(18, 22, 34, 0.42)",
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 32,
-    borderBottomRightRadius: 28,
-    borderBottomLeftRadius: 6,
-  },
-
-  organicBubbleOwn: {
-    backgroundColor: "rgba(232, 163, 61, 0.12)",
-    borderColor: "rgba(232, 163, 61, 0.28)",
-    borderTopLeftRadius: 32,
+  visionGlassBubbleOther: {
+    backgroundColor: "rgba(255, 255, 255, 0.035)",
+    borderColor: "rgba(255, 255, 255, 0.07)",
+    borderTopLeftRadius: 18,
     borderTopRightRadius: 24,
-    borderBottomRightRadius: 6,
-    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 22,
+    borderBottomLeftRadius: 4,
   },
 
-  organicBubbleBot: {
-    backgroundColor: "rgba(99, 102, 241, 0.04)",
-    borderColor: "rgba(129, 140, 248, 0.16)",
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 32,
-    borderBottomRightRadius: 28,
-    borderBottomLeftRadius: 8,
+  visionGlassBubbleOwn: {
+    backgroundColor: "rgba(232, 163, 61, 0.08)",
+    borderColor: "rgba(232, 163, 61, 0.18)",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 4,
+    borderBottomLeftRadius: 22,
+  },
+
+  visionGlassBubbleBot: {
+    backgroundColor: "rgba(99, 102, 241, 0.025)",
+    borderColor: "rgba(129, 140, 248, 0.12)",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 24,
+    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: 6,
   },
 
   bubbleTopSpecular: {
@@ -2729,22 +2740,22 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 1.5,
+    height: 1,
   },
 
   messageAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
 
   messageAvatarFallback: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "rgba(232, 163, 61, 0.18)",
-    borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.35)",
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(232, 163, 61, 0.15)",
+    borderWidth: 0.5,
+    borderColor: "rgba(232, 163, 61, 0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
