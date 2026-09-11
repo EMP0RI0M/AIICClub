@@ -118,8 +118,12 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Profile Card Header */}
+      {/* Ambient Color Glows for Liquid Glass Refraction */}
+      <View style={styles.ambientGlowAmber} pointerEvents="none" />
+      <View style={styles.ambientGlowTeal} pointerEvents="none" />
+
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Profile Card */}
         <GlassCard elevated style={styles.profileCard}>
           <View style={styles.profileTop}>
             <Avatar
@@ -382,7 +386,25 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#07090E",
+  },
+  ambientGlowAmber: {
+    position: "absolute",
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+    backgroundColor: "rgba(212, 160, 23, 0.055)",
+    top: 40,
+    left: -120,
+  },
+  ambientGlowTeal: {
+    position: "absolute",
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    backgroundColor: "rgba(45, 212, 191, 0.035)",
+    bottom: 80,
+    right: -100,
   },
   scrollContent: {
     padding: 16,

@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius } from "../../../theme/tokens";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui/Button";
@@ -34,6 +36,7 @@ import {
   Phone,
   UserPlus,
   Circle,
+  Sparkles,
 } from "lucide-react-native";
 
 export default function DMsScreen() {
@@ -146,67 +149,109 @@ export default function DMsScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
+      {/* Ambient Color Glows for Liquid Refraction */}
+      <View style={styles.ambientGlowAmber} pointerEvents="none" />
+      <View style={styles.ambientGlowPurple} pointerEvents="none" />
+
       {/* Top Header Capsule */}
-      <View style={styles.headerCapsule}>
-        <View style={styles.headerLeft}>
-          <MessageSquare size={18} color={colors.accent} />
-          <Text style={styles.title}>Direct Messages</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.newBtn}
-          onPress={() => {
-            setTopTab("friends");
-            setFriendSubTab("add");
-          }}
-        >
-          <UserPlus size={16} color={colors.textPrimary} />
-        </TouchableOpacity>
+      <View style={styles.headerCapsuleWrap}>
+        <BlurView intensity={30} tint="dark" style={styles.headerCapsule}>
+          <LinearGradient
+            colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+            style={StyleSheet.absoluteFillObject}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          />
+          <View style={styles.headerLeft}>
+            <View style={styles.headerIconOrb}>
+              <MessageSquare size={16} color={colors.accent} />
+            </View>
+            <View>
+              <Text style={styles.title}>Direct Messages</Text>
+              <Text style={styles.subtitle}>AIIC ENCRYPTED COMM</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.newBtn}
+            onPress={() => {
+              setTopTab("friends");
+              setFriendSubTab("add");
+            }}
+          >
+            <UserPlus size={16} color={colors.accent} />
+          </TouchableOpacity>
+        </BlurView>
       </View>
 
       {/* Main Mode Switcher: Messages vs Squad & Friends */}
-      <View style={styles.mainTabRow}>
-        <TouchableOpacity
-          style={[styles.mainTabPill, topTab === "messages" && styles.mainTabPillActive]}
-          onPress={() => setTopTab("messages")}
-        >
-          <Text
-            style={[
-              styles.mainTabPillText,
-              topTab === "messages" && styles.mainTabPillTextActive,
-            ]}
+      <View style={styles.mainTabRowWrap}>
+        <BlurView intensity={24} tint="dark" style={styles.mainTabRow}>
+          <TouchableOpacity
+            style={[styles.mainTabPill, topTab === "messages" && styles.mainTabPillActive]}
+            onPress={() => setTopTab("messages")}
           >
-            Messages ({dms.length})
-          </Text>
-        </TouchableOpacity>
+            {topTab === "messages" && (
+              <LinearGradient
+                colors={["rgba(212, 160, 23, 0.25)", "rgba(212, 160, 23, 0.08)"]}
+                style={StyleSheet.absoluteFillObject}
+              />
+            )}
+            <Text
+              style={[
+                styles.mainTabPillText,
+                topTab === "messages" && styles.mainTabPillTextActive,
+              ]}
+            >
+              Messages ({dms.length})
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.mainTabPill, topTab === "friends" && styles.mainTabPillActive]}
-          onPress={() => setTopTab("friends")}
-        >
-          <Text
-            style={[
-              styles.mainTabPillText,
-              topTab === "friends" && styles.mainTabPillTextActive,
-            ]}
+          <TouchableOpacity
+            style={[styles.mainTabPill, topTab === "friends" && styles.mainTabPillActive]}
+            onPress={() => setTopTab("friends")}
           >
-            Squad & Friends ({friends.length})
-          </Text>
-        </TouchableOpacity>
+            {topTab === "friends" && (
+              <LinearGradient
+                colors={["rgba(212, 160, 23, 0.25)", "rgba(212, 160, 23, 0.08)"]}
+                style={StyleSheet.absoluteFillObject}
+              />
+            )}
+            <Text
+              style={[
+                styles.mainTabPillText,
+                topTab === "friends" && styles.mainTabPillTextActive,
+              ]}
+            >
+              Squad & Friends ({friends.length})
+            </Text>
+          </TouchableOpacity>
+        </BlurView>
       </View>
 
       {/* MESSAGES TAB CONTENT */}
       {topTab === "messages" && (
         <View style={{ flex: 1 }}>
-          {/* Search bar */}
-          <View style={styles.searchBar}>
-            <Search size={14} color={colors.textMuted} />
-            <TextInput
-              placeholder="Search direct messages..."
-              placeholderTextColor="rgba(101, 106, 126, 0.7)"
-              style={styles.searchInput}
-              value={search}
-              onChangeText={setSearch}
-            />
+          {/* Curved Liquid Glass Search bar */}
+          <View style={styles.searchBarWrap}>
+            <BlurView intensity={25} tint="dark" style={styles.searchBar}>
+              <LinearGradient
+                colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
+                style={StyleSheet.absoluteFillObject}
+              />
+              <Search size={15} color={colors.accent} />
+              <TextInput
+                placeholder="Search direct messages..."
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                style={styles.searchInput}
+                value={search}
+                onChangeText={setSearch}
+              />
+              {!!search && (
+                <TouchableOpacity onPress={() => setSearch("")} hitSlop={6}>
+                  <X size={14} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </BlurView>
           </View>
 
           {isLoadingDMs && dms.length === 0 ? (
@@ -220,37 +265,47 @@ export default function DMsScreen() {
               contentContainerStyle={styles.list}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={styles.dmRow}
+                  activeOpacity={0.8}
+                  style={styles.dmRowWrap}
                   onPress={() => router.push(`/(app)/dms/${item.id}`)}
                 >
-                  <Avatar name={item.name} presence={item.presence} size={42} />
-                  <View style={styles.dmInfo}>
-                    <View style={styles.dmTop}>
-                      <Text style={styles.dmName} numberOfLines={1}>
-                        {item.name}
+                  <BlurView intensity={25} tint="dark" style={styles.dmRow}>
+                    <LinearGradient
+                      colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
+                      style={StyleSheet.absoluteFillObject}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                    />
+                    <Avatar name={item.name} presence={item.presence} size={44} />
+                    <View style={styles.dmInfo}>
+                      <View style={styles.dmTop}>
+                        <Text style={styles.dmName} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        {item.lastLabel ? (
+                          <Text style={styles.dmTime}>{item.lastLabel}</Text>
+                        ) : null}
+                      </View>
+                      <Text style={styles.dmSnippet} numberOfLines={1}>
+                        {item.snippet || "Start a conversation"}
                       </Text>
-                      {item.lastLabel ? (
-                        <Text style={styles.dmTime}>{item.lastLabel}</Text>
-                      ) : null}
                     </View>
-                    <Text style={styles.dmSnippet} numberOfLines={1}>
-                      {item.snippet || "Start a conversation"}
-                    </Text>
-                  </View>
-                  {item.unreadCount ? (
-                    <View style={styles.unreadBadge}>
-                      <Text style={styles.unreadText}>{item.unreadCount}</Text>
-                    </View>
-                  ) : null}
+                    {item.unreadCount ? (
+                      <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadText}>{item.unreadCount}</Text>
+                      </View>
+                    ) : null}
+                  </BlurView>
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyState}>
-                  <MessageSquare size={36} color={colors.textMuted} />
+                  <View style={styles.emptyIconOrb}>
+                    <MessageSquare size={28} color={colors.accent} />
+                  </View>
                   <Text style={styles.emptyTitle}>No Direct Messages</Text>
                   <Text style={styles.emptySubtitle}>
-                    Start a conversation with a teammate or member.
+                    Connect and start a liquid glass conversation with your team.
                   </Text>
                   <Button
                     title="Find Friends"
@@ -259,7 +314,7 @@ export default function DMsScreen() {
                       setTopTab("friends");
                       setFriendSubTab("add");
                     }}
-                    style={{ marginTop: 12 }}
+                    style={{ marginTop: 14, borderRadius: 20 }}
                   />
                 </View>
               }
@@ -304,183 +359,181 @@ export default function DMsScreen() {
             ))}
           </View>
 
-          {/* ONLINE & ALL SUB-TAB */}
+          {/* ONLINE & ALL FRIENDS LIST */}
           {(friendSubTab === "online" || friendSubTab === "all") && (
             <FlatList
               data={visibleFriends}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(f) => f.id}
               contentContainerStyle={styles.list}
               renderItem={({ item }) => (
-                <View style={styles.friendRow}>
-                  <Avatar name={item.name} presence={item.presence} size={40} />
-                  <View style={styles.friendInfo}>
-                    <Text style={styles.friendName}>{item.name}</Text>
-                    <Text style={styles.friendStatus} numberOfLines={1}>
-                      {item.status || (item.presence === "online" ? "Online" : "Offline")}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleStartDMWithFriend(item.id)}
-                  >
-                    <MessageSquare size={16} color={colors.accent} />
-                  </TouchableOpacity>
+                <View style={styles.dmRowWrap}>
+                  <BlurView intensity={25} tint="dark" style={styles.dmRow}>
+                    <LinearGradient
+                      colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                    <Avatar name={item.name} presence={item.presence} size={42} />
+                    <View style={styles.dmInfo}>
+                      <Text style={styles.dmName}>{item.name}</Text>
+                      <Text style={styles.dmSnippet}>@{item.username}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.actionCircleBtn}
+                      onPress={() => handleStartDMWithFriend(item.id)}
+                    >
+                      <MessageSquare size={16} color={colors.accent} />
+                    </TouchableOpacity>
+                  </BlurView>
                 </View>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyState}>
-                  <Users size={36} color={colors.textMuted} />
+                  <Users size={32} color={colors.textMuted} />
                   <Text style={styles.emptyTitle}>
-                    {friendSubTab === "online" ? "No Friends Online" : "No Friends Yet"}
+                    {friendSubTab === "online"
+                      ? "No Friends Online"
+                      : "No Friends Added Yet"}
                   </Text>
                   <Text style={styles.emptySubtitle}>
-                    {friendSubTab === "online"
-                      ? "None of your friends are currently active."
-                      : "Add friends by their username to connect."}
+                    Search for squad members to add to your network.
                   </Text>
                 </View>
               }
             />
           )}
 
-          {/* PENDING REQUESTS SUB-TAB */}
+          {/* PENDING REQUESTS */}
           {friendSubTab === "pending" && (
             <FlatList
               data={[
-                ...incomingRequests.map((r: any) => ({ ...r, direction: "incoming" })),
-                ...outgoingRequests.map((r: any) => ({ ...r, direction: "outgoing" })),
+                ...incomingRequests.map((r) => ({ ...r, type: "incoming" })),
+                ...outgoingRequests.map((r) => ({ ...r, type: "outgoing" })),
               ]}
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.list}
-              renderItem={({ item }) => (
-                <View style={styles.pendingCard}>
-                  <Avatar name={item.user?.displayName || item.user?.username} size={38} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.pendingName}>
-                      {item.user?.displayName || item.user?.username}
-                    </Text>
-                    <Text style={styles.pendingHandle}>
-                      @{item.user?.username} · {item.direction === "incoming" ? "Incoming Request" : "Outgoing Request"}
-                    </Text>
-                  </View>
-                  {item.direction === "incoming" ? (
-                    <View style={styles.pendingBtnRow}>
-                      <TouchableOpacity
-                        style={[styles.circleBtn, { backgroundColor: colors.accentSoft }]}
-                        onPress={() => handleAcceptRequest(item.id)}
-                        disabled={actionLoadingId === item.id}
-                      >
-                        <Check size={16} color={colors.accent} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.circleBtn, { backgroundColor: "rgba(239, 68, 68, 0.15)" }]}
-                        onPress={() => handleDeclineRequest(item.id)}
-                        disabled={actionLoadingId === item.id}
-                      >
-                        <X size={16} color={colors.danger} />
-                      </TouchableOpacity>
+              renderItem={({ item }: { item: any }) => (
+                <View style={styles.dmRowWrap}>
+                  <BlurView intensity={25} tint="dark" style={styles.dmRow}>
+                    <LinearGradient
+                      colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                    <Avatar
+                      name={
+                        item.type === "incoming"
+                          ? item.sender?.name || "User"
+                          : item.receiver?.name || "User"
+                      }
+                      size={42}
+                    />
+                    <View style={styles.dmInfo}>
+                      <Text style={styles.dmName}>
+                        {item.type === "incoming"
+                          ? item.sender?.name || "User"
+                          : item.receiver?.name || "User"}
+                      </Text>
+                      <Text style={styles.dmSnippet}>
+                        {item.type === "incoming"
+                          ? "Incoming Friend Request"
+                          : "Outgoing Friend Request"}
+                      </Text>
                     </View>
-                  ) : (
-                    <Text style={styles.outgoingBadge}>Sent</Text>
-                  )}
+
+                    {item.type === "incoming" && (
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        <TouchableOpacity
+                          style={[styles.actionCircleBtn, { backgroundColor: "rgba(45, 212, 191, 0.15)", borderColor: "rgba(45, 212, 191, 0.3)" }]}
+                          onPress={() => handleAcceptRequest(item.id)}
+                          disabled={actionLoadingId === item.id}
+                        >
+                          <Check size={16} color={colors.accentTeal} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.actionCircleBtn, { backgroundColor: "rgba(255, 77, 79, 0.15)", borderColor: "rgba(255, 77, 79, 0.3)" }]}
+                          onPress={() => handleDeclineRequest(item.id)}
+                          disabled={actionLoadingId === item.id}
+                        >
+                          <X size={16} color={colors.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </BlurView>
                 </View>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyState}>
-                  <Users size={36} color={colors.textMuted} />
-                  <Text style={styles.emptyTitle}>No Pending Requests</Text>
+                  <Check size={32} color={colors.accentTeal} />
+                  <Text style={styles.emptyTitle}>All Caught Up</Text>
                   <Text style={styles.emptySubtitle}>
-                    You have no pending incoming or outgoing requests.
+                    You have no pending friend requests.
                   </Text>
                 </View>
               }
             />
           )}
 
-          {/* ADD FRIEND SUB-TAB */}
+          {/* ADD FRIEND SEARCH */}
           {friendSubTab === "add" && (
-            <View style={{ flex: 1, paddingHorizontal: 14 }}>
-              <View style={styles.addSearchBox}>
-                <Search size={16} color={colors.textMuted} />
-                <TextInput
-                  placeholder="Enter @username or display name..."
-                  placeholderTextColor="rgba(101, 106, 126, 0.7)"
-                  style={styles.addInput}
-                  value={addSearchQuery}
-                  onChangeText={handleSearchUsersToAdd}
-                  autoCapitalize="none"
-                />
-                {isSearchingAdd && (
-                  <ActivityIndicator size="small" color={colors.accent} />
-                )}
+            <View style={{ flex: 1, padding: 14 }}>
+              <View style={styles.searchBarWrap}>
+                <BlurView intensity={25} tint="dark" style={styles.searchBar}>
+                  <Search size={15} color={colors.accent} />
+                  <TextInput
+                    placeholder="Search by username or display name..."
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    style={styles.searchInput}
+                    value={addSearchQuery}
+                    onChangeText={handleSearchUsersToAdd}
+                    autoCapitalize="none"
+                  />
+                  {isSearchingAdd && (
+                    <ActivityIndicator size="small" color={colors.accent} />
+                  )}
+                </BlurView>
               </View>
 
               <FlatList
                 data={addSearchResults}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={{ paddingTop: 10, paddingBottom: 24 }}
-                renderItem={({ item }) => {
-                  const isFriend = item.relationStatus === "friend";
-                  const isPending = item.relationStatus === "outgoing";
-                  const isIncoming = item.relationStatus === "incoming";
-
-                  return (
-                    <View style={styles.searchResultRow}>
-                      <Avatar name={item.displayName || item.username} presence={item.status} size={40} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.searchName}>{item.displayName || item.username}</Text>
-                        <Text style={styles.searchHandle}>@{item.username}</Text>
+                keyExtractor={(u) => u.id}
+                contentContainerStyle={{ paddingTop: 10, gap: 8 }}
+                renderItem={({ item }) => (
+                  <View style={styles.dmRowWrap}>
+                    <BlurView intensity={25} tint="dark" style={styles.dmRow}>
+                      <LinearGradient
+                        colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
+                        style={StyleSheet.absoluteFillObject}
+                      />
+                      <Avatar name={item.displayName} size={42} />
+                      <View style={styles.dmInfo}>
+                        <Text style={styles.dmName}>{item.displayName}</Text>
+                        <Text style={styles.dmSnippet}>@{item.username}</Text>
                       </View>
-
-                      {isFriend ? (
-                        <TouchableOpacity
-                          style={[styles.addBtn, { backgroundColor: colors.accentSoft }]}
-                          onPress={() => handleStartDMWithFriend(item.id)}
-                        >
-                          <Text style={[styles.addBtnText, { color: colors.accent }]}>Message</Text>
-                        </TouchableOpacity>
-                      ) : isPending ? (
-                        <View style={[styles.addBtn, { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}>
-                          <Text style={[styles.addBtnText, { color: colors.textMuted }]}>Request Sent</Text>
-                        </View>
-                      ) : isIncoming ? (
-                        <TouchableOpacity
-                          style={[styles.addBtn, { backgroundColor: colors.accent }]}
-                          onPress={() => item.requestId && handleAcceptRequest(item.requestId)}
-                        >
-                          <Text style={[styles.addBtnText, { color: colors.accentContrast }]}>Accept</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity
-                          style={[styles.addBtn, { backgroundColor: colors.accent }]}
-                          onPress={() => handleSendFriendRequest(item.username)}
-                          disabled={actionLoadingId === item.username}
-                        >
-                          <Text style={[styles.addBtnText, { color: colors.accentContrast }]}>
-                            {actionLoadingId === item.username ? "Sending..." : "Add Friend"}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  );
-                }}
+                      <TouchableOpacity
+                        style={styles.sendRequestBtn}
+                        onPress={() => handleSendFriendRequest(item.username)}
+                        disabled={actionLoadingId === item.username}
+                      >
+                        {actionLoadingId === item.username ? (
+                          <ActivityIndicator size="small" color="#000" />
+                        ) : (
+                          <>
+                            <UserPlus size={14} color="#000" />
+                            <Text style={styles.sendRequestBtnText}>Add</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </BlurView>
+                  </View>
+                )}
                 ListEmptyComponent={
-                  addSearchQuery.trim() ? (
+                  addSearchQuery.trim().length > 0 && !isSearchingAdd ? (
                     <View style={styles.emptyState}>
                       <Text style={styles.emptyTitle}>No Members Found</Text>
                       <Text style={styles.emptySubtitle}>
-                        Try searching with a different username or full name.
+                        Try searching with a different username.
                       </Text>
                     </View>
-                  ) : (
-                    <View style={styles.emptyState}>
-                      <Search size={32} color={colors.textMuted} />
-                      <Text style={styles.emptyTitle}>Search for AIIC Members</Text>
-                      <Text style={styles.emptySubtitle}>
-                        Type a username above to find and connect with members.
-                      </Text>
-                    </View>
-                  )
+                  ) : null
                 }
               />
             </View>
@@ -494,290 +547,253 @@ export default function DMsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#07090E",
+  },
+  ambientGlowAmber: {
+    position: "absolute",
+    width: 360,
+    height: 360,
+    borderRadius: 180,
+    backgroundColor: "rgba(212, 160, 23, 0.05)",
+    top: 40,
+    left: -100,
+  },
+  ambientGlowPurple: {
+    position: "absolute",
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    backgroundColor: "rgba(168, 85, 247, 0.035)",
+    bottom: 100,
+    right: -80,
+  },
+  headerCapsuleWrap: {
+    marginHorizontal: 14,
+    marginTop: 6,
+    borderRadius: 22,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
   headerCapsule: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginHorizontal: 14,
-    marginTop: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: "rgba(18, 23, 34, 0.75)",
-    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderRadius: 22,
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
-  title: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  newBtn: {
+  headerIconOrb: {
     width: 32,
     height: 32,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mainTabRow: {
-    flexDirection: "row",
-    paddingHorizontal: 14,
-    marginVertical: 8,
-    gap: 8,
-  },
-  mainTabPill: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderRadius: 16,
+    backgroundColor: "rgba(212, 160, 23, 0.15)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "rgba(212, 160, 23, 0.25)",
+  },
+  title: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  subtitle: {
+    color: colors.accent,
+    fontSize: 8.5,
+    fontFamily: "monospace",
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+  newBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(212, 160, 23, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(212, 160, 23, 0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mainTabRowWrap: {
+    marginHorizontal: 14,
+    marginTop: 10,
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  mainTabRow: {
+    flexDirection: "row",
+    padding: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  mainTabPill: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 17,
+    overflow: "hidden",
   },
   mainTabPillActive: {
-    backgroundColor: "rgba(232, 163, 61, 0.12)",
-    borderColor: "rgba(232, 163, 61, 0.3)",
+    borderWidth: 1,
+    borderColor: "rgba(212, 160, 23, 0.35)",
   },
   mainTabPillText: {
-    color: colors.textMuted,
-    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: 12.5,
     fontWeight: "600",
   },
   mainTabPillTextActive: {
     color: colors.accent,
+    fontWeight: "800",
   },
-  subTabRow: {
-    flexDirection: "row",
-    paddingHorizontal: 14,
-    marginVertical: 6,
-    gap: 6,
-  },
-  subTabBtn: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  subTabBtnActive: {
-    backgroundColor: "rgba(232, 163, 61, 0.15)",
-    borderColor: "rgba(232, 163, 61, 0.35)",
-  },
-  subTabText: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  subTabTextActive: {
-    color: colors.accent,
+  searchBarWrap: {
+    marginHorizontal: 14,
+    marginTop: 10,
+    borderRadius: 20,
+    overflow: "hidden",
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-    borderRadius: 14,
-    marginHorizontal: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
     gap: 8,
-    marginBottom: 8,
   },
   searchInput: {
     flex: 1,
-    color: colors.textPrimary,
-    fontSize: 13,
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    fontSize: 13.5,
+    color: "#FFFFFF",
   },
   list: {
-    paddingHorizontal: 14,
-    paddingTop: 4,
-    paddingBottom: 24,
+    padding: 14,
+    gap: 8,
+  },
+  dmRowWrap: {
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 3,
   },
   dmRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginVertical: 3,
-    borderRadius: 14,
-    backgroundColor: "rgba(17, 18, 25, 0.5)",
+    padding: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
     gap: 12,
   },
   dmInfo: {
     flex: 1,
+    minWidth: 0,
   },
   dmTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 2,
+    marginBottom: 3,
   },
   dmName: {
     color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 14.5,
+    fontWeight: "700",
   },
   dmTime: {
-    color: colors.textMuted,
-    fontSize: 11,
+    color: "rgba(255, 255, 255, 0.4)",
+    fontSize: 10,
     fontFamily: "monospace",
   },
   dmSnippet: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.55)",
+    fontSize: 12.5,
   },
   unreadBadge: {
     backgroundColor: colors.accent,
-    borderRadius: radius.full,
-    paddingHorizontal: 6,
+    borderRadius: 12,
+    paddingHorizontal: 7,
     paddingVertical: 2,
   },
   unreadText: {
-    color: colors.accentContrast,
+    color: "#000",
     fontSize: 10,
     fontWeight: "800",
     fontFamily: "monospace",
   },
-  friendRow: {
+  subTabRow: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    gap: 6,
+  },
+  subTabBtn: {
     paddingHorizontal: 12,
-    marginVertical: 3,
-    borderRadius: 14,
-    backgroundColor: "rgba(17, 18, 25, 0.5)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
-    gap: 12,
-  },
-  friendInfo: {
-    flex: 1,
-  },
-  friendName: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  friendStatus: {
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  actionBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: "rgba(232, 163, 61, 0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pendingCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginVertical: 3,
-    borderRadius: 14,
-    backgroundColor: "rgba(17, 18, 25, 0.5)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
-    gap: 12,
-  },
-  pendingName: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  pendingHandle: {
-    color: colors.textMuted,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  pendingBtnRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  circleBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.full,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  outgoingBadge: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontFamily: "monospace",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  addSearchBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
-    gap: 8,
-    marginBottom: 8,
   },
-  addInput: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: 13,
+  subTabBtnActive: {
+    backgroundColor: "rgba(212, 160, 23, 0.18)",
+    borderColor: colors.accent,
   },
-  searchResultRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginVertical: 3,
-    borderRadius: 14,
-    backgroundColor: "rgba(17, 18, 25, 0.5)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
-    gap: 12,
-  },
-  searchName: {
-    color: colors.textPrimary,
-    fontSize: 14,
+  subTabText: {
+    fontSize: 11.5,
+    color: "rgba(255, 255, 255, 0.6)",
     fontWeight: "600",
   },
-  searchHandle: {
-    color: colors.textMuted,
-    fontSize: 11,
-    marginTop: 2,
+  subTabTextActive: {
+    color: colors.accent,
+    fontWeight: "800",
   },
-  addBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+  actionCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(212, 160, 23, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(212, 160, 23, 0.25)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  addBtnText: {
+  sendRequestBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: colors.accent,
+  },
+  sendRequestBtnText: {
+    color: "#000",
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "800",
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyState: {
     alignItems: "center",
@@ -786,14 +802,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 8,
   },
+  emptyIconOrb: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(212, 160, 23, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(212, 160, 23, 0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
   emptyTitle: {
     color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "800",
   },
   emptySubtitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.5)",
+    fontSize: 12.5,
     textAlign: "center",
+    lineHeight: 18,
   },
 });
