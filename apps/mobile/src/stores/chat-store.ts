@@ -8,6 +8,9 @@ import {
   sendDMMessage,
   deleteChannelMessage,
   deleteDMMessage,
+  editDMMessage,
+  addDMReaction,
+  removeDMReaction,
   addMessageReaction,
   removeMessageReaction,
 } from "../lib/api";
@@ -32,6 +35,8 @@ interface ChatState {
   loadDMMessagesAction: (dmId: string) => Promise<void>;
   sendDMMessageAction: (dmId: string, content: string, replyToId?: string) => Promise<void>;
   deleteDMMessageAction: (dmId: string, messageId: string) => Promise<void>;
+  editDMMessageAction: (dmId: string, messageId: string, content: string) => Promise<void>;
+  toggleDMReaction: (dmId: string, messageId: string, emoji: string) => Promise<void>;
   toggleReaction: (channelId: string, messageId: string, emoji: string) => Promise<void>;
 
   addMessage: (channelId: string, message: ChatMessage) => void;
@@ -326,6 +331,92 @@ export const useChatStore = create<ChatState>((set, get) => ({
         type: "warning",
       });
       throw err;
+    }
+  },
+
+  editDMMessageAction: async (dmId: string, messageId: string, content: string) => {
+    NativeHaptics.medium();
+    const previousMsgs = get().dmMessages[dmId] || [];
+
+    // Optimistic edit
+    const nextMsgs = previousMsgs.map((m) =>
+      m.id === messageId ? { ...m, text: content } : m
+    );
+    set((state) => ({
+      dmMessages: {
+        ...state.dmMessages,
+        [dmId]: nextMsgs,
+      },
+    }));
+    await offlineManager.setCache(`dm_msgs_${dmId}`, nextMsgs);
+
+    try {
+      await editDMMessage(dmId, messageId, content);
+      notificationService.show({
+        title: "Message Edited",
+        body: "Your message has been updated.",
+        type: "success",
+      });
+    } catch (err: any) {
+      console.error("[ChatStore] Failed to edit DM message:", err);
+      set((state) => ({
+        dmMessages: {
+          ...state.dmMessages,
+          [dmId]: previousMsgs,
+        },
+      }));
+      await offlineManager.setCache(`dm_msgs_${dmId}`, previousMsgs);
+      notificationService.show({
+        title: "Edit Failed",
+        body: err?.message || "Could not edit message.",
+        type: "warning",
+      });
+      throw err;
+    }
+  },
+
+  toggleDMReaction: async (dmId: string, messageId: string, emoji: string) => {
+    const dmMsgs = get().dmMessages[dmId] || [];
+    const targetMsg = dmMsgs.find((m) => m.id === messageId);
+    const existingReaction = targetMsg?.reactions?.find((r) => r.emoji === emoji);
+
+    // Optimistic update
+    set((state) => {
+      const msgs = (state.dmMessages[dmId] || []).map((msg) => {
+        if (msg.id !== messageId) return msg;
+        const reactions = [...(msg.reactions || [])];
+        const match = reactions.find((r) => r.emoji === emoji);
+
+        if (match) {
+          if (match.reacted) {
+            match.count = Math.max(0, match.count - 1);
+            match.reacted = false;
+          } else {
+            match.count += 1;
+            match.reacted = true;
+          }
+        } else {
+          reactions.push({ emoji, count: 1, reacted: true });
+        }
+        return { ...msg, reactions: reactions.filter((r) => r.count > 0) };
+      });
+
+      return {
+        dmMessages: {
+          ...state.dmMessages,
+          [dmId]: msgs,
+        },
+      };
+    });
+
+    try {
+      if (existingReaction?.reacted) {
+        await removeDMReaction(dmId, messageId, emoji);
+      } else {
+        await addDMReaction(dmId, messageId, emoji);
+      }
+    } catch (err) {
+      console.warn("[ChatStore] Failed to toggle DM reaction:", err);
     }
   },
 

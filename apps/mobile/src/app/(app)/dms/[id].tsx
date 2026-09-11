@@ -12,9 +12,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as Clipboard from "expo-clipboard";
 import { colors, radius } from "../../../theme/tokens";
 import { Avatar } from "../../../components/ui/Avatar";
 import { useWorkspaceStore } from "../../../stores/workspace-store";
@@ -25,20 +27,19 @@ import {
   Send,
   Phone,
   Video,
-  MoreVertical,
   Smile,
   Paperclip,
-  MessagesSquare,
-  ChevronRight,
-  Plus,
   X,
   Trash2,
   Mic,
-  CornerUpLeft,
+  Copy,
+  Edit3,
+  SmilePlus,
+  Check,
+  Plus,
 } from "lucide-react-native";
 import { AttachmentCard, parseMessageAttachments } from "../../../components/chat/AttachmentCard";
 import { UserProfileModal, type UserProfileData } from "../../../components/profile/UserProfileModal";
-import { MobileThreadModal } from "../../../components/chat/MobileThreadModal";
 import {
   MobileAttachmentSheet,
   MobileGifModal,
@@ -47,6 +48,8 @@ import {
 } from "../../../components/chat/MobileMediaPickers";
 import { NativeHaptics } from "../../../lib/haptics";
 import { fetchUserProfile } from "../../../lib/api";
+
+const QUICK_REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "🚀", "👀", "💯"];
 
 export default function DMDetailScreen() {
   const router = useRouter();
@@ -58,6 +61,8 @@ export default function DMDetailScreen() {
     loadDMMessagesAction,
     sendDMMessageAction,
     deleteDMMessageAction,
+    editDMMessageAction,
+    toggleDMReaction,
     subscribeToDM,
     unsubscribeFromDM,
     isLoadingMessages,
@@ -65,13 +70,19 @@ export default function DMDetailScreen() {
 
   const [inputText, setInputText] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserProfileData | null>(null);
-  const [activeThreadMessage, setActiveThreadMessage] = useState<any | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
   const [messageActionOpen, setMessageActionOpen] = useState(false);
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
   const [gifModalOpen, setGifModalOpen] = useState(false);
-  const [emojiModalOpen, setEmojiModalOpen] = useState(false);
+  const [composerEmojiOpen, setComposerEmojiOpen] = useState(false);
+  const [reactModalOpen, setReactModalOpen] = useState(false);
+  const [messageToReact, setMessageToReact] = useState<any | null>(null);
   const [giftModalOpen, setGiftModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editText, setEditText] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [copyToast, setCopyToast] = useState(false);
+
   const [stagedAttachment, setStagedAttachment] = useState<{
     url: string;
     name: string;
@@ -125,8 +136,82 @@ export default function DMDetailScreen() {
     }
   };
 
+  const handleCopyMessage = async (msg: any) => {
+    const { cleanText } = parseMessageAttachments(msg?.text || "");
+    const textToCopy = cleanText || msg?.text || "";
+    if (textToCopy) {
+      await Clipboard.setStringAsync(textToCopy);
+      NativeHaptics.selection();
+      setCopyToast(true);
+      setTimeout(() => setCopyToast(false), 2000);
+    }
+  };
+
+  const handleOpenEdit = (msg: any) => {
+    const { cleanText } = parseMessageAttachments(msg?.text || "");
+    setEditText(cleanText || msg?.text || "");
+    setSelectedMessage(msg);
+    setMessageActionOpen(false);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedMessage || !editText.trim()) return;
+    setIsSavingEdit(true);
+    try {
+      await editDMMessageAction(convoId, selectedMessage.id, editText.trim());
+      setEditModalOpen(false);
+      setSelectedMessage(null);
+    } catch (err: any) {
+      Alert.alert("Error", err?.message || "Failed to update message");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleDeleteMessage = (msg: any) => {
+    const msgId = msg.id;
+    setMessageActionOpen(false);
+    Alert.alert(
+      "Delete Message",
+      "Are you sure you want to permanently delete this message?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteDMMessageAction(convoId, msgId);
+            } catch (e: any) {
+              Alert.alert("Error", e?.message || "Failed to delete message");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleQuickReaction = async (msg: any, emoji: string) => {
+    NativeHaptics.medium();
+    setMessageActionOpen(false);
+    try {
+      await toggleDMReaction(convoId, msg.id, emoji);
+    } catch (err) {
+      console.error("Failed to toggle reaction:", err);
+    }
+  };
+
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
+      {/* Floating Copy Feedback Toast */}
+      {copyToast && (
+        <View style={styles.toastBanner}>
+          <Check size={14} color="#000" />
+          <Text style={styles.toastText}>Message copied to clipboard!</Text>
+        </View>
+      )}
+
       {/* Curved Web-Parity Floating DM Capsule Header */}
       <View style={styles.headerCapsule}>
         <TouchableOpacity
@@ -206,6 +291,8 @@ export default function DMDetailScreen() {
             renderItem={({ item }) => {
               const isMe = item.author.id === (user?.id || "u-anon") || item.author.id === "me";
               const { cleanText, attachments } = parseMessageAttachments(item.text || "");
+              const hasReactions = item.reactions && item.reactions.length > 0;
+
               return (
                 <View
                   style={[
@@ -228,98 +315,93 @@ export default function DMDetailScreen() {
                       <Avatar name={item.author.name} size={28} url={item.author.avatar} />
                     </TouchableOpacity>
                   )}
-                  <Pressable
-                    delayLongPress={150}
-                    onLongPress={() => {
-                      NativeHaptics.medium();
-                      setSelectedMessage(item);
-                      setMessageActionOpen(true);
-                    }}
-                    style={[
-                      styles.bubble,
-                      isMe ? styles.myBubble : styles.theirBubble,
-                    ]}
-                  >
-                    {cleanText ? (
-                      <Text
-                        style={[
-                          styles.bubbleText,
-                          isMe ? styles.myBubbleText : styles.theirBubbleText,
-                        ]}
-                      >
-                        {cleanText}
-                      </Text>
-                    ) : null}
-
-                    {/* Decoded Attachments */}
-                    {attachments.map((att, idx) => (
-                      <AttachmentCard key={idx} attachment={att} />
-                    ))}
-
-                    {/* Thread Indicator Badge if message has replies */}
-                    {messagesList.filter((m) => (m as any).replyTo?.id === item.id).length > 0 ? (
-                      <TouchableOpacity
-                        onPress={() => setActiveThreadMessage({
-                          id: item.id,
-                          user: {
-                            id: item.author.id,
-                            displayName: item.author.name,
-                            avatarUrl: item.author.avatar,
-                          },
-                          content: item.text,
-                          createdAt: item.at,
-                          replyTo: (item as any).replyTo,
-                          reactions: item.reactions,
-                        })}
-                        style={styles.threadBadge}
-                        hitSlop={6}
-                      >
-                        <MessagesSquare size={12} color={colors.accent} />
-                        <Text style={styles.threadBadgeText}>
-                          {messagesList.filter((m) => (m as any).replyTo?.id === item.id).length}{" "}
-                          {messagesList.filter((m) => (m as any).replyTo?.id === item.id).length === 1 ? "reply" : "replies"}
-                        </Text>
-                        <ChevronRight size={11} color={colors.textMuted} />
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => {
-                          NativeHaptics.light();
-                          setActiveThreadMessage({
-                            id: item.id,
-                            user: {
-                              id: item.author.id,
-                              displayName: item.author.name,
-                              avatarUrl: item.author.avatar,
-                            },
-                            content: item.text,
-                            createdAt: item.at,
-                            replyTo: (item as any).replyTo,
-                            reactions: item.reactions,
-                          });
-                        }}
-                        style={[styles.threadBadge, { opacity: 0.85, marginTop: 4 }]}
-                        hitSlop={6}
-                      >
-                        <CornerUpLeft size={11} color={colors.textMuted} />
-                        <Text style={[styles.threadBadgeText, { color: colors.textMuted }]}>
-                          Reply in thread
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    <Text
+                  <View style={{ maxWidth: "78%", alignItems: isMe ? "flex-end" : "flex-start" }}>
+                    <Pressable
+                      delayLongPress={150}
+                      onLongPress={() => {
+                        NativeHaptics.medium();
+                        setSelectedMessage(item);
+                        setMessageActionOpen(true);
+                      }}
                       style={[
-                        styles.bubbleTime,
-                        isMe ? styles.myBubbleTime : styles.theirBubbleTime,
+                        styles.bubble,
+                        isMe ? styles.myBubble : styles.theirBubble,
                       ]}
                     >
-                      {new Date(item.at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </Text>
-                  </Pressable>
+                      {cleanText ? (
+                        <Text
+                          style={[
+                            styles.bubbleText,
+                            isMe ? styles.myBubbleText : styles.theirBubbleText,
+                          ]}
+                        >
+                          {cleanText}
+                        </Text>
+                      ) : null}
+
+                      {/* Decoded Attachments */}
+                      {attachments.map((att, idx) => (
+                        <AttachmentCard key={idx} attachment={att} />
+                      ))}
+
+                      <Text
+                        style={[
+                          styles.bubbleTime,
+                          isMe ? styles.myBubbleTime : styles.theirBubbleTime,
+                        ]}
+                      >
+                        {new Date(item.at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </Text>
+                    </Pressable>
+
+                    {/* Reactions Display Strip */}
+                    {hasReactions && (
+                      <View style={[styles.reactionsStrip, isMe && styles.myReactionsStrip]}>
+                        {item.reactions!.map((reaction, rIdx) => {
+                          const userReacted = reaction.reacted;
+                          return (
+                            <TouchableOpacity
+                              key={`${reaction.emoji}-${rIdx}`}
+                              onPress={() => {
+                                NativeHaptics.selection();
+                                toggleDMReaction(convoId, item.id, reaction.emoji);
+                              }}
+                              style={[
+                                styles.reactionBadge,
+                                userReacted && styles.reactionBadgeActive,
+                              ]}
+                            >
+                              <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+                              {reaction.count > 1 && (
+                                <Text
+                                  style={[
+                                    styles.reactionCount,
+                                    userReacted && styles.reactionCountActive,
+                                  ]}
+                                >
+                                  {reaction.count}
+                                </Text>
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                        <TouchableOpacity
+                          onPress={() => {
+                            NativeHaptics.light();
+                            setMessageToReact(item);
+                            setReactModalOpen(true);
+                          }}
+                          style={styles.reactionAddBtn}
+                          hitSlop={6}
+                        >
+                          <Plus size={11} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
                 </View>
               );
             }}
@@ -359,7 +441,7 @@ export default function DMDetailScreen() {
                 style={styles.pillIconBtn}
                 onPress={() => {
                   NativeHaptics.light();
-                  setEmojiModalOpen(true);
+                  setComposerEmojiOpen(true);
                 }}
                 hitSlop={8}
               >
@@ -402,7 +484,7 @@ export default function DMDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* WhatsApp-Style Detached Action Button */}
+            {/* Detached Action Button */}
             <TouchableOpacity
               style={[
                 styles.detachedActionButton,
@@ -427,7 +509,7 @@ export default function DMDetailScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* DM Message Options Modal (Thread / Delete) */}
+      {/* DM Message Options Modal (Delete, Copy, Edit, React) */}
       <Modal
         visible={messageActionOpen}
         transparent
@@ -439,70 +521,175 @@ export default function DMDetailScreen() {
           onPress={() => setMessageActionOpen(false)}
         >
           <View style={styles.actionModalSheet}>
-            <Text style={styles.actionModalTitle}>Message Actions</Text>
+            <View style={styles.sheetHandle} />
+
+            {/* Quick Reaction Bar */}
+            {selectedMessage && (
+              <View style={styles.quickReactionsRow}>
+                {QUICK_REACTION_EMOJIS.map((emoji) => (
+                  <TouchableOpacity
+                    key={emoji}
+                    onPress={() => handleQuickReaction(selectedMessage, emoji)}
+                    style={styles.quickReactionBtn}
+                  >
+                    <Text style={styles.quickReactionEmoji}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  onPress={() => {
+                    const target = selectedMessage;
+                    setMessageActionOpen(false);
+                    setMessageToReact(target);
+                    setReactModalOpen(true);
+                  }}
+                  style={styles.quickReactionAddBtn}
+                >
+                  <Plus size={16} color={colors.accent} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <Text style={styles.actionModalTitle}>Message Options</Text>
+
             <View style={{ gap: 8 }}>
+              {/* React Message Option */}
               <Pressable
                 style={styles.actionMenuRow}
                 onPress={() => {
-                  if (selectedMessage) {
-                    setActiveThreadMessage({
-                      id: selectedMessage.id,
-                      user: {
-                        id: selectedMessage.author.id,
-                        displayName: selectedMessage.author.name,
-                        avatarUrl: selectedMessage.author.avatar,
-                      },
-                      content: selectedMessage.text,
-                      createdAt: selectedMessage.at,
-                      replyTo: (selectedMessage as any).replyTo,
-                      reactions: selectedMessage.reactions,
-                    });
-                  }
+                  const target = selectedMessage;
                   setMessageActionOpen(false);
+                  setMessageToReact(target);
+                  setReactModalOpen(true);
                 }}
               >
-                <MessagesSquare size={16} color={colors.accent} />
-                <Text style={styles.actionMenuText}>Open Thread</Text>
+                <View style={[styles.menuIconWrap, { backgroundColor: "rgba(212, 160, 23, 0.12)" }]}>
+                  <SmilePlus size={17} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.actionMenuText}>React to Message</Text>
+                  <Text style={styles.actionMenuSub}>Choose from thousands of popular emojis & symbols</Text>
+                </View>
               </Pressable>
 
-              {/* Delete Message if Own Message */}
+              {/* Copy Message Option */}
+              <Pressable
+                style={styles.actionMenuRow}
+                onPress={() => {
+                  const msg = selectedMessage;
+                  setMessageActionOpen(false);
+                  handleCopyMessage(msg);
+                }}
+              >
+                <View style={[styles.menuIconWrap, { backgroundColor: "rgba(56, 189, 248, 0.12)" }]}>
+                  <Copy size={17} color="#38bdf8" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.actionMenuText}>Copy Message</Text>
+                  <Text style={styles.actionMenuSub}>Copy text content to your clipboard</Text>
+                </View>
+              </Pressable>
+
+              {/* Edit Message Option (if own message) */}
+              {selectedMessage &&
+                (selectedMessage.author.id === (user?.id || "u-anon") ||
+                  selectedMessage.author.id === "me") && (
+                  <Pressable
+                    style={styles.actionMenuRow}
+                    onPress={() => handleOpenEdit(selectedMessage)}
+                  >
+                    <View style={[styles.menuIconWrap, { backgroundColor: "rgba(168, 85, 247, 0.12)" }]}>
+                      <Edit3 size={17} color="#a855f7" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.actionMenuText}>Edit Message</Text>
+                      <Text style={styles.actionMenuSub}>Update and save your message text</Text>
+                    </View>
+                  </Pressable>
+                )}
+
+              {/* Delete Message Option (if own message) */}
               {selectedMessage &&
                 (selectedMessage.author.id === (user?.id || "u-anon") ||
                   selectedMessage.author.id === "me") && (
                   <Pressable
                     style={[styles.actionMenuRow, styles.actionDeleteRow]}
-                    onPress={() => {
-                      const msgId = selectedMessage.id;
-                      setMessageActionOpen(false);
-                      Alert.alert(
-                        "Delete Message",
-                        "Are you sure you want to delete this message permanently?",
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          {
-                            text: "Delete",
-                            style: "destructive",
-                            onPress: async () => {
-                              try {
-                                await deleteDMMessageAction(convoId, msgId);
-                              } catch (e: any) {
-                                Alert.alert("Error", e?.message || "Failed to delete message");
-                              }
-                            },
-                          },
-                        ]
-                      );
-                    }}
+                    onPress={() => handleDeleteMessage(selectedMessage)}
                   >
-                    <Trash2 size={16} color={colors.danger} />
-                    <Text style={[styles.actionMenuText, { color: colors.danger }]}>
-                      Delete Message
-                    </Text>
+                    <View style={[styles.menuIconWrap, { backgroundColor: "rgba(255, 77, 79, 0.15)" }]}>
+                      <Trash2 size={17} color={colors.danger} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.actionMenuText, { color: colors.danger }]}>
+                        Delete Message
+                      </Text>
+                      <Text style={[styles.actionMenuSub, { color: "rgba(255, 77, 79, 0.7)" }]}>
+                        Permanently remove this message
+                      </Text>
+                    </View>
                   </Pressable>
                 )}
             </View>
           </View>
         </Pressable>
+      </Modal>
+
+      {/* Edit Message Modal */}
+      <Modal
+        visible={editModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.editModalContainer}
+        >
+          <Pressable style={styles.sheetBackdrop} onPress={() => setEditModalOpen(false)}>
+            <Pressable style={styles.editModalSheet} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.editModalHeader}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Edit3 size={18} color={colors.accent} />
+                  <Text style={styles.editModalTitle}>Edit Message</Text>
+                </View>
+                <Pressable onPress={() => setEditModalOpen(false)} hitSlop={8}>
+                  <X size={18} color={colors.textMuted} />
+                </Pressable>
+              </View>
+
+              <TextInput
+                style={styles.editTextInput}
+                value={editText}
+                onChangeText={setEditText}
+                placeholder="Edit message..."
+                placeholderTextColor={colors.textMuted}
+                multiline
+                autoFocus
+              />
+
+              <View style={styles.editActionsRow}>
+                <TouchableOpacity
+                  style={styles.editCancelBtn}
+                  onPress={() => setEditModalOpen(false)}
+                >
+                  <Text style={styles.editCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.editSaveBtn, !editText.trim() && { opacity: 0.5 }]}
+                  disabled={!editText.trim() || isSavingEdit}
+                  onPress={handleSaveEdit}
+                >
+                  {isSavingEdit ? (
+                    <ActivityIndicator size="small" color="#000" />
+                  ) : (
+                    <Text style={styles.editSaveText}>Save Changes</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Pickers & Modals */}
@@ -547,34 +734,28 @@ export default function DMDetailScreen() {
         onSelectGif={handleSelectGif}
       />
 
+      {/* Composer Emoji Picker Modal */}
       <MobileEmojiModal
-        visible={emojiModalOpen}
-        onClose={() => setEmojiModalOpen(false)}
+        visible={composerEmojiOpen}
+        title="Insert Emoji"
+        onClose={() => setComposerEmojiOpen(false)}
         onSelectEmoji={(emoji) => {
           setInputText((prev) => prev + emoji);
         }}
       />
 
-      {/* Thread Drawer Modal */}
-      <MobileThreadModal
-        visible={Boolean(activeThreadMessage)}
-        parentMessage={activeThreadMessage}
-        allMessages={messagesList.map((m) => ({
-          id: m.id,
-          user: {
-            id: m.author.id,
-            displayName: m.author.name,
-            avatarUrl: m.author.avatar,
-          },
-          content: m.text,
-          createdAt: m.at,
-          replyTo: (m as any).replyTo,
-          reactions: m.reactions,
-        }))}
-        currentUserId={user?.id}
-        onClose={() => setActiveThreadMessage(null)}
-        onSendReply={async (content, replyToId) => {
-          await sendDMMessageAction(convoId, content, replyToId);
+      {/* Message Reaction Emoji Picker Modal (with full catalog of thousands of emojis) */}
+      <MobileEmojiModal
+        visible={reactModalOpen}
+        title="React to Message"
+        onClose={() => {
+          setReactModalOpen(false);
+          setMessageToReact(null);
+        }}
+        onSelectEmoji={(emoji) => {
+          if (messageToReact) {
+            toggleDMReaction(convoId, messageToReact.id, emoji);
+          }
         }}
       />
 
@@ -596,6 +777,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  toastBanner: {
+    position: "absolute",
+    top: 50,
+    alignSelf: "center",
+    zIndex: 9999,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  toastText: {
+    color: "#000",
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: "monospace",
   },
   headerCapsule: {
     flexDirection: "row",
@@ -667,7 +872,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   bubble: {
-    maxWidth: "75%",
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 18,
@@ -692,25 +896,6 @@ const styles = StyleSheet.create({
   theirBubbleText: {
     color: colors.textPrimary,
   },
-  threadBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(212, 160, 23, 0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(212, 160, 23, 0.3)",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginTop: 6,
-    gap: 5,
-  },
-  threadBadgeText: {
-    fontFamily: "monospace",
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.accent,
-  },
   bubbleTime: {
     fontSize: 10,
     alignSelf: "flex-end",
@@ -722,6 +907,53 @@ const styles = StyleSheet.create({
   },
   theirBubbleTime: {
     color: colors.textMuted,
+  },
+  reactionsStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 4,
+    marginTop: 4,
+  },
+  myReactionsStrip: {
+    justifyContent: "flex-end",
+  },
+  reactionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 12,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    gap: 3,
+  },
+  reactionBadgeActive: {
+    backgroundColor: "rgba(212, 160, 23, 0.2)",
+    borderColor: colors.accent,
+  },
+  reactionEmoji: {
+    fontSize: 13,
+  },
+  reactionCount: {
+    fontSize: 10,
+    fontFamily: "monospace",
+    fontWeight: "700",
+    color: colors.textMuted,
+  },
+  reactionCountActive: {
+    color: colors.accent,
+  },
+  reactionAddBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyState: {
     alignItems: "center",
@@ -844,44 +1076,162 @@ const styles = StyleSheet.create({
   },
   actionModalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: "flex-end",
   },
   actionModalSheet: {
     backgroundColor: "#13141F",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.12)",
     padding: 16,
     paddingBottom: 36,
     gap: 12,
   },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignSelf: "center",
+    marginBottom: 4,
+  },
+  quickReactionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  quickReactionBtn: {
+    padding: 4,
+  },
+  quickReactionEmoji: {
+    fontSize: 22,
+  },
+  quickReactionAddBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(212, 160, 23, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(212, 160, 23, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   actionModalTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "monospace",
     fontWeight: "700",
     color: colors.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.8,
+    marginTop: 2,
   },
   actionMenuRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: radius.md,
     backgroundColor: "rgba(255, 255, 255, 0.04)",
+  },
+  menuIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   actionMenuText: {
     fontSize: 14,
     fontWeight: "600",
     color: colors.textPrimary,
   },
+  actionMenuSub: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 1,
+  },
   actionDeleteRow: {
-    backgroundColor: "rgba(255, 77, 79, 0.1)",
+    backgroundColor: "rgba(255, 77, 79, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(255, 77, 79, 0.25)",
+    borderColor: "rgba(255, 77, 79, 0.2)",
+  },
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "flex-end",
+  },
+  editModalContainer: {
+    flex: 1,
+  },
+  editModalSheet: {
+    backgroundColor: "#13141F",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    padding: 16,
+    paddingBottom: Platform.OS === "ios" ? 36 : 24,
+    gap: 14,
+  },
+  editModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  editModalTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  editTextInput: {
+    backgroundColor: "#1b1e2e",
+    borderRadius: radius.md,
+    padding: 12,
+    color: colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+    minHeight: 80,
+    maxHeight: 160,
+    textAlignVertical: "top",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  editActionsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  editCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  editCancelText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  editSaveBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: radius.md,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  editSaveText: {
+    color: "#000",
+    fontSize: 13,
+    fontWeight: "700",
   },
 });

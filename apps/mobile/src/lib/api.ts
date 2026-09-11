@@ -283,6 +283,26 @@ export async function deleteDMMessage(dmId: string, messageId: string) {
   });
 }
 
+export async function editDMMessage(dmId: string, messageId: string, content: string) {
+  return api<{ message: any }>(`/dms/${dmId}/messages/${messageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function addDMReaction(dmId: string, messageId: string, emoji: string) {
+  return api<any>(`/dms/${dmId}/messages/${messageId}/reactions`, {
+    method: "POST",
+    body: JSON.stringify({ emoji }),
+  });
+}
+
+export async function removeDMReaction(dmId: string, messageId: string, emoji: string) {
+  return api<any>(`/dms/${dmId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`, {
+    method: "DELETE",
+  });
+}
+
 export async function fetchGifs(query?: string, category?: string) {
   const params = new URLSearchParams();
   if (query) params.set("q", query);

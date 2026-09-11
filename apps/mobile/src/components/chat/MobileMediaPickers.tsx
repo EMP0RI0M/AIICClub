@@ -566,37 +566,46 @@ export function MobileGifModal({ visible, onClose, onSelectGif }: MobileGifModal
 
 const EMOJI_SETS: Array<{ label: string; emojis: string[] }> = [
   {
-    label: "Top Reactions",
-    emojis: ["👍", "🔥", "🚀", "❤️", "👀", "🎉", "🧠", "💯", "👏", "⚡", "🙌", "✨"],
+    label: "🔥 Most Popular Reactions",
+    emojis: ["👍", "❤️", "🔥", "🚀", "😂", "🎉", "👀", "🧠", "💯", "👏", "⚡", "🙌", "✨", "😍", "💀", "😭", "🤯", "✅", "❌", "🤝"],
   },
   {
     label: "Smilies & Emotion",
-    emojis: ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥸", "🤩", "🥳"],
+    emojis: ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥸", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🤭", "🤫", "🤥", "😶", "😐", "😑", "😬", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕"],
   },
   {
-    label: "Hand Gestures",
-    emojis: ["👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏"],
+    label: "Hearts & Sparkles",
+    emojis: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "✨", "⭐", "🌟", "💫", "💥", "🔥"],
   },
   {
-    label: "Tech, Code & Science",
-    emojis: ["💻", "🖥️", "⌨️", "🖱️", "🖲️", "💽", "💾", "💿", "📀", "📱", "📲", "📡", "🛰️", "🤖", "🦾", "🦿", "🔬", "🔭", "📡", "💡", "🔦", "⚙️", "🔧", "🔨", "🛠️", "🧰", "⚡", "🔋", "🔌", "🧮", "🧬"],
+    label: "Hand Gestures & People",
+    emojis: ["👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁️", "👅", "👄"],
+  },
+  {
+    label: "Tech, Code, Science & Gaming",
+    emojis: ["💻", "🖥️", "⌨️", "🖱️", "🖲️", "💽", "💾", "💿", "📀", "📱", "📲", "📡", "🛰️", "🤖", "🦾", "🦿", "🔬", "🔭", "📡", "💡", "🔦", "⚙️", "🔧", "🔨", "🛠️", "🧰", "⚡", "🔋", "🔌", "🧮", "🧬", "🎮", "🕹️", "👾", "🎲", "🎯", "🏆", "🥇", "🥈", "🥉", "🎖️", "🏅", "👑", "💎"],
+  },
+  {
+    label: "Symbols & Status",
+    emojis: ["✅", "❌", "⚠️", "⛔", "🚫", "💯", "💢", "♨️", "🚷", "🚯", "🚳", "🚱", "🔞", "📵", "🚭", "❗", "❕", "❓", "❔", "‼️", "⁉️", "🔅", "🔆", "〽️", "🌐", "💹", "❇️", "✳️", "❎", "💬", "🗨️", "🗯️", "💭", "💤"],
   },
 ];
 
 interface MobileEmojiModalProps {
   visible: boolean;
+  title?: string;
   onClose: () => void;
   onSelectEmoji: (emoji: string) => void;
 }
 
-export function MobileEmojiModal({ visible, onClose, onSelectEmoji }: MobileEmojiModalProps) {
+export function MobileEmojiModal({ visible, title = "Emoji Picker", onClose, onSelectEmoji }: MobileEmojiModalProps) {
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={styles.modalRoot}>
         <View style={styles.modalHeader}>
           <View style={styles.modalHeaderLeft}>
             <Smile size={18} color={colors.accent} />
-            <Text style={styles.modalTitle}>Emoji Picker</Text>
+            <Text style={styles.modalTitle}>{title}</Text>
           </View>
           <Pressable onPress={onClose} style={styles.modalCloseBtn} hitSlop={8}>
             <X size={18} color={colors.textPrimary} />
