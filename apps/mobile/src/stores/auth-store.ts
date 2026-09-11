@@ -240,7 +240,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // 2. Fallback to WebBrowser session (Works in Expo Go & Web)
-      const redirectTo = "aiic://auth/callback";
+      try {
+        WebBrowser.dismissAuthSession();
+      } catch {}
+
+      const redirectTo = Linking.createURL("auth/callback");
       console.log("[AIIC OAuth] redirect URI:", redirectTo);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -257,10 +261,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       if (!data?.url) throw new Error("No authorization URL returned from Supabase.");
 
-      const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        redirectTo
-      );
+      let result;
+      try {
+        result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectTo
+        );
+      } catch (browserErr: any) {
+        console.warn("[AIIC OAuth] openAuthSessionAsync failed, dismissing:", browserErr?.message);
+        try {
+          WebBrowser.dismissAuthSession();
+        } catch {}
+        // Retry once after clean dismissal
+        result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectTo
+        );
+      }
 
       if (result.type === "success" && result.url) {
         await get().handleOAuthCallback(result.url);
