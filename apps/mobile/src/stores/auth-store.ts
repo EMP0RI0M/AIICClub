@@ -178,60 +178,64 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const supabase = getSupabaseClient();
 
-      // 1. Try Native Google Sign-In on Android/iOS (Standalone APK / Dev Build)
+      // 1. Try Native Google Sign-In ONLY when compiled in native binary (Standalone APK / Dev Client)
       if (provider === "google") {
         try {
-          const { GoogleSignin } = require("@react-native-google-signin/google-signin");
-          if (GoogleSignin && typeof GoogleSignin.configure === "function") {
-            GoogleSignin.configure({
-              webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
-              offlineAccess: true,
-            });
-            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-            const signRes = await GoogleSignin.signIn();
-            const idToken = signRes?.data?.idToken || signRes?.idToken;
-            if (idToken) {
-              console.log("[AIIC OAuth] Native Google Sign-in token retrieved, exchanging with Supabase");
-              const { data: idTokenData, error: idTokenErr } = await supabase.auth.signInWithIdToken({
-                provider: "google",
-                token: idToken,
+          const { NativeModules } = require("react-native");
+          const hasNativeModule = Boolean(NativeModules?.RNGoogleSignin);
+          if (hasNativeModule) {
+            const { GoogleSignin } = require("@react-native-google-signin/google-signin");
+            if (GoogleSignin && typeof GoogleSignin.configure === "function") {
+              GoogleSignin.configure({
+                webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
+                offlineAccess: true,
               });
-              if (idTokenErr) throw idTokenErr;
-              if (idTokenData?.session) {
-                const accessToken = idTokenData.session.access_token;
-                setAuthToken(accessToken);
-                let profileUser: User;
-                try {
-                  const profileRes = await api<{ user: User }>("/auth/profile");
-                  profileUser = profileRes.user;
-                } catch {
-                  const u = idTokenData.session.user;
-                  const email = u.email || "";
-                  profileUser = {
-                    id: u.id,
-                    email,
-                    displayName: u.user_metadata?.displayName || u.user_metadata?.full_name || email.split("@")[0] || "Member",
-                    username: u.user_metadata?.username || email.split("@")[0] || "member",
-                    avatar: u.user_metadata?.avatar_url || null,
-                    bio: null,
-                    status: "online",
-                    onboardingCompleted: true,
-                  };
-                }
-                await NativeStorage.setItem("aiic_user_session", JSON.stringify(profileUser));
-                await NativeStorage.setItem("aiic_auth_token", accessToken);
-                set({
-                  user: profileUser,
-                  token: accessToken,
-                  isAuthenticated: true,
-                  isLoading: false,
+              await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+              const signRes = await GoogleSignin.signIn();
+              const idToken = signRes?.data?.idToken || signRes?.idToken;
+              if (idToken) {
+                console.log("[AIIC OAuth] Native Google Sign-in token retrieved, exchanging with Supabase");
+                const { data: idTokenData, error: idTokenErr } = await supabase.auth.signInWithIdToken({
+                  provider: "google",
+                  token: idToken,
                 });
-                return;
+                if (idTokenErr) throw idTokenErr;
+                if (idTokenData?.session) {
+                  const accessToken = idTokenData.session.access_token;
+                  setAuthToken(accessToken);
+                  let profileUser: User;
+                  try {
+                    const profileRes = await api<{ user: User }>("/auth/profile");
+                    profileUser = profileRes.user;
+                  } catch {
+                    const u = idTokenData.session.user;
+                    const email = u.email || "";
+                    profileUser = {
+                      id: u.id,
+                      email,
+                      displayName: u.user_metadata?.displayName || u.user_metadata?.full_name || email.split("@")[0] || "Member",
+                      username: u.user_metadata?.username || email.split("@")[0] || "member",
+                      avatar: u.user_metadata?.avatar_url || null,
+                      bio: null,
+                      status: "online",
+                      onboardingCompleted: true,
+                    };
+                  }
+                  await NativeStorage.setItem("aiic_user_session", JSON.stringify(profileUser));
+                  await NativeStorage.setItem("aiic_auth_token", accessToken);
+                  set({
+                    user: profileUser,
+                    token: accessToken,
+                    isAuthenticated: true,
+                    isLoading: false,
+                  });
+                  return;
+                }
               }
             }
           }
         } catch (nativeErr: any) {
-          console.log("[AIIC OAuth] Native Google SDK bypassed/falling back (e.g. inside Expo Go):", nativeErr?.message);
+          console.log("[AIIC OAuth] Native Google module not in current binary, using browser session:", nativeErr?.message);
         }
       }
 
