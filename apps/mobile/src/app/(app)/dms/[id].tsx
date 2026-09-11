@@ -12,11 +12,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  ScrollView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius } from "../../../theme/tokens";
 import { Avatar } from "../../../components/ui/Avatar";
 import { useWorkspaceStore } from "../../../stores/workspace-store";
@@ -204,6 +205,10 @@ export default function DMDetailScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
+      {/* Ambient Liquid Glass Backdrop Glows */}
+      <View style={styles.ambientGlowAmber} pointerEvents="none" />
+      <View style={styles.ambientGlowTeal} pointerEvents="none" />
+
       {/* Floating Copy Feedback Toast */}
       {copyToast && (
         <View style={styles.toastBanner}>
@@ -212,65 +217,74 @@ export default function DMDetailScreen() {
         </View>
       )}
 
-      {/* Curved Web-Parity Floating DM Capsule Header */}
-      <View style={styles.headerCapsule}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={18} color={colors.textSecondary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.headerCenter}
-          onPress={async () => {
-            const profile = await fetchUserProfile((conversation as any).user_id || conversation.id).catch(() => null);
-            setSelectedUser(profile?.user || {
-              id: (conversation as any).user_id || conversation.id,
-              displayName: conversation.name,
-              username: (conversation as any).username || conversation.name.toLowerCase().replace(/\s+/g, ""),
-              avatarUrl: (conversation as any).avatarUrl || null,
-              status: conversation.presence,
-              role: (conversation as any).role || "member",
-              roleName: (conversation as any).roleName,
-              bio: (conversation as any).bio,
-              classYear: (conversation as any).classYear,
-              section: (conversation as any).section,
-              githubUrl: (conversation as any).githubUrl,
-              linkedinUrl: (conversation as any).linkedinUrl,
-              websiteUrl: (conversation as any).websiteUrl,
-              skills: (conversation as any).skills,
-              interests: (conversation as any).interests,
-            });
-          }}
-        >
-          <Avatar
-            name={conversation.name}
-            presence={conversation.presence}
-            size={32}
+      {/* Floating Liquid Glass Header Capsule */}
+      <View style={styles.headerCapsuleWrap}>
+        <BlurView intensity={28} tint="dark" style={styles.headerCapsule}>
+          <LinearGradient
+            colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+            style={StyleSheet.absoluteFillObject}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
           />
-          <View style={{ minWidth: 0, flex: 1 }}>
-            <Text style={styles.headerName} numberOfLines={1}>
-              {conversation.name}
-            </Text>
-            <Text style={styles.headerSub}>AIIC · DIRECT MESSAGE</Text>
-          </View>
-        </TouchableOpacity>
 
-        <View style={styles.headerActions}>
           <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => router.push(`/(app)/voice/${convoId}`)}
+            style={styles.backBtn}
+            onPress={() => router.back()}
           >
-            <Phone size={16} color={colors.textSecondary} />
+            <ArrowLeft size={18} color={colors.textSecondary} />
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => router.push(`/(app)/voice/${convoId}`)}
+            style={styles.headerCenter}
+            onPress={async () => {
+              const profile = await fetchUserProfile((conversation as any).user_id || conversation.id).catch(() => null);
+              setSelectedUser(profile?.user || {
+                id: (conversation as any).user_id || conversation.id,
+                displayName: conversation.name,
+                username: (conversation as any).username || conversation.name.toLowerCase().replace(/\s+/g, ""),
+                avatarUrl: (conversation as any).avatarUrl || null,
+                status: conversation.presence,
+                role: (conversation as any).role || "member",
+                roleName: (conversation as any).roleName,
+                bio: (conversation as any).bio,
+                classYear: (conversation as any).classYear,
+                section: (conversation as any).section,
+                githubUrl: (conversation as any).githubUrl,
+                linkedinUrl: (conversation as any).linkedinUrl,
+                websiteUrl: (conversation as any).websiteUrl,
+                skills: (conversation as any).skills,
+                interests: (conversation as any).interests,
+              });
+            }}
           >
-            <Video size={16} color={colors.textSecondary} />
+            <Avatar
+              name={conversation.name}
+              presence={conversation.presence}
+              size={32}
+            />
+            <View style={{ minWidth: 0, flex: 1 }}>
+              <Text style={styles.headerName} numberOfLines={1}>
+                {conversation.name}
+              </Text>
+              <Text style={styles.headerSub}>AIIC · DIRECT MESSAGE</Text>
+            </View>
           </TouchableOpacity>
-        </View>
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => router.push(`/(app)/voice/${convoId}`)}
+            >
+              <Phone size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => router.push(`/(app)/voice/${convoId}`)}
+            >
+              <Video size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </BlurView>
       </View>
 
       {/* Message Feed */}
@@ -315,7 +329,7 @@ export default function DMDetailScreen() {
                       <Avatar name={item.author.name} size={28} url={item.author.avatar} />
                     </TouchableOpacity>
                   )}
-                  <View style={{ maxWidth: "78%", alignItems: isMe ? "flex-end" : "flex-start" }}>
+                  <View style={{ maxWidth: "80%", alignItems: isMe ? "flex-end" : "flex-start" }}>
                     <Pressable
                       delayLongPress={150}
                       onLongPress={() => {
@@ -324,40 +338,60 @@ export default function DMDetailScreen() {
                         setMessageActionOpen(true);
                       }}
                       style={[
-                        styles.bubble,
-                        isMe ? styles.myBubble : styles.theirBubble,
+                        styles.bubbleGlassWrap,
+                        isMe ? styles.myBubbleGlassWrap : styles.theirBubbleGlassWrap,
                       ]}
                     >
-                      {cleanText ? (
-                        <Text
-                          style={[
-                            styles.bubbleText,
-                            isMe ? styles.myBubbleText : styles.theirBubbleText,
-                          ]}
-                        >
-                          {cleanText}
-                        </Text>
-                      ) : null}
-
-                      {/* Decoded Attachments */}
-                      {attachments.map((att, idx) => (
-                        <AttachmentCard key={idx} attachment={att} />
-                      ))}
-
-                      <Text
+                      <BlurView
+                        intensity={isMe ? 20 : 25}
+                        tint="dark"
                         style={[
-                          styles.bubbleTime,
-                          isMe ? styles.myBubbleTime : styles.theirBubbleTime,
+                          styles.bubbleInner,
+                          isMe ? styles.myBubbleInner : styles.theirBubbleInner,
                         ]}
                       >
-                        {new Date(item.at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </Text>
+                        <LinearGradient
+                          colors={
+                            isMe
+                              ? ["rgba(212,160,23,0.92)", "rgba(180,130,12,0.88)"]
+                              : ["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]
+                          }
+                          style={StyleSheet.absoluteFillObject}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 0, y: 1 }}
+                        />
+
+                        {cleanText ? (
+                          <Text
+                            style={[
+                              styles.bubbleText,
+                              isMe ? styles.myBubbleText : styles.theirBubbleText,
+                            ]}
+                          >
+                            {cleanText}
+                          </Text>
+                        ) : null}
+
+                        {/* Decoded Attachments */}
+                        {attachments.map((att, idx) => (
+                          <AttachmentCard key={idx} attachment={att} />
+                        ))}
+
+                        <Text
+                          style={[
+                            styles.bubbleTime,
+                            isMe ? styles.myBubbleTime : styles.theirBubbleTime,
+                          ]}
+                        >
+                          {new Date(item.at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </Text>
+                      </BlurView>
                     </Pressable>
 
-                    {/* Reactions Display Strip */}
+                    {/* Translucent Liquid Glass Reaction Strip */}
                     {hasReactions && (
                       <View style={[styles.reactionsStrip, isMe && styles.myReactionsStrip]}>
                         {item.reactions!.map((reaction, rIdx) => {
@@ -432,10 +466,17 @@ export default function DMDetailScreen() {
           </View>
         )}
 
-        {/* WhatsApp-Style Pill Bar + Detached Floating Circle */}
+        {/* Floating Liquid Glass Composer Bar */}
         <View style={styles.composerWrapper}>
           <View style={styles.composerRow}>
-            <View style={styles.composerPill}>
+            <BlurView intensity={35} tint="dark" style={styles.composerPill}>
+              <LinearGradient
+                colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+                style={StyleSheet.absoluteFillObject}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+              />
+
               {/* Emoji button inside left of pill */}
               <TouchableOpacity
                 style={styles.pillIconBtn}
@@ -445,13 +486,13 @@ export default function DMDetailScreen() {
                 }}
                 hitSlop={8}
               >
-                <Smile size={21} color="#86899E" />
+                <Smile size={21} color="#A0A4B8" />
               </TouchableOpacity>
 
               <TextInput
                 style={styles.composerInput}
                 placeholder={`Message ${conversation.name}...`}
-                placeholderTextColor="#72768B"
+                placeholderTextColor="rgba(255, 255, 255, 0.45)"
                 value={inputText}
                 onChangeText={setInputText}
                 multiline
@@ -466,7 +507,7 @@ export default function DMDetailScreen() {
                 }}
                 hitSlop={8}
               >
-                <Paperclip size={20} color="#86899E" />
+                <Paperclip size={20} color="#A0A4B8" />
               </TouchableOpacity>
 
               {/* GIF Button */}
@@ -482,7 +523,7 @@ export default function DMDetailScreen() {
                   <Text style={styles.gifBadgeText}>GIF</Text>
                 </View>
               </TouchableOpacity>
-            </View>
+            </BlurView>
 
             {/* Detached Action Button */}
             <TouchableOpacity
@@ -562,7 +603,7 @@ export default function DMDetailScreen() {
                   setReactModalOpen(true);
                 }}
               >
-                <View style={[styles.menuIconWrap, { backgroundColor: "rgba(212, 160, 23, 0.12)" }]}>
+                <View style={[styles.menuIconWrap, { backgroundColor: "rgba(212, 160, 23, 0.15)" }]}>
                   <SmilePlus size={17} color={colors.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -580,7 +621,7 @@ export default function DMDetailScreen() {
                   handleCopyMessage(msg);
                 }}
               >
-                <View style={[styles.menuIconWrap, { backgroundColor: "rgba(56, 189, 248, 0.12)" }]}>
+                <View style={[styles.menuIconWrap, { backgroundColor: "rgba(56, 189, 248, 0.15)" }]}>
                   <Copy size={17} color="#38bdf8" />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -597,7 +638,7 @@ export default function DMDetailScreen() {
                     style={styles.actionMenuRow}
                     onPress={() => handleOpenEdit(selectedMessage)}
                   >
-                    <View style={[styles.menuIconWrap, { backgroundColor: "rgba(168, 85, 247, 0.12)" }]}>
+                    <View style={[styles.menuIconWrap, { backgroundColor: "rgba(168, 85, 247, 0.15)" }]}>
                       <Edit3 size={17} color="#a855f7" />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -615,7 +656,7 @@ export default function DMDetailScreen() {
                     style={[styles.actionMenuRow, styles.actionDeleteRow]}
                     onPress={() => handleDeleteMessage(selectedMessage)}
                   >
-                    <View style={[styles.menuIconWrap, { backgroundColor: "rgba(255, 77, 79, 0.15)" }]}>
+                    <View style={[styles.menuIconWrap, { backgroundColor: "rgba(255, 77, 79, 0.18)" }]}>
                       <Trash2 size={17} color={colors.danger} />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -776,7 +817,25 @@ export default function DMDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#07090E",
+  },
+  ambientGlowAmber: {
+    position: "absolute",
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+    backgroundColor: "rgba(212, 160, 23, 0.055)",
+    top: 60,
+    left: -120,
+  },
+  ambientGlowTeal: {
+    position: "absolute",
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    backgroundColor: "rgba(45, 212, 191, 0.035)",
+    bottom: 80,
+    right: -100,
   },
   toastBanner: {
     position: "absolute",
@@ -802,18 +861,27 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: "monospace",
   },
+  headerCapsuleWrap: {
+    marginHorizontal: 12,
+    marginTop: 6,
+    borderRadius: 22,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
+  },
   headerCapsule: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginHorizontal: 12,
-    marginTop: 6,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: "rgba(18, 23, 34, 0.75)",
-    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderRadius: 22,
+    overflow: "hidden",
   },
   backBtn: {
     padding: 6,
@@ -846,9 +914,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   loadingContainer: {
     flex: 1,
@@ -871,27 +941,44 @@ const styles = StyleSheet.create({
   theirMessageWrap: {
     justifyContent: "flex-start",
   },
-  bubble: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 18,
+  bubbleGlassWrap: {
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  myBubble: {
-    backgroundColor: colors.accent,
+  myBubbleGlassWrap: {
     borderBottomRightRadius: 4,
   },
-  theirBubble: {
-    backgroundColor: "rgba(23, 24, 33, 0.8)",
-    borderColor: "rgba(255, 255, 255, 0.06)",
-    borderWidth: 1,
+  theirBubbleGlassWrap: {
     borderBottomLeftRadius: 4,
   },
+  bubbleInner: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
+  },
+  myBubbleInner: {
+    borderBottomRightRadius: 4,
+    borderColor: "rgba(255, 215, 0, 0.35)",
+  },
+  theirBubbleInner: {
+    borderBottomLeftRadius: 4,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+  },
   bubbleText: {
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 14.5,
+    lineHeight: 20,
   },
   myBubbleText: {
-    color: colors.accentContrast,
+    color: "#0a0a0e",
+    fontWeight: "600",
   },
   theirBubbleText: {
     color: colors.textPrimary,
@@ -903,10 +990,11 @@ const styles = StyleSheet.create({
     fontFamily: "monospace",
   },
   myBubbleTime: {
-    color: "rgba(26, 18, 6, 0.7)",
+    color: "rgba(10, 10, 14, 0.65)",
+    fontWeight: "600",
   },
   theirBubbleTime: {
-    color: colors.textMuted,
+    color: "rgba(255, 255, 255, 0.45)",
   },
   reactionsStrip: {
     flexDirection: "row",
@@ -921,16 +1009,16 @@ const styles = StyleSheet.create({
   reactionBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.16)",
     borderRadius: 12,
     paddingHorizontal: 7,
     paddingVertical: 3,
     gap: 3,
   },
   reactionBadgeActive: {
-    backgroundColor: "rgba(212, 160, 23, 0.2)",
+    backgroundColor: "rgba(212, 160, 23, 0.25)",
     borderColor: colors.accent,
   },
   reactionEmoji: {
@@ -940,7 +1028,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "monospace",
     fontWeight: "700",
-    color: colors.textMuted,
+    color: "rgba(255, 255, 255, 0.7)",
   },
   reactionCountActive: {
     color: colors.accent,
@@ -949,9 +1037,9 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -978,14 +1066,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(212, 160, 23, 0.12)",
+    backgroundColor: "rgba(212, 160, 23, 0.15)",
     marginHorizontal: 12,
     marginBottom: 6,
     borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: "rgba(212, 160, 23, 0.25)",
+    borderColor: "rgba(212, 160, 23, 0.3)",
   },
   stagedAttachmentInner: {
     flexDirection: "row",
@@ -1026,16 +1114,21 @@ const styles = StyleSheet.create({
   },
   composerPill: {
     flex: 1,
-    minHeight: 46,
+    minHeight: 48,
     maxHeight: 120,
-    backgroundColor: "#171924",
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.09)",
+    borderColor: "rgba(255, 255, 255, 0.16)",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 6,
     paddingVertical: 2,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
   },
   pillIconBtn: {
     width: 36,
@@ -1047,7 +1140,7 @@ const styles = StyleSheet.create({
   composerInput: {
     flex: 1,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: "#FFFFFF",
     lineHeight: 20,
     paddingHorizontal: 6,
     paddingVertical: Platform.OS === "ios" ? 8 : 6,
@@ -1061,14 +1154,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   detachedActionButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#171924",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(23, 25, 36, 0.9)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.09)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   detachedActionButtonActive: {
     backgroundColor: colors.accent,
@@ -1080,11 +1178,11 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   actionModalSheet: {
-    backgroundColor: "#13141F",
+    backgroundColor: "#11131E",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
     padding: 16,
     paddingBottom: 36,
     gap: 12,
@@ -1101,12 +1199,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   quickReactionBtn: {
     padding: 4,
@@ -1118,9 +1216,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(212, 160, 23, 0.15)",
+    backgroundColor: "rgba(212, 160, 23, 0.2)",
     borderWidth: 1,
-    borderColor: "rgba(212, 160, 23, 0.3)",
+    borderColor: "rgba(212, 160, 23, 0.35)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1173,11 +1271,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   editModalSheet: {
-    backgroundColor: "#13141F",
+    backgroundColor: "#11131E",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
     padding: 16,
     paddingBottom: Platform.OS === "ios" ? 36 : 24,
     gap: 14,
@@ -1193,7 +1291,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   editTextInput: {
-    backgroundColor: "#1b1e2e",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: radius.md,
     padding: 12,
     color: colors.textPrimary,
@@ -1203,7 +1301,7 @@ const styles = StyleSheet.create({
     maxHeight: 160,
     textAlignVertical: "top",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
   editActionsRow: {
     flexDirection: "row",
