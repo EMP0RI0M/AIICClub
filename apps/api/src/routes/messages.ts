@@ -129,7 +129,7 @@ messages.get("/channels/:channelId/messages", async (c) => {
     });
 
     // Aggregate reactions for each message
-    const messagesWithReactions = messageList.map((msg) => {
+    const messagesWithReactions = messageList.map((msg: any) => {
         const reactionMap = new Map<string, { emoji: string; count: number; userIds: string[] }>();
         for (const r of msg.reactions) {
             const existing = reactionMap.get(r.emoji);
@@ -208,7 +208,7 @@ messages.get("/channels/:channelId/messages/search", async (c) => {
     });
 
     return c.json({
-        results: results.map((m) => ({
+        results: results.map((m: any) => ({
             id: m.id,
             channelId: m.channelId,
             content: m.content,
@@ -442,7 +442,7 @@ messages.post("/channels/:channelId/messages", async (c) => {
     });
     const visibleRecipientIds = (
         await Promise.all(
-            recipients.map(async (member) => {
+            recipients.map(async (member: any) => {
                 const recipientAccess = await getChannelAccess(prisma, channelId, member.userId);
                 return recipientAccess &&
                     hasPermission(recipientAccess.permissions, Permissions.VIEW_CHANNEL)

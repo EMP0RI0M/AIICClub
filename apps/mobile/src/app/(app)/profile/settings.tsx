@@ -348,7 +348,7 @@ export default function UserSettingsScreen() {
 
               <View style={styles.cardBox}>
                 <Text style={styles.cardBoxLabel}>EMAIL ADDRESS</Text>
-                <Text style={styles.cardBoxValue}>{user?.email || "internal@aiic.club"}</Text>
+                <Text style={styles.cardBoxValue}>{user?.email || "No email linked"}</Text>
               </View>
 
               <View style={styles.cardBox}>

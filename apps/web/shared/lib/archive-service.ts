@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "@/shared/supabase/admin";
-import { fetchGitHubRepo } from "./github";
+import { fetchGitHubRepo, parseGitHubUrl } from "./github";
 import type {
   AIICArchiveRecord,
   AIICArchiveStats,
@@ -8,6 +8,8 @@ import type {
   AIICArchiveVideo,
   AIICArchiveBuild,
 } from "./archive-types";
+import { ingestKnowledgeDocument } from "@/shared/lib/knowledge/engine";
+import { fetchYouTubeTranscript } from "./knowledge/youtube-transcript";
 
 // ─────────────────────────────────────────────────────────────
 // PERMANENT ARCHIVE NUMBER GENERATOR
@@ -51,11 +53,216 @@ export function extractYouTubeId(url: string): string | null {
   return match && match[1] ? match[1] : null;
 }
 
-// ─────────────────────────────────────────────────────────────
-// DEFAULT SEED ARCHIVE ENTRIES
-// ─────────────────────────────────────────────────────────────
+/**
+ * Parses ISO 8601 duration (e.g. PT1H15M33S) into standard human-readable format (1:15:33 or 15:33)
+ */
+function parseISO8601Duration(durationStr: string): string {
+  if (!durationStr) return "";
+  const match = durationStr.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return "";
+  const hours = parseInt(match[1] || "0", 10);
+  const minutes = parseInt(match[2] || "0", 10);
+  const seconds = parseInt(match[3] || "0", 10);
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
-export const DEFAULT_ARCHIVE_RECORDS: AIICArchiveRecord[] = [];
+/**
+ * Fetches rich YouTube video metadata using YouTube Data API v3 with automatic oEmbed and HTML scraper fallback
+ */
+export async function fetchYouTubeMetadata(videoId: string): Promise<{
+  title?: string;
+  description?: string;
+  channelTitle?: string;
+  duration?: string;
+  thumbnailUrl?: string;
+  tags?: string[];
+} | null> {
+  if (!videoId) return null;
+  const apiKey = process.env.YOUTUBE_API_KEY;
+
+  let title: string | undefined = undefined;
+  let description: string | undefined = undefined;
+  let channelTitle: string | undefined = undefined;
+  let duration: string | undefined = undefined;
+  let thumbnailUrl: string | undefined = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  let tags: string[] = [];
+
+  // Strategy 1: YouTube Data API v3
+  if (apiKey) {
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const item = data?.items?.[0];
+        if (item) {
+          const snippet = item.snippet || {};
+          const contentDetails = item.contentDetails || {};
+          const thumbnails = snippet.thumbnails || {};
+          thumbnailUrl =
+            thumbnails.maxres?.url ||
+            thumbnails.standard?.url ||
+            thumbnails.high?.url ||
+            thumbnails.medium?.url ||
+            `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+          title = snippet.title;
+          description = snippet.description;
+          channelTitle = snippet.channelTitle || "AIIC Bal Bhawan";
+          duration = parseISO8601Duration(contentDetails.duration);
+          tags = snippet.tags || [];
+
+          return { title, description, channelTitle, duration, thumbnailUrl, tags };
+        }
+      }
+    } catch (err) {
+      console.warn("[YOUTUBE_DATA_API_FETCH_WARN]", err);
+    }
+  }
+
+  // Strategy 2: Official YouTube oEmbed API
+  try {
+    const oembedRes = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+      { headers: { "User-Agent": "AIIC-Archive/1.0" } }
+    );
+    if (oembedRes.ok) {
+      const oembed = await oembedRes.json();
+      if (oembed.title) title = oembed.title;
+      if (oembed.author_name) channelTitle = oembed.author_name;
+      if (oembed.thumbnail_url) thumbnailUrl = oembed.thumbnail_url;
+    }
+  } catch (err) {
+    console.warn("[YOUTUBE_OEMBED_FETCH_WARN]", err);
+  }
+
+  // Strategy 3: HTML Scraper Fallback
+  try {
+    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    });
+    if (pageRes.ok) {
+      const html = await pageRes.text();
+      if (!title) {
+        const titleMatch =
+          html.match(/<meta name="title" content="([^"]*)"/i) ||
+          html.match(/<title>([^<]*)<\/title>/i);
+        if (titleMatch && titleMatch[1]) title = titleMatch[1].replace(/ - YouTube$/i, "").trim();
+      }
+      if (!description) {
+        const descMatch =
+          html.match(/<meta name="description" content="([^"]*)"/i) ||
+          html.match(/"shortDescription":"([^"]*)"/i);
+        if (descMatch && descMatch[1]) {
+          description = descMatch[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').trim();
+        }
+      }
+      if (!duration) {
+        const durSecMatch = html.match(/"lengthSeconds":"(\d+)"/i);
+        if (durSecMatch && durSecMatch[1]) {
+          const totalSec = parseInt(durSecMatch[1], 10);
+          const hrs = Math.floor(totalSec / 3600);
+          const mins = Math.floor((totalSec % 3600) / 60);
+          const secs = totalSec % 60;
+          duration = hrs > 0 ? `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}` : `${mins}:${String(secs).padStart(2, "0")}`;
+        }
+      }
+      const kwMatch = html.match(/<meta name="keywords" content="([^"]*)"/i);
+      if (kwMatch && kwMatch[1]) {
+        tags = kwMatch[1].split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
+      }
+    }
+  } catch (err) {
+    console.warn("[YOUTUBE_SCRAPER_WARN]", err);
+  }
+
+  if (title || description) {
+    return {
+      title,
+      description,
+      channelTitle: channelTitle || "AIIC Bal Bhawan",
+      duration,
+      thumbnailUrl: thumbnailUrl || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      tags,
+    };
+  }
+
+  return null;
+}
+
+export const DEFAULT_ARCHIVE_RECORDS: AIICArchiveRecord[] = [
+  {
+    archiveId: "AIIC-2026-000001",
+    title: "AIIC Bal Bhawan Institutional Platform (Part 2)",
+    description: "Official AIIC Web Platform Part 2 featuring institutional lecture archives, inline 1080p video player, LaTeX math rendering, RAG Sentinel pgvector knowledge engine, and interactive code sandboxes.",
+    type: "build",
+    session: "2026–27",
+    year: 2026,
+    status: "Active",
+    tags: ["website", "part-2", "production", "nextjs", "ai-rag", "bal-bhawan"],
+    createdAt: "2026-09-08T00:00:00.000Z",
+    updatedAt: "2026-09-10T00:00:00.000Z",
+    featured: true,
+    build: {
+      archiveId: "AIIC-2026-000001",
+      version: "v2.0.0",
+      buildUrl: "https://aiic-bbs.vercel.app",
+      environment: "production",
+      releaseNotes: "Production release of Website Part 2 with live institutional archive, YouTube auto-fetch, interactive preview viewport, and AI RAG knowledge synthesis.",
+    },
+  },
+  {
+    archiveId: "AIIC-2026-000002",
+    title: "AIIC Bal Bhawan Portal (Part 1 Foundation)",
+    description: "Foundational build for AIIC Bal Bhawan featuring student onboarding, club registration, curriculum overview, and core club identity.",
+    type: "build",
+    session: "2025–26",
+    year: 2025,
+    status: "Active",
+    tags: ["website", "part-1", "foundation", "bal-bhawan"],
+    createdAt: "2025-09-01T00:00:00.000Z",
+    updatedAt: "2025-09-01T00:00:00.000Z",
+    featured: false,
+    build: {
+      archiveId: "AIIC-2026-000002",
+      version: "v1.0.0",
+      buildUrl: "https://aiic-bbs.vercel.app",
+      environment: "production",
+      releaseNotes: "Foundational platform build v1.0.0.",
+    },
+  },
+  {
+    archiveId: "AIIC-2026-000003",
+    title: "Lecture 1: Web Architecture & Next.js Fullstack Engineering",
+    description: "Official deep dive into Next.js App Router, SSR vs CSR, hydration boundaries, Tailwind CSS tokens, and scalable fullstack club platforms.",
+    type: "video",
+    session: "2026–27",
+    year: 2026,
+    status: "Active",
+    tags: ["lecture", "web-architecture", "nextjs", "frontend", "video"],
+    createdAt: "2026-09-01T00:00:00.000Z",
+    updatedAt: "2026-09-01T00:00:00.000Z",
+    featured: true,
+    video: {
+      archiveId: "AIIC-2026-000003",
+      youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      youtubeId: "dQw4w9WgXcQ",
+      title: "Lecture 1: Web Architecture & Next.js Fullstack Engineering",
+      speaker: "Rafi Ullah Khan",
+      duration: "45:20",
+      channelTitle: "AIIC Bal Bhawan",
+      thumbnailUrl: "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+      embedUrl: "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
+    },
+  },
+];
 
 // ─────────────────────────────────────────────────────────────
 // ARCHIVE QUERY FUNCTIONS
@@ -114,6 +321,22 @@ export async function getArchiveRecords(): Promise<AIICArchiveRecord[]> {
         };
       }
 
+      // Document deserialization
+      let docData: AIICArchiveDocument | undefined = undefined;
+      const isDocType = r.type === "document" || parsedNotes.type === "document" || Boolean(parsedNotes.document || r.document_data);
+      if (isDocType || parsedNotes.document) {
+        const rawDoc = parsedNotes.document || r.document_data || {};
+        docData = {
+          ...rawDoc,
+          archiveId: r.archive_id,
+          fileName: rawDoc.fileName || `${r.title}.md`,
+          fileSize: rawDoc.fileSize || (parsedNotes.content || r.description || "").length,
+          mimeType: rawDoc.mimeType || "text/markdown",
+          fileUrl: rawDoc.fileUrl || `/archive/${r.archive_id}`,
+          content: parsedNotes.content || rawDoc.content || r.description || undefined,
+        };
+      }
+
       return {
         archiveId: r.archive_id,
         title: r.title,
@@ -128,7 +351,7 @@ export async function getArchiveRecords(): Promise<AIICArchiveRecord[]> {
         createdBy: r.created_by,
         featured: r.featured || false,
         repository: parsedNotes.repository || r.repository_data || undefined,
-        document: parsedNotes.document || r.document_data || undefined,
+        document: docData,
         video: videoData,
         build: buildData,
         relatedProjects: r.related_projects || [],
@@ -188,32 +411,37 @@ export async function registerVideoArchive(
       return { success: false, error: "Invalid YouTube URL. Please provide a valid YouTube watch, embed, or short link." };
     }
 
-    if (!title || !title.trim()) {
-      return { success: false, error: "Video title is required." };
-    }
+    // Automatically enrich with YouTube Data API v3 if available
+    const ytMeta = await fetchYouTubeMetadata(ytId);
+
+    const resolvedTitle = title.trim() || ytMeta?.title || `YouTube Video ${ytId}`;
+    const resolvedDesc = description?.trim() || ytMeta?.description || `YouTube Workshop Recording: ${resolvedTitle}`;
+    const resolvedDuration = duration?.trim() || ytMeta?.duration || undefined;
+    const resolvedChannel = ytMeta?.channelTitle || "AIIC Bal Bhawan";
+    const resolvedThumbnail = ytMeta?.thumbnailUrl || `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
 
     const archiveId = await generateNextArchiveId();
-    const cleanTags = Array.from(new Set(["video", "youtube", ...(tags || []).map((t) => t.trim()).filter(Boolean)]));
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const cleanTags = Array.from(new Set(["video", "youtube", ...(tags || []).map((t) => t.trim()), ...(ytMeta?.tags || [])].filter(Boolean)));
+    const slug = resolvedTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
     const videoPayload: AIICArchiveVideo = {
       archiveId,
       youtubeUrl: `https://www.youtube.com/watch?v=${ytId}`,
       youtubeId: ytId,
-      title: title.trim(),
+      title: resolvedTitle,
       speaker: speaker?.trim() || undefined,
-      duration: duration?.trim() || undefined,
-      channelTitle: "AIIC Bal Bhawan",
-      thumbnailUrl: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
+      duration: resolvedDuration,
+      channelTitle: resolvedChannel,
+      thumbnailUrl: resolvedThumbnail,
       embedUrl: `https://www.youtube-nocookie.com/embed/${ytId}`,
     };
 
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase.from("archive_records").insert({
       archive_id: archiveId,
-      title: title.trim(),
+      title: resolvedTitle,
       slug: slug || archiveId.toLowerCase(),
-      description: description?.trim() || `YouTube Workshop Recording: ${title}`,
+      description: resolvedDesc,
       type: "video",
       session,
       year: new Date().getFullYear(),
@@ -227,6 +455,32 @@ export async function registerVideoArchive(
     }).select().single();
 
     if (error) throw error;
+
+    // Trigger asynchronous YouTube Transcript Extraction & Knowledge Vector Ingestion
+    void (async () => {
+      try {
+        const transcriptResult = await fetchYouTubeTranscript(ytId, resolvedDesc);
+        const transcriptText = transcriptResult?.fullTranscript || resolvedDesc;
+        await ingestKnowledgeDocument({
+          sourceId: archiveId,
+          sourceType: "youtube_lecture",
+          archiveId,
+          title: resolvedTitle,
+          description: resolvedDesc,
+          content: `${resolvedTitle}\nSpeaker: ${speaker || "AIIC Faculty"}\nSession: ${session}\nDescription: ${resolvedDesc}\n\nTRANSCRIPT & TIMESTAMPED LECTURE PASSAGES:\n${transcriptText}`,
+          url: `https://www.youtube.com/watch?v=${ytId}`,
+          metadata: {
+            speaker: speaker || "AIIC Faculty",
+            session,
+            tags: cleanTags,
+            hasSubtitles: transcriptResult?.hasSubtitles || false,
+            totalWords: transcriptResult?.totalWords || 0,
+          },
+        });
+      } catch (kErr) {
+        console.warn("[VIDEO_TRANSCRIPT_VECTOR_INGEST_WARN]", kErr);
+      }
+    })();
 
     return {
       success: true,
@@ -316,6 +570,107 @@ export async function registerBuildArchive(
     };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to register build archive record." };
+  }
+}
+
+export async function registerDocumentArchive(
+  title: string,
+  description: string,
+  category: string = "Official Study Notes",
+  session: string = "2026–27",
+  content?: string,
+  fileUrl?: string,
+  tags: string[] = ["document", "official"],
+  actorUserId?: string
+): Promise<{ success: boolean; record?: AIICArchiveRecord; error?: string }> {
+  try {
+    if (!title || !title.trim()) {
+      return { success: false, error: "Document title is required." };
+    }
+
+    const archiveId = await generateNextArchiveId();
+    const cleanTags = Array.from(new Set(["document", ...(tags || []).map((t) => t.trim()).filter(Boolean)]));
+    const slug = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString().slice(-4)}`.replace(/^-|-$/g, "");
+
+    const documentPayload: AIICArchiveDocument = {
+      archiveId,
+      category,
+      author: "AIIC Faculty / Executive Board",
+      currentVersion: "v1.0",
+      fileName: `${title.replace(/[^a-zA-Z0-9_-]/g, "_")}.md`,
+      fileSize: (content || description || "").length,
+      mimeType: "text/markdown",
+      fileUrl: fileUrl || `/archive/${archiveId}`,
+      summary: description,
+      versions: [
+        {
+          version: "v1.0",
+          uploadedAt: new Date().toISOString(),
+          uploaderName: "AIIC Faculty",
+          fileName: `${title.replace(/[^a-zA-Z0-9_-]/g, "_")}.md`,
+          fileSize: (content || description || "").length,
+          mimeType: "text/markdown",
+          fileUrl: fileUrl || `/archive/${archiveId}`,
+          changeNote: "Initial archive deposit.",
+        },
+      ],
+    };
+
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase.from("archive_records").insert({
+      archive_id: archiveId,
+      title: title.trim(),
+      slug: slug || archiveId.toLowerCase(),
+      description: description?.trim() || `Archived institutional document: ${title}`,
+      type: "document",
+      session,
+      year: new Date().getFullYear(),
+      status: "Active",
+      visibility: "public",
+      tags: cleanTags,
+      history_notes: JSON.stringify({ type: "document", document: documentPayload, content: content || description }),
+      created_by: actorUserId || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).select().single();
+
+    if (error) throw error;
+
+    // Trigger asynchronous Knowledge Engine Ingestion
+    void ingestKnowledgeDocument({
+      sourceId: archiveId,
+      sourceType: "archive_document",
+      archiveId,
+      title: title.trim(),
+      description: description?.trim() || "",
+      content: content ? `${title.trim()}\n\nCategory: ${category}\nSession: ${session}\n\n${content}` : `${title.trim()}\n\n${description}`,
+      url: `/archive/${archiveId}`,
+      visibility: "public",
+      metadata: {
+        category,
+        session,
+        tags: cleanTags,
+      },
+    }).catch((kErr) => console.warn("[KNOWLEDGE_AUTO_INDEX_WARN]", kErr));
+
+    return {
+      success: true,
+      record: {
+        archiveId,
+        title: title.trim(),
+        description: description?.trim() || "",
+        type: "document",
+        session,
+        year: new Date().getFullYear(),
+        status: "Active",
+        tags: cleanTags,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        document: documentPayload,
+      },
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to register document archive record." };
   }
 }
 
@@ -418,5 +773,217 @@ export async function registerGitHubRepository(
     };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to register repository." };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// EDIT & DELETE ARCHIVE RECORD (CREATOR / ADMIN AUTHORIZED)
+// ─────────────────────────────────────────────────────────────
+
+export async function updateArchiveRecord(
+  archiveId: string,
+  updates: {
+    title?: string;
+    description?: string;
+    session?: string;
+    tags?: string[];
+    youtubeUrl?: string;
+    speaker?: string;
+    duration?: string;
+    version?: string;
+    buildUrl?: string;
+    artifactUrl?: string;
+    environment?: "production" | "staging" | "preview" | "release";
+    githubUrl?: string;
+    category?: string;
+  },
+  actorUserId?: string,
+  isElevated: boolean = true
+): Promise<{ success: boolean; record?: AIICArchiveRecord; error?: string; status?: number }> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data: existing, error: fetchErr } = await supabase
+      .from("archive_records")
+      .select("*")
+      .eq("archive_id", archiveId)
+      .maybeSingle();
+
+    if (fetchErr || !existing) {
+      return { success: false, error: "Archive record not found.", status: 404 };
+    }
+
+    // Resolve actor's identifiers (both public.users.id and auth_user_id)
+    let isCreator = Boolean(existing.created_by && existing.created_by === actorUserId);
+    if (!isCreator && existing.created_by) {
+      const { data: actorUser } = await supabase
+        .from("users")
+        .select("id, auth_user_id")
+        .or(`id.eq.${actorUserId},auth_user_id.eq.${actorUserId}`)
+        .maybeSingle();
+
+      if (actorUser) {
+        isCreator =
+          existing.created_by === actorUser.id ||
+          existing.created_by === actorUser.auth_user_id;
+      }
+    }
+
+    if (!isCreator && !isElevated) {
+      return { success: false, error: "Forbidden: You are not authorized to edit this archive record.", status: 403 };
+    }
+
+    let parsedNotes: any = {};
+    try {
+      if (existing.history_notes && typeof existing.history_notes === "string" && existing.history_notes.startsWith("{")) {
+        parsedNotes = JSON.parse(existing.history_notes);
+      }
+    } catch {}
+
+    const cleanTitle = updates.title !== undefined ? updates.title.trim() : existing.title;
+    const cleanDesc = updates.description !== undefined ? updates.description.trim() : existing.description;
+    const cleanSession = updates.session || existing.session || "2026–27";
+    const cleanTags = updates.tags !== undefined ? updates.tags : existing.tags;
+
+    // Handle video metadata updates
+    if (existing.type === "video" || updates.youtubeUrl) {
+      if (updates.youtubeUrl) {
+        const ytId = extractYouTubeId(updates.youtubeUrl);
+        if (ytId) {
+          parsedNotes.youtubeUrl = `https://www.youtube.com/watch?v=${ytId}`;
+          parsedNotes.youtubeId = ytId;
+          parsedNotes.thumbnailUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+          parsedNotes.embedUrl = `https://www.youtube-nocookie.com/embed/${ytId}`;
+        }
+      }
+      if (updates.speaker !== undefined) parsedNotes.speaker = updates.speaker.trim() || undefined;
+      if (updates.duration !== undefined) parsedNotes.duration = updates.duration.trim() || undefined;
+      parsedNotes.title = cleanTitle;
+    }
+
+    // Handle build metadata updates
+    if (existing.type === "build" || updates.version) {
+      if (updates.version) parsedNotes.version = updates.version.trim();
+      if (updates.buildUrl !== undefined) parsedNotes.buildUrl = updates.buildUrl.trim() || undefined;
+      if (updates.artifactUrl !== undefined) parsedNotes.artifactUrl = updates.artifactUrl.trim() || undefined;
+      if (updates.environment) parsedNotes.environment = updates.environment;
+      parsedNotes.releaseNotes = cleanDesc;
+    }
+
+    // Handle repository metadata updates
+    if (existing.type === "repository" || updates.githubUrl) {
+      if (updates.githubUrl) {
+        const parsed = parseGitHubUrl(updates.githubUrl);
+        if (parsed) {
+          if (!parsedNotes.repository) parsedNotes.repository = {};
+          parsedNotes.repository.githubOwner = parsed.owner;
+          parsedNotes.repository.githubName = parsed.repo;
+          parsedNotes.repository.githubUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
+        }
+      }
+      if (parsedNotes.repository) {
+        parsedNotes.repository.description = cleanDesc;
+      }
+    }
+
+    // Handle document metadata updates
+    if (updates.category) {
+      parsedNotes.category = updates.category;
+    }
+
+    const { data: updated, error: updateErr } = await supabase
+      .from("archive_records")
+      .update({
+        title: cleanTitle,
+        description: cleanDesc,
+        session: cleanSession,
+        tags: cleanTags,
+        history_notes: JSON.stringify(parsedNotes),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("archive_id", archiveId)
+      .select()
+      .single();
+
+    if (updateErr) throw updateErr;
+
+    // Also update repositories table if linked
+    if (updates.githubUrl || cleanTitle || cleanDesc) {
+      try {
+        const repoUpdate: any = {};
+        if (cleanTitle) repoUpdate.github_name = cleanTitle;
+        if (cleanDesc) repoUpdate.description = cleanDesc;
+        if (updates.githubUrl) {
+          const parsed = parseGitHubUrl(updates.githubUrl);
+          if (parsed) {
+            repoUpdate.github_owner = parsed.owner;
+            repoUpdate.github_name = parsed.repo;
+            repoUpdate.github_url = `https://github.com/${parsed.owner}/${parsed.repo}`;
+          }
+        }
+        if (Object.keys(repoUpdate).length > 0) {
+          await supabase.from("repositories").update(repoUpdate).eq("archive_id", archiveId);
+        }
+      } catch {}
+    }
+
+    const fullRecord = await getArchiveRecordById(archiveId);
+    return { success: true, record: fullRecord || undefined };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to update archive record.", status: 500 };
+  }
+}
+
+export async function deleteArchiveRecord(
+  archiveId: string,
+  actorUserId?: string,
+  isElevated: boolean = true
+): Promise<{ success: boolean; archiveId?: string; error?: string; status?: number }> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data: existing, error: fetchErr } = await supabase
+      .from("archive_records")
+      .select("*")
+      .eq("archive_id", archiveId)
+      .maybeSingle();
+
+    if (fetchErr || !existing) {
+      return { success: false, error: "Archive record not found.", status: 404 };
+    }
+
+    // Resolve actor's identifiers (both public.users.id and auth_user_id)
+    let isCreator = Boolean(existing.created_by && existing.created_by === actorUserId);
+    if (!isCreator && existing.created_by) {
+      const { data: actorUser } = await supabase
+        .from("users")
+        .select("id, auth_user_id")
+        .or(`id.eq.${actorUserId},auth_user_id.eq.${actorUserId}`)
+        .maybeSingle();
+
+      if (actorUser) {
+        isCreator =
+          existing.created_by === actorUser.id ||
+          existing.created_by === actorUser.auth_user_id;
+      }
+    }
+
+    if (!isCreator && !isElevated) {
+      return { success: false, error: "Forbidden: You are not authorized to delete this archive record.", status: 403 };
+    }
+
+    // Delete associated repository record if exists
+    try {
+      await supabase.from("repositories").delete().eq("archive_id", archiveId);
+    } catch {}
+
+    const { error: deleteErr } = await supabase
+      .from("archive_records")
+      .delete()
+      .eq("archive_id", archiveId);
+
+    if (deleteErr) throw deleteErr;
+
+    return { success: true, archiveId };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to delete archive record.", status: 500 };
   }
 }

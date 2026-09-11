@@ -15,7 +15,7 @@ import type { ChannelType } from "@/shared/components/ui";
 import type { AppShellData } from "./AppShell";
 import type { ChatMessage, DMSummary, MemberRef, Presence, FriendEntry } from "./types";
 import { SAMPLE_DATA } from "./sample-data";
-import { formatAttachmentSize, parseAttachmentContent } from "@/shared/lib/attachments";
+import { formatAttachmentSize, parseAttachmentContent, parseMessageContent } from "@/shared/lib/attachments";
 
 /**
  * Layer locally-created workspace entities (spaces, channels, group DMs,
@@ -108,6 +108,8 @@ function toChannelType(type: string): ChannelType {
       return "board";
     case "docs":
       return "docs";
+    case "notebook":
+      return "notebook";
     case "canvas":
       return "canvas";
     case "github":
@@ -151,37 +153,37 @@ function parseClipContent(content: string) {
 }
 
 function toMessage(m: MessageData): ChatMessage {
-  const attachment = parseAttachmentContent(m.content);
-  const clip = parseClipContent(m.content) || (m as any).clip;
-  const isAttachmentOrClip = Boolean(attachment || clip);
+  const author = m?.author || ({} as any);
+  const { text, attachments: parsedAttachments } = parseMessageContent(m.content || "");
+  const clip = parseClipContent(m.content || "") || (m as any).clip;
+
+  const formattedAttachments = parsedAttachments.map((att) => ({
+    kind: att.kind === "image" ? ("image" as const) : att.kind === "video" ? ("video" as const) : att.kind === "gif" ? ("gif" as const) : ("file" as const),
+    name: att.name,
+    url: att.url,
+    size: formatAttachmentSize(att.size),
+  }));
 
   return {
     id: m.id,
     author: {
-      id: m.author.id,
-      name: m.author.displayName || m.author.username,
-      avatar: m.author.avatarUrl,
-      presence: toPresence(m.author.status),
+      id: author.id || (m as any).authorId || (m as any).author_id || "unknown",
+      name: author.displayName || (author as any).display_name || author.username || (m as any).authorName || "User",
+      avatar: author.avatarUrl || (author as any).avatar_url || null,
+      presence: toPresence(author.status),
     },
-    at: m.createdAt,
-    text: isAttachmentOrClip ? "" : m.content,
-    edited: Boolean(m.editedAt),
+    at: m.createdAt || (m as any).created_at || (m as any).at || new Date().toISOString(),
+    text: text,
+    edited: Boolean(m.editedAt || (m as any).edited_at),
     clip: clip || undefined,
     replyTo: m.replyTo
       ? {
           id: m.replyTo.id,
-          authorName: m.replyTo.author.displayName || m.replyTo.author.username,
+          authorName: m.replyTo.author?.displayName || m.replyTo.author?.username || "User",
           text: m.replyTo.content,
         }
       : undefined,
-    attachments: attachment
-      ? [{
-          kind: attachment.kind === "image" ? "image" : attachment.kind === "video" ? "video" : attachment.kind === "gif" ? "gif" : "file",
-          name: attachment.name,
-          url: attachment.url,
-          size: formatAttachmentSize(attachment.size),
-        }]
-      : undefined,
+    attachments: formattedAttachments.length > 0 ? formattedAttachments : undefined,
 
     embed: m.embeds?.[0]?.title
       ? {

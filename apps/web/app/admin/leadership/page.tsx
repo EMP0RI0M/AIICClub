@@ -147,7 +147,7 @@ export default function AdminLeadershipPage() {
               {officers.map((off) => (
                 <div
                   key={off.id}
-                  className="flex flex-col justify-between p-5 rounded-2xl border border-white/[0.08] bg-[#121622] shadow-xl"
+                  className="flex flex-col justify-between p-5 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-xl"
                 >
                   <div>
                     <div className="flex items-center justify-between">
@@ -191,11 +191,11 @@ export default function AdminLeadershipPage() {
             </h2>
 
             {history.length === 0 ? (
-              <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-8 text-center text-xs text-text-muted font-mono">
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-8 text-center text-xs text-text-muted font-mono">
                 No leadership transition events recorded yet.
               </div>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121622] shadow-xl divide-y divide-white/[0.04]">
+              <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-xl divide-y divide-white/[0.04]">
                 {history.map((record) => (
                   <div
                     key={record.id}
@@ -250,7 +250,7 @@ export default function AdminLeadershipPage() {
           onClick={() => setShowSuccessionModal(false)}
         >
           <div
-            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-amber-500/30 bg-[#121622] p-6 shadow-2xl backdrop-blur-xl"
+            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-amber-500/30 bg-[#0a0a0a] p-6 shadow-2xl backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold text-amber-400 flex items-center gap-2">

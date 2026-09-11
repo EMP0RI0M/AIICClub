@@ -321,7 +321,7 @@ export default function AdminGitHubPage() {
               </div>
 
               {(!data?.installations || data.installations.length === 0) ? (
-                <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-12 text-center text-xs text-text-muted font-mono">
+                <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-12 text-center text-xs text-text-muted font-mono">
                   No GitHub App installations registered yet. Once the AIIC Automation App is installed on an organization, it will appear here.
                 </div>
               ) : (
@@ -329,7 +329,7 @@ export default function AdminGitHubPage() {
                   {data.installations.map((inst) => (
                     <div
                       key={inst.id}
-                      className="flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#121622] p-5 shadow-xl hover:border-white/[0.14] transition-all"
+                      className="flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-5 shadow-xl hover:border-white/[0.14] transition-all"
                     >
                       <div>
                         <div className="flex items-start justify-between gap-3">
@@ -448,11 +448,11 @@ export default function AdminGitHubPage() {
               </div>
 
               {(!data?.repositories || data.repositories.length === 0) ? (
-                <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-12 text-center text-xs text-text-muted font-mono">
+                <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-12 text-center text-xs text-text-muted font-mono">
                   No repositories synced into the inventory yet.
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121622] shadow-xl">
+                <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-xl">
                   <table className="w-full text-left text-xs">
                     <thead className="border-b border-white/[0.08] bg-white/[0.02] font-mono text-[11px] uppercase tracking-wider text-text-muted">
                       <tr>
@@ -575,7 +575,7 @@ export default function AdminGitHubPage() {
               </div>
 
               {allTeams.length === 0 ? (
-                <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-8 text-center text-xs text-text-muted font-mono">
+                <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-8 text-center text-xs text-text-muted font-mono">
                   No AIIC teams configured.
                 </div>
               ) : (
@@ -587,7 +587,7 @@ export default function AdminGitHubPage() {
                     return (
                       <div
                         key={team.id}
-                        className="flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#121622] p-5 shadow-xl"
+                        className="flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-5 shadow-xl"
                       >
                         <div>
                           <div className="flex items-center justify-between">
@@ -704,11 +704,11 @@ export default function AdminGitHubPage() {
               </div>
 
               {(!data?.deliveries || data.deliveries.length === 0) ? (
-                <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-12 text-center text-xs text-text-muted font-mono">
+                <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-12 text-center text-xs text-text-muted font-mono">
                   No webhook deliveries recorded yet. Once GitHub pushes events to `/api/webhooks/github`, verified deliveries will stream into this ledger.
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121622] shadow-xl">
+                <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-xl">
                   <table className="w-full text-left text-xs">
                     <thead className="border-b border-white/[0.08] bg-white/[0.02] font-mono text-[11px] uppercase tracking-wider text-text-muted">
                       <tr>
@@ -789,7 +789,7 @@ export default function AdminGitHubPage() {
           onClick={() => setSelectedDelivery(null)}
         >
           <div
-            className="relative w-full max-w-lg overflow-hidden rounded-[28px] border border-white/10 bg-[#121622] p-6 shadow-2xl backdrop-blur-xl"
+            className="relative w-full max-w-lg overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
@@ -870,7 +870,7 @@ export default function AdminGitHubPage() {
           onClick={() => setShowRepoModal(false)}
         >
           <div
-            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#121622] p-6 shadow-2xl backdrop-blur-xl"
+            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
@@ -980,7 +980,7 @@ export default function AdminGitHubPage() {
           onClick={() => setShowGhTeamModal(false)}
         >
           <div
-            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#121622] p-6 shadow-2xl backdrop-blur-xl"
+            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
@@ -1089,7 +1089,7 @@ export default function AdminGitHubPage() {
           onClick={() => !submitting && setShowCreateRepoModal(false)}
         >
           <div
-            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#121622] p-6 shadow-2xl backdrop-blur-xl"
+            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold text-text-primary flex items-center gap-2">

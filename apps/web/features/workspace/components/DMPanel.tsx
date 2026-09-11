@@ -48,7 +48,7 @@ export function DMPanel({
   onSetStatus?: (presence: Presence, text?: string) => void;
 }) {
   return (
-    <aside className="flex h-full min-w-0 flex-1 md:flex-initial md:w-[244px] shrink-0 flex-col overflow-hidden bg-[#0e121a]/85 border-r border-white/[0.06] backdrop-blur-xl shadow-[inset_-1px_0_rgba(255,255,255,0.03)]">
+    <aside className="flex h-full min-w-0 flex-1 md:flex-initial md:w-[244px] shrink-0 flex-col overflow-hidden bg-[#050505]/90 border-r border-white/[0.06] backdrop-blur-xl shadow-[inset_-1px_0_rgba(255,255,255,0.03)]">
       <div className="px-3.5 pb-2.5 pt-3.5">
         <div className="flex items-center justify-between">
           <h2 className="text-[14.5px] font-bold text-text-primary">Direct Messages</h2>
@@ -98,7 +98,7 @@ export function DMPanel({
                 {c.presence && (
                   <span
                     className={cn(
-                      "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0e121a]",
+                      "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#050505]",
                       DOT[c.presence]
                     )}
                   />
@@ -138,7 +138,7 @@ function GroupStack({ members }: { members: { id: string; name: string; avatar?:
   return (
     <div className="flex w-7 shrink-0 items-center">
       {members.slice(0, 2).map((m, i) => (
-        <div key={m.id} className={cn("rounded-full border-2 border-[#0e121a]", i > 0 && "-ml-2.5")}>
+        <div key={m.id} className={cn("rounded-full border-2 border-[#050505]", i > 0 && "-ml-2.5")}>
           <Avatar src={m.avatar} name={m.name} size={20} shape="circle" />
         </div>
       ))}

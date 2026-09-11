@@ -4,6 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Globe, ArrowRight } from "lucide-react";
 
+import {
+  WordReveal,
+  TextRotate,
+  TextHighlight,
+  ScrollReveal,
+  MagneticButton,
+  ShimmerButton,
+} from "@/shared/components/motion";
+
 export function HeroCinematic() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [email, setEmail] = useState("");
@@ -97,62 +106,75 @@ export function HeroCinematic() {
 
       {/* Hero Central Content */}
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pt-28 pb-12 sm:pt-36 sm:pb-16 text-center sm:px-6 md:pt-40 md:pb-20">
-        <span className="mb-2 font-mono text-[10px] uppercase tracking-widest text-white/60 sm:mb-3 sm:text-xs">
-          Bal Bhawan School · Academic Session 2026–2027
-        </span>
+        <div className="mb-3 inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-widest text-zinc-400 sm:mb-4 sm:text-xs">
+          <span>Bal Bhawan School · Advancing</span>
+          <TextRotate
+            words={[
+              "Artificial Intelligence",
+              "Agentic Systems",
+              "Software Architecture",
+              "Autonomous Robotics",
+              "Applied Science",
+            ]}
+          />
+        </div>
 
-        {/* Responsive Heading */}
+        {/* Responsive Heading with Cinematic Word Reveal */}
         <h1 className="font-serif-instrument text-[clamp(2.75rem,11vw,8rem)] leading-[1.05] tracking-tight text-white whitespace-normal max-w-full px-2">
-          Know it then <em className="italic font-normal">all</em>.
+          <WordReveal text="Know it then all." delay={0.1} />
         </h1>
 
-        {/* Email Input */}
-        <form onSubmit={handleSubmit} className="mt-6 w-full max-w-md px-2 sm:mt-8 sm:max-w-xl">
-          <div className="liquid-glass flex min-h-[52px] w-full items-center gap-2 rounded-full py-1.5 pl-5 pr-1.5 sm:min-h-[58px] sm:gap-3 sm:py-2 sm:pl-6 sm:pr-2">
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your school email..."
-              className="w-full min-w-0 bg-transparent text-xs sm:text-sm text-white placeholder:text-white/40 focus:outline-none"
-            />
-            <button
-              type="submit"
-              aria-label="Subscribe"
-              className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full bg-white text-black transition-transform active:scale-95 sm:hover:scale-105"
-            >
-              <ArrowRight size={18} />
-            </button>
-          </div>
-          {subscribed && (
-            <p className="mt-2 text-xs font-mono text-white/90">
-              ✓ Subscribed to AIIC institutional briefings.
-            </p>
-          )}
-        </form>
+        {/* Email Input with Dark Glass */}
+        <ScrollReveal delay={0.2} className="w-full max-w-md px-2 sm:mt-8 sm:max-w-xl">
+          <form onSubmit={handleSubmit} className="mt-6 w-full">
+            <div className="aiic-dark-glass flex min-h-[52px] w-full items-center gap-2 rounded-full py-1.5 pl-5 pr-1.5 sm:min-h-[58px] sm:gap-3 sm:py-2 sm:pl-6 sm:pr-2 shadow-2xl">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your school email..."
+                className="w-full min-w-0 bg-transparent text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                aria-label="Subscribe"
+                className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full bg-accent text-black font-semibold transition-transform active:scale-95 sm:hover:scale-105 hover:bg-accent-violet-bright"
+              >
+                <ArrowRight size={18} />
+              </button>
+            </div>
+            {subscribed && (
+              <p className="mt-2 text-xs font-mono text-accent">
+                ✓ Subscribed to AIIC institutional briefings.
+              </p>
+            )}
+          </form>
+        </ScrollReveal>
 
         {/* Subtitle */}
-        <p className="mx-auto mt-5 max-w-md px-3 text-xs leading-relaxed text-white/80 sm:mt-6 sm:text-sm sm:max-w-lg">
-          The AI &amp; Innovation Club is an outcome-oriented technical community at Bal Bhawan School
-          focused on applied AI, data pipelines, software engineering, and real-world systems.
-        </p>
+        <ScrollReveal delay={0.3}>
+          <p className="mx-auto mt-5 max-w-md px-3 text-xs leading-relaxed text-zinc-300 sm:mt-6 sm:text-sm sm:max-w-lg">
+            The AI &amp; Innovation Club is an outcome-oriented technical community at Bal Bhawan School
+            focused on <TextHighlight>applied AI, data pipelines, and real-world software</TextHighlight>.
+          </p>
+        </ScrollReveal>
 
         {/* Action Buttons */}
-        <div className="mt-6 flex w-full max-w-xs flex-col gap-3 sm:max-w-md sm:flex-row sm:items-center sm:justify-center sm:gap-4 md:mt-8">
-          <Link
-            href="/about"
-            className="liquid-glass flex min-h-[48px] w-full items-center justify-center rounded-full px-6 text-xs font-medium text-white transition-colors hover:bg-white/10 active:scale-[0.98] sm:w-auto sm:text-sm sm:px-8 sm:py-3"
-          >
-            Read Our Manifesto
-          </Link>
-          <Link
-            href="/archive"
-            className="liquid-glass flex min-h-[48px] w-full items-center justify-center rounded-full px-6 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 active:scale-[0.98] sm:w-auto sm:text-sm sm:px-8 sm:py-3"
-          >
-            Explore Archive
-          </Link>
-        </div>
+        <ScrollReveal delay={0.4}>
+          <div className="mt-6 flex w-full max-w-xs flex-col gap-3 sm:max-w-md sm:flex-row sm:items-center sm:justify-center sm:gap-4 md:mt-8">
+            <MagneticButton as={Link} href="/about" strength={10}>
+              <span className="aiic-dark-glass flex min-h-[48px] w-full items-center justify-center rounded-full px-6 text-xs font-medium text-white transition-colors hover:border-accent/40 active:scale-[0.98] sm:w-auto sm:text-sm sm:px-8 sm:py-3 shadow-lg">
+                Read Our Manifesto
+              </span>
+            </MagneticButton>
+            <MagneticButton as={Link} href="/archive" strength={10}>
+              <ShimmerButton className="min-h-[48px] w-full sm:w-auto text-xs sm:text-sm sm:px-8 sm:py-3">
+                Explore Archive
+              </ShimmerButton>
+            </MagneticButton>
+          </div>
+        </ScrollReveal>
       </div>
 
       {/* Social / Link Icons Footer */}
@@ -162,7 +184,7 @@ export function HeroCinematic() {
           target="_blank"
           rel="noreferrer"
           aria-label="GitHub Organization"
-          className="liquid-glass flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white"
+          className="aiic-dark-glass flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full text-zinc-300 transition-all hover:text-accent hover:border-accent/40"
         >
           <Globe size={18} />
         </a>

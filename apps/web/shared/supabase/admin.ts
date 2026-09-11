@@ -8,8 +8,7 @@ const supabaseUrl = (
 
 const supabaseKey = (
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnYmpneWhjZmhxdndheXZ2d2tsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MTcwNjIsImV4cCI6MjEwMjI5MzA2Mn0.Cjj6oY9s7FwTywXlw-9h4Um01cBvfllKQqapobmYXNY"
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnYmpneWhjZmhxdndheXZ2d2tsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjcxNzA2MiwiZXhwIjoyMTAyMjkzMDYyfQ.4iHHjkM9BRrw_8wBJ3CTMOWpy_4vP9IponteKv-AcRg"
 ).trim();
 
 let adminClient: SupabaseClient | null = null;

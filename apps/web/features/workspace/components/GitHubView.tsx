@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { cn } from "@corvus/ui";
 import {
   GitPullRequest,
@@ -57,6 +58,15 @@ interface GitHubChannelData {
     is_private: boolean;
     default_branch: string;
   }>;
+  allRepositories?: Array<{
+    id: string;
+    github_repo_id: number;
+    full_name: string;
+    repo_name: string;
+    owner_login: string;
+    is_private: boolean;
+    default_branch: string;
+  }>;
   channel: {
     id: string;
     serverId: string;
@@ -86,6 +96,7 @@ export function GitHubView({
 
   // Connect modal state
   const [selectedRepoId, setSelectedRepoId] = useState("");
+  const [customRepoName, setCustomRepoName] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
 
@@ -112,7 +123,7 @@ export function GitHubView({
   }, [channelId]);
 
   const handleConnect = async () => {
-    if (!selectedRepoId) return;
+    if (!selectedRepoId && !customRepoName.trim()) return;
     setConnecting(true);
     setError(null);
 
@@ -120,7 +131,8 @@ export function GitHubView({
       await api(`/channels/${channelId}/github`, {
         method: "POST",
         body: JSON.stringify({
-          repositoryId: selectedRepoId,
+          repositoryId: selectedRepoId || undefined,
+          repositoryFullName: (!selectedRepoId && customRepoName.trim()) ? customRepoName.trim() : undefined,
           notifyPullRequests: true,
           notifyIssues: true,
           notifyPushes: false,
@@ -129,6 +141,7 @@ export function GitHubView({
         }),
       });
       setSelectedRepoId("");
+      setCustomRepoName("");
       await fetchChannelGitHub(true);
     } catch (err: any) {
       setError(err.message || "Failed to connect repository.");
@@ -170,10 +183,10 @@ export function GitHubView({
   });
 
   return (
-    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-[#0b0e14] overflow-hidden">
+    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-black overflow-hidden">
       {/* ─── Floating Glass Header ─── */}
       <div className="relative z-10 px-3 pt-3 sm:px-4 sm:pt-4">
-        <header className="flex flex-col gap-3 rounded-[20px] border border-white/[0.08] bg-[#121722]/75 p-3 sm:px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <header className="flex flex-col gap-3 rounded-[20px] border border-white/[0.08] bg-[#0a0a0a]/75 p-3 sm:px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {onBack && (
@@ -289,38 +302,74 @@ export function GitHubView({
               This channel has not been bound to a GitHub repository yet. Choose an authorized repository from your Space to route pull requests and webhook feeds here.
             </p>
 
-            {(data?.authorizedRepositories || []).length > 0 ? (
-              <div className="w-full space-y-3 bg-[#121622] p-4 rounded-2xl border border-white/[0.08] shadow-xl text-left">
-                <label className="block text-[11px] font-mono font-semibold text-text-secondary">
-                  Authorized Space Repositories:
+            {/* Repository Selection & Binding Form */}
+            <div className="w-full space-y-3.5 bg-[#080808] p-5 rounded-2xl border border-white/[0.08] shadow-2xl text-left">
+              <div>
+                <label className="block text-[11px] font-mono font-semibold text-text-secondary mb-1.5">
+                  Select Repository:
                 </label>
                 <select
                   value={selectedRepoId}
-                  onChange={(e) => setSelectedRepoId(e.target.value)}
-                  className="w-full bg-[#0b0e14] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+                  onChange={(e) => {
+                    setSelectedRepoId(e.target.value);
+                    if (e.target.value) setCustomRepoName("");
+                  }}
+                  className="w-full bg-black border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-text-primary outline-none focus:border-accent font-mono"
                 >
-                  <option value="">Select a repository...</option>
-                  {data?.authorizedRepositories.map((r) => (
+                  <option value="">-- Choose from available repositories --</option>
+                  {(data?.authorizedRepositories && data.authorizedRepositories.length > 0
+                    ? data.authorizedRepositories
+                    : data?.allRepositories || []
+                  ).map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.full_name} ({r.is_private ? "Private" : "Public"})
                     </option>
                   ))}
                 </select>
-                <button
-                  type="button"
-                  onClick={handleConnect}
-                  disabled={!selectedRepoId || connecting}
-                  className="w-full py-2 rounded-xl bg-accent hover:bg-accent/90 text-white font-semibold text-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              </div>
+
+              <div className="relative flex py-1 items-center">
+                <div className="flex-grow border-t border-white/[0.08]"></div>
+                <span className="flex-shrink mx-2 text-[10px] font-mono uppercase text-text-muted">or enter repository</span>
+                <div className="flex-grow border-t border-white/[0.08]"></div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono font-semibold text-text-secondary mb-1.5">
+                  Repository Name (owner/repo):
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. emp0ri0m/aiic-core"
+                  value={customRepoName}
+                  onChange={(e) => {
+                    setCustomRepoName(e.target.value);
+                    if (e.target.value) setSelectedRepoId("");
+                  }}
+                  className="w-full bg-black border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-text-primary outline-none focus:border-accent font-mono placeholder:text-text-muted/50"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleConnect}
+                disabled={(!selectedRepoId && !customRepoName.trim()) || connecting}
+                className="w-full py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-black font-bold text-xs transition-all disabled:opacity-40 flex items-center justify-center gap-2 active:scale-95 shadow-lg mt-2"
+              >
+                {connecting && <Loader2 size={13} className="animate-spin" />}
+                <span>{connecting ? "Binding Repository..." : "Bind Channel to Repository"}</span>
+              </button>
+
+              <div className="pt-2 border-t border-white/[0.06] text-center">
+                <Link
+                  href="/admin/github"
+                  className="text-[11px] font-mono text-accent hover:underline inline-flex items-center gap-1"
                 >
-                  {connecting && <Loader2 size={13} className="animate-spin" />}
-                  <span>{connecting ? "Connecting Repository..." : "Bind Channel to Repository"}</span>
-                </button>
+                  <span>Authorize Repositories Globally in Admin Board</span>
+                  <ExternalLink size={11} />
+                </Link>
               </div>
-            ) : (
-              <div className="text-[11px] font-mono text-text-muted bg-white/[0.02] border border-white/[0.06] p-4 rounded-2xl">
-                No repositories have been authorized for this Space yet. An Admin can authorize repositories globally in the Admin Board.
-              </div>
-            )}
+            </div>
           </div>
         ) : (
           /* ─── Live Pull Requests Feed ─── */
@@ -336,7 +385,7 @@ export function GitHubView({
               visiblePRs.map((pr) => (
                 <article
                   key={pr.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-white/[0.06] bg-[#121622]/80 hover:bg-[#121622] hover:border-white/[0.12] transition-all shadow-md group"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-white/[0.06] bg-[#080808]/80 hover:bg-[#080808] hover:border-white/[0.12] transition-all shadow-md group"
                 >
                   <div className="flex items-start gap-3 min-w-0">
                     <div

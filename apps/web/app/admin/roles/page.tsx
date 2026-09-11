@@ -58,6 +58,8 @@ export default function AdminRolesPage() {
         return "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
       case "staff":
         return "text-cyan-400 border-cyan-500/30 bg-cyan-500/10";
+      case "bot":
+        return "text-indigo-400 border-indigo-500/30 bg-indigo-500/10";
       case "member":
         return "text-blue-400 border-blue-500/30 bg-blue-500/10";
       default:
@@ -94,7 +96,7 @@ export default function AdminRolesPage() {
             return (
               <div
                 key={role.id}
-                className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121622] shadow-xl transition-all"
+                className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-xl transition-all"
               >
                 {/* Header Summary Row */}
                 <div

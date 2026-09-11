@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
         const { data: activeAssignments } = await supabase
             .from("organization_role_assignments")
-            .select("id, role_id, user_id, assigned_at, starts_at, user:users(id, username, display_name, avatar_url, email), role:organization_roles(id, key, name, hierarchy_level)")
+            .select("id, role_id, user_id, assigned_at, starts_at, user:users!user_id(id, username, display_name, avatar_url, email), role:organization_roles(id, key, name, hierarchy_level)")
             .in("role_id", roleIds)
             .eq("is_active", true);
 

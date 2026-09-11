@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
         // Fetch team members
         const { data: members, error: mErr } = await supabase
             .from("aiic_team_members")
-            .select("id, team_id, user_id, role, joined_at, user:users(id, username, display_name, avatar_url, email, status)")
+            .select("id, team_id, user_id, position, joined_at, user:users!user_id(id, username, display_name, avatar_url, email, status)")
             .in("team_id", teamIds);
 
         if (mErr) throw mErr;
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
                 displayName: m.user.display_name || m.user.username,
                 avatarUrl: m.user.avatar_url,
                 email: m.user.email,
-                role: m.role,
+                role: m.position || "member",
                 status: m.user.status,
                 joinedAt: m.joined_at,
             });

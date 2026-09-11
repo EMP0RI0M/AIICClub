@@ -8,9 +8,34 @@ function trimMessages(messages: MessageData[]) {
     return messages.slice(-MAX_MESSAGES_PER_CHANNEL);
 }
 
+function normalizeMessage(m: any): MessageData {
+    if (!m) return m;
+    const author = m.author || {};
+    return {
+        id: m.id,
+        channelId: m.channelId || m.channel_id || m.conversationId || m.conversation_id || "",
+        content: m.content ?? m.text ?? "",
+        type: m.type || "default",
+        replyTo: m.replyTo || null,
+        pinned: m.pinned || false,
+        createdAt: m.createdAt || m.created_at || m.at || new Date().toISOString(),
+        editedAt: m.editedAt || m.edited_at || null,
+        reactions: m.reactions || [],
+        attachments: m.attachments || [],
+        embeds: m.embeds || [],
+        author: {
+            id: author.id || m.authorId || m.author_id || "unknown",
+            username: author.username || "User",
+            displayName: author.displayName || author.display_name || author.username || "User",
+            avatarUrl: author.avatarUrl || author.avatar_url || null,
+            status: author.status || "online",
+        },
+    } as MessageData;
+}
+
 function dedupeMessages(messages: MessageData[]) {
     const seen = new Set<string>();
-    return messages.filter((message) => {
+    return messages.map(normalizeMessage).filter((message) => {
         if (!message || !message.id) return false;
         if (seen.has(message.id)) return false;
         seen.add(message.id);

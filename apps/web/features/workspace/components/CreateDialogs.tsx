@@ -105,6 +105,7 @@ export const CHANNEL_TYPES: { type: ChannelType; label: string; description: str
   { type: "announcement", label: "Announcement", description: "One-way broadcasts" },
   { type: "board", label: "Kanban board", description: "Cards, columns, sprints" },
   { type: "docs", label: "Docs", description: "Long-form documents" },
+  { type: "notebook", label: "Jupyter Notebook", description: "Live Python cells, charts, & data science" },
   { type: "canvas", label: "Canvas", description: "Shared whiteboard" },
   { type: "github", label: "GitHub", description: "PR and commit feed" },
   { type: "incident", label: "Incident", description: "Sev tracking, timeline" },

@@ -407,7 +407,7 @@ export function RolesGovernanceSettings({ spaceId }: { spaceId: string }) {
                                                     <select
                                                         value={m.role}
                                                         onChange={(e) => handleAssignRole(m.id, e.target.value)}
-                                                        className="rounded-xl border border-white/[0.1] bg-[#121622] px-3 py-1.5 text-xs font-mono text-text-primary outline-none focus:border-accent"
+                                                        className="rounded-xl border border-white/[0.1] bg-[#0a0a0a] px-3 py-1.5 text-xs font-mono text-text-primary outline-none focus:border-accent"
                                                     >
                                                         {ROLES_LIST.map((r) => (
                                                             <option key={r.key} value={r.key}>
@@ -595,7 +595,7 @@ export function RolesGovernanceSettings({ spaceId }: { spaceId: string }) {
             {/* Team Member Assignment Modal */}
             {teamModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="relative w-full max-w-[480px] rounded-[28px] border border-white/[0.12] bg-[#121722]/98 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
+                    <div className="relative w-full max-w-[480px] rounded-[28px] border border-white/[0.12] bg-[#080808]/98 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
                         <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
                             <div>
                                 <h3 className="text-base font-bold text-text-primary">Manage {teamModalOpen.name}</h3>
@@ -661,7 +661,7 @@ export function RolesGovernanceSettings({ spaceId }: { spaceId: string }) {
             {/* Staff Officer Assignment Modal */}
             {staffModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="relative w-full max-w-[480px] rounded-[28px] border border-emerald-500/30 bg-[#121722]/98 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
+                    <div className="relative w-full max-w-[480px] rounded-[28px] border border-emerald-500/30 bg-[#080808]/98 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
                         <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
                             <div>
                                 <h3 className="text-base font-bold text-text-primary">Assign to {staffModalOpen.name}</h3>
@@ -706,7 +706,7 @@ export function RolesGovernanceSettings({ spaceId }: { spaceId: string }) {
             {/* Succession Modal */}
             {successionOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="relative w-full max-w-[480px] rounded-[28px] border border-amber-400/30 bg-[#121722]/98 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
+                    <div className="relative w-full max-w-[480px] rounded-[28px] border border-amber-400/30 bg-[#080808]/98 p-6 shadow-[0_16px_48px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
                         <div className="flex items-center gap-2 text-amber-400">
                             <Crown size={20} />
                             <h3 className="text-base font-bold text-text-primary">Executive Succession</h3>

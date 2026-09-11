@@ -59,11 +59,11 @@ export function IncidentView({
   };
 
   return (
-    <div className="relative flex h-full min-h-0 min-w-0 w-full flex-1 overflow-hidden bg-[#0b0e14]">
+    <div className="relative flex h-full min-h-0 min-w-0 w-full flex-1 overflow-hidden bg-black">
       <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {/* ─── Floating Glass Header ─── */}
         <div className="relative z-10 px-3 pt-3 sm:px-4 sm:pt-4">
-          <header className="flex h-13 shrink-0 items-center gap-2 sm:gap-3 rounded-[20px] border border-white/[0.08] bg-[#121722]/75 px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <header className="flex h-13 shrink-0 items-center gap-2 sm:gap-3 rounded-[20px] border border-white/[0.08] bg-[#0a0a0a]/75 px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
             {onBack && (
               <button
                 type="button"

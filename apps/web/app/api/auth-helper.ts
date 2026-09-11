@@ -10,6 +10,7 @@ export interface AuthenticatedUser {
     username: string;
     displayName: string;
     authUserId?: string;
+    role?: string;
 }
 
 export async function getAuthUser(req: NextRequest): Promise<AuthenticatedUser | null> {
@@ -55,7 +56,7 @@ export async function getAuthUser(req: NextRequest): Promise<AuthenticatedUser |
 
                 const { data: user } = await supabase
                     .from("users")
-                    .select("id, auth_user_id, email, username, display_name")
+                    .select("id, auth_user_id, email, username, display_name, role")
                     .or(`id.eq.${decoded.userId},auth_user_id.eq.${decoded.userId}`)
                     .maybeSingle();
 
@@ -66,6 +67,7 @@ export async function getAuthUser(req: NextRequest): Promise<AuthenticatedUser |
                         username: user.username,
                         displayName: user.display_name,
                         authUserId: user.auth_user_id,
+                        role: user.role || "member",
                     };
                 }
             }
@@ -81,14 +83,14 @@ export async function getAuthUser(req: NextRequest): Promise<AuthenticatedUser |
                 // Find matching user in public.users by auth_user_id, id, or email
                 let { data: user } = await supabase
                     .from("users")
-                    .select("id, auth_user_id, email, username, display_name")
+                    .select("id, auth_user_id, email, username, display_name, role")
                     .or(`auth_user_id.eq.${authUser.id},id.eq.${authUser.id}`)
                     .maybeSingle();
 
                 if (!user && authUser.email) {
                     const { data: byEmail } = await supabase
                         .from("users")
-                        .select("id, auth_user_id, email, username, display_name")
+                        .select("id, auth_user_id, email, username, display_name, role")
                         .ilike("email", authUser.email.toLowerCase())
                         .maybeSingle();
                     user = byEmail;
@@ -104,6 +106,7 @@ export async function getAuthUser(req: NextRequest): Promise<AuthenticatedUser |
                         username: user.username,
                         displayName: user.display_name,
                         authUserId: user.auth_user_id || authUser.id,
+                        role: user.role || "member",
                     };
                 }
 

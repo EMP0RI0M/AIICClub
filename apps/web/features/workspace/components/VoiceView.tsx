@@ -194,7 +194,7 @@ export function VoiceView({
 
   if (!joined) {
     return (
-      <section className="relative flex h-full min-w-0 flex-1 flex-col items-center justify-center bg-[#0b0e14] px-6 text-center overflow-hidden">
+      <section className="relative flex h-full min-w-0 flex-1 flex-col items-center justify-center bg-black px-6 text-center overflow-hidden">
         {/* Background Ambient Glow */}
         <div className="pointer-events-none absolute -top-40 left-1/2 h-[450px] w-[500px] -translate-x-1/2 rounded-full bg-accent/5 blur-[120px]" />
 
@@ -243,12 +243,12 @@ export function VoiceView({
       })();
 
   return (
-    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-[#0b0e14] overflow-hidden">
+    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-black overflow-hidden">
       <div ref={audioHostRef} className="hidden" aria-hidden />
 
       {/* ─── Floating Glass Header ─── */}
       <div className="relative z-10 px-3 pt-3 sm:px-4 sm:pt-4">
-        <header className="flex h-13 shrink-0 items-center justify-between rounded-[20px] border border-white/[0.08] bg-[#121722]/75 px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <header className="flex h-13 shrink-0 items-center justify-between rounded-[20px] border border-white/[0.08] bg-[#0a0a0a]/75 px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
           <div className="flex items-center gap-3 min-w-0">
             {onBack && (
               <button
@@ -298,7 +298,7 @@ export function VoiceView({
                       ? camStream
                       : remoteStreams.get(p.id) || undefined
                   }
-                  className="w-[190px] shrink-0 rounded-[22px] border border-white/[0.08] bg-[#131824]/80 backdrop-blur-md"
+                  className="w-[190px] shrink-0 rounded-[22px] border border-white/[0.08] bg-[#080808]/80 backdrop-blur-md"
                 />
               ))}
             </div>
@@ -317,7 +317,7 @@ export function VoiceView({
                     ? camStream
                     : remoteStreams.get(p.id) || undefined
                 }
-                className="rounded-[24px] border border-white/[0.08] bg-[#131824]/80 backdrop-blur-md shadow-md p-4 min-h-[160px]"
+                className="rounded-[24px] border border-white/[0.08] bg-[#080808]/80 backdrop-blur-md shadow-md p-4 min-h-[160px]"
               />
             ))}
           </div>
@@ -328,7 +328,7 @@ export function VoiceView({
 
       {/* ─── Floating Glass Call Controls Capsule ─── */}
       <div className="relative z-10 px-3 pb-3 sm:px-4 sm:pb-4 pb-[max(0.85rem,env(safe-area-inset-bottom))]">
-        <div className="flex h-14 items-center justify-center gap-2 rounded-[24px] border border-white/[0.08] bg-[#121722]/85 px-4 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <div className="flex h-14 items-center justify-center gap-2 rounded-[24px] border border-white/[0.08] bg-[#0a0a0a]/85 px-4 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.08)]">
           <CallControls
             state={state}
             onToggle={toggle}

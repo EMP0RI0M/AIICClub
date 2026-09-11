@@ -5,6 +5,8 @@ import { motion, useInView } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 
+import { GlassHoverCard } from "@/shared/components/motion";
+
 export function ServicesSection() {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
@@ -32,8 +34,8 @@ export function ServicesSection() {
 
   return (
     <section ref={ref} className="relative overflow-hidden bg-black px-4 py-16 sm:px-6 sm:py-24 md:py-36">
-      {/* Subtle radial gradient */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.02)_0%,_transparent_60%)]" />
+      {/* Subtle ambient light */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(232,163,61,0.03)_0%,_transparent_60%)]" />
 
       <div className="mx-auto max-w-6xl">
         {/* Header Row */}
@@ -46,7 +48,7 @@ export function ServicesSection() {
           <h2 className="font-serif-instrument text-[clamp(2.2rem,6vw,4rem)] tracking-tight text-white">
             What we do
           </h2>
-          <span className="hidden font-mono text-xs uppercase tracking-widest text-white/50 md:inline-block">
+          <span className="hidden font-mono text-xs uppercase tracking-widest text-zinc-500 md:inline-block">
             Disciplines · AI &amp; Innovation Club
           </span>
         </motion.div>
@@ -59,47 +61,48 @@ export function ServicesSection() {
               initial={{ opacity: 0, y: 30 }}
               animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
               transition={{ duration: 0.7, delay: idx * 0.12 }}
-              className="group liquid-glass overflow-hidden rounded-2xl sm:rounded-3xl flex flex-col"
             >
-              {/* Card Video Area */}
-              <div className="relative aspect-video sm:aspect-[16/10] w-full overflow-hidden shrink-0">
-                <video
-                  muted
-                  autoPlay
-                  loop
-                  playsInline
-                  preload="auto"
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  src={card.videoUrl}
-                />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              </div>
-
-              {/* Card Body */}
-              <div className="p-5 sm:p-6 md:p-8 flex flex-col flex-1 justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] sm:text-xs uppercase tracking-widest text-white/50">
-                      {card.tag}
-                    </span>
-                    <Link
-                      href={card.href}
-                      aria-label={card.title}
-                      className="liquid-glass flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full text-white/80 transition-all hover:bg-white/10 hover:text-white"
-                    >
-                      <ArrowUpRight size={16} />
-                    </Link>
-                  </div>
-
-                  <h3 className="mt-3 text-lg font-bold tracking-tight text-white sm:text-xl md:text-2xl">
-                    {card.title}
-                  </h3>
-
-                  <p className="mt-2 text-xs sm:text-sm leading-relaxed text-white/70">
-                    {card.description}
-                  </p>
+              <GlassHoverCard className="group overflow-hidden rounded-2xl sm:rounded-3xl flex flex-col h-full">
+                {/* Card Video Area */}
+                <div className="relative aspect-video sm:aspect-[16/10] w-full overflow-hidden shrink-0">
+                  <video
+                    muted
+                    autoPlay
+                    loop
+                    playsInline
+                    preload="auto"
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    src={card.videoUrl}
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                 </div>
-              </div>
+
+                {/* Card Body */}
+                <div className="p-5 sm:p-6 md:p-8 flex flex-col flex-1 justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] sm:text-xs uppercase tracking-widest text-zinc-400">
+                        {card.tag}
+                      </span>
+                      <Link
+                        href={card.href}
+                        aria-label={card.title}
+                        className="aiic-dark-glass flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full text-zinc-300 transition-all hover:text-accent hover:border-accent/40 group-hover:bg-white/[0.06]"
+                      >
+                        <ArrowUpRight size={16} className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                      </Link>
+                    </div>
+
+                    <h3 className="mt-3 text-lg font-bold tracking-tight text-white sm:text-xl md:text-2xl group-hover:text-accent transition-colors">
+                      {card.title}
+                    </h3>
+
+                    <p className="mt-2 text-xs sm:text-sm leading-relaxed text-zinc-300">
+                      {card.description}
+                    </p>
+                  </div>
+                </div>
+              </GlassHoverCard>
             </motion.div>
           ))}
         </div>

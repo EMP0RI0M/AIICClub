@@ -4,6 +4,7 @@ import { Space_Grotesk } from "next/font/google";
 import { Titlebar, ThemeProvider, ThemeScript } from "@corvus/ui";
 import { AuthGuard } from "@/features/auth";
 import { BRAND_DESCRIPTION } from "@/shared/lib/brand";
+import "katex/dist/katex.min.css";
 import "./globals.css";
 
 // Expressive display face for headings, brand moments, and empty states.
@@ -30,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" data-theme="dark" className={`dark ${displayFont.variable}`} suppressHydrationWarning>
       <head />
-      <body className="flex h-dvh flex-col overflow-hidden">
+      <body className="flex h-dvh flex-col overflow-hidden aiic-ambient-canvas text-text-primary antialiased">
         <ThemeProvider defaultTheme="dark">
           <Titlebar />
           <main className="flex-1 min-h-0 flex flex-col">

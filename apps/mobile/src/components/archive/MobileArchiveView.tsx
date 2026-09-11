@@ -308,6 +308,28 @@ function ArchiveRecordCard({ record }: { record: ArchiveRecord }) {
         </View>
       )}
 
+      {(record.type === "document" || record.document) && (
+        <View style={styles.detailBox}>
+          <View style={styles.detailRow}>
+            <FileText size={13} color={colors.info} />
+            <Text style={styles.detailText}>
+              {record.document?.fileName || record.title} {record.document?.fileSize ? `(${record.document.fileSize})` : ""}
+            </Text>
+          </View>
+          {((record.document as any)?.url || (record as any).url) ? (
+            <Pressable
+              onPress={() => handleOpenLink((record.document as any)?.url || (record as any).url)}
+              style={styles.actionLink}
+            >
+              <Download size={12} color={colors.info} />
+              <Text style={[styles.actionLinkText, { color: colors.info }]}>
+                Download / View Document
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      )}
+
       {/* Tags Row */}
       {record.tags && record.tags.length > 0 && (
         <View style={styles.tagRow}>

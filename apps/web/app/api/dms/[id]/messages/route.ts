@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/app/api/auth-helper";
 import { getSupabaseAdmin } from "@/shared/supabase/admin";
+import { processBotSentinel, checkAntiSpamAndMentions, BOT_USER_ID } from "@/shared/lib/bot-sentinel";
+import { sendWebPushToUser } from "@/shared/lib/web-push";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
     const user = await getAuthUser(req);
@@ -189,8 +191,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         }
 
         // 2. Resolve or provision dm_conversation
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conversationId);
         let actualConversationId = conversationId;
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conversationId);
 
         let existingConvo: { id: string } | null = null;
         if (isUUID) {
@@ -198,12 +200,59 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
             existingConvo = data;
         }
 
+        // If not found by conversation UUID, check if conversationId is a peer user ID or username
         if (!existingConvo) {
-            const { data: createdConvo } = await supabase
+            const { data: peerUser } = await supabase
+                .from("users")
+                .select("id")
+                .or(`id.eq.${conversationId},username.eq.${conversationId}`)
+                .maybeSingle();
+
+            if (peerUser?.id) {
+                const directKey = [actualAuthorId, peerUser.id].sort().join(":");
+                const { data: directConvo } = await supabase
+                    .from("dm_conversations")
+                    .select("id")
+                    .eq("direct_key", directKey)
+                    .maybeSingle();
+
+                if (directConvo?.id) {
+                    existingConvo = directConvo;
+                    actualConversationId = directConvo.id;
+                } else {
+                    // Create new direct conversation between author and peer
+                    const { data: newDirectConvo } = await supabase
+                        .from("dm_conversations")
+                        .insert({
+                            type: "direct",
+                            direct_key: directKey,
+                            created_by_id: actualAuthorId,
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
+                        })
+                        .select("id")
+                        .maybeSingle();
+
+                    if (newDirectConvo?.id) {
+                        existingConvo = newDirectConvo;
+                        actualConversationId = newDirectConvo.id;
+                        await supabase.from("dm_participants").insert([
+                            { conversation_id: actualConversationId, user_id: actualAuthorId },
+                            { conversation_id: actualConversationId, user_id: peerUser.id },
+                        ]);
+                    }
+                }
+            }
+        }
+
+        // If still no existing conversation, provision a new dm_conversation with created_by_id
+        if (!existingConvo) {
+            const { data: createdConvo, error: createErr } = await supabase
                 .from("dm_conversations")
                 .insert({
                     id: isUUID ? conversationId : undefined,
                     type: "direct",
+                    created_by_id: actualAuthorId,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                 })
@@ -216,6 +265,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
                     conversation_id: actualConversationId,
                     user_id: actualAuthorId,
                 });
+            } else {
+                console.error("[AUTO_PROVISION_CONVO_FAILED]", createErr);
             }
         }
 
@@ -231,6 +282,19 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
             if (parentMsg?.id) {
                 actualReplyToId = parentMsg.id;
             }
+        }
+
+        // 1. Deterministic Anti-Spam & Mass Mention Checks
+        const spamCheck = checkAntiSpamAndMentions({
+            userId: actualAuthorId,
+            content,
+            userRole: user.role,
+        });
+
+        if (spamCheck.blocked) {
+            return NextResponse.json({
+                error: spamCheck.reason || "Action blocked by AI Community Sentinel.",
+            }, { status: 429 });
         }
 
         const { data: message, error } = await supabase
@@ -293,25 +357,96 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
             }
         }
 
-        return NextResponse.json({
-            message: {
-                id: message.id,
-                conversationId: message.conversation_id,
-                content: message.content,
-                type: message.type,
-                editedAt: message.edited_at,
-                createdAt: message.created_at,
-                author: {
-                    id: (message.author as any)?.id || actualAuthorId,
-                    username: (message.author as any)?.username || user.username,
-                    displayName: (message.author as any)?.display_name || user.displayName,
-                    avatarUrl: (message.author as any)?.avatar_url,
-                    status: (message.author as any)?.status || "offline",
-                },
-                replyTo,
-                reactions: [],
-                embeds: [],
+        const responseMessage = {
+            id: message.id,
+            conversationId: message.conversation_id,
+            content: message.content,
+            type: message.type,
+            editedAt: message.edited_at,
+            createdAt: message.created_at,
+            author: {
+                id: (message.author as any)?.id || actualAuthorId,
+                username: (message.author as any)?.username || user.username,
+                displayName: (message.author as any)?.display_name || user.displayName,
+                avatarUrl: (message.author as any)?.avatar_url,
+                status: (message.author as any)?.status || "offline",
             },
+            replyTo,
+            reactions: [],
+            embeds: [],
+        };
+
+        // Realtime broadcast to active DM channel subscribers
+        try {
+            const rtChan = supabase.channel(`dm:${conversationId}`);
+            await rtChan.send({
+                type: "broadcast",
+                event: "new_message",
+                payload: { message: responseMessage, conversationId },
+            });
+
+            // Also broadcast to each participant's user channel
+            const { data: participants } = await supabase
+                .from("dm_participants")
+                .select("user_id")
+                .eq("conversation_id", conversationId);
+
+            for (const p of participants || []) {
+                const userChan = supabase.channel(`user:${p.user_id}`);
+                await userChan.send({
+                    type: "broadcast",
+                    event: "new_dm_message",
+                    payload: { message: responseMessage, conversationId },
+                });
+            }
+        } catch (rtErr) {
+            console.warn("[REALTIME_DM_BROADCAST_WARN]", rtErr);
+        }
+
+        // Dispatch Web Push Notifications to all other participants in the conversation
+        (async () => {
+            try {
+                const { data: participants } = await supabase
+                    .from("dm_participants")
+                    .select("user_id")
+                    .eq("conversation_id", actualConversationId)
+                    .neq("user_id", actualAuthorId);
+
+                const senderName = user.displayName || user.username || "Someone";
+                for (const p of participants || []) {
+                    await sendWebPushToUser(
+                        p.user_id,
+                        {
+                            title: `💬 @${senderName}`,
+                            body: message.content.length > 120 ? `${message.content.slice(0, 117)}...` : message.content,
+                            tag: `dm:${actualConversationId}`,
+                            data: {
+                                url: `/dms/${actualConversationId}`,
+                                messageId: message.id,
+                                conversationId: actualConversationId,
+                                senderId: actualAuthorId,
+                                type: "dm",
+                            },
+                        },
+                        { messageId: message.id }
+                    );
+                }
+            } catch (pushErr) {
+                console.warn("[DM_WEB_PUSH_DISPATCH_WARN]", pushErr);
+            }
+        })();
+
+        // Trigger AI Bot Sentinel asynchronously (Moderation + Summarize/LaTeX/Table/Q&A)
+        processBotSentinel({
+            conversationId,
+            messageId: message.id,
+            content: message.content,
+            authorId: actualAuthorId,
+            authorName: user.displayName || user.username || "User",
+        }).catch((botErr) => console.warn("[BOT_SENTINEL_DM_WARN]", botErr));
+
+        return NextResponse.json({
+            message: responseMessage,
         });
     } catch (err: any) {
         return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });

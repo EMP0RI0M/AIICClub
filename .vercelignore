@@ -1,0 +1,8 @@
+.next
+.turbo
+node_modules
+.git
+.cache
+dist
+apps/mobile
+apps/api

@@ -98,7 +98,7 @@ export default function AdminSpacesPage() {
       </div>
 
       {/* ─── Search Bar ─── */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-3">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-3">
         <div className="relative">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
@@ -117,7 +117,7 @@ export default function AdminSpacesPage() {
           <Loader2 className="animate-spin text-accent" size={24} />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-12 text-center text-xs text-text-muted font-mono">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-12 text-center text-xs text-text-muted font-mono">
           No spaces found.
         </div>
       ) : (
@@ -125,7 +125,7 @@ export default function AdminSpacesPage() {
           {filtered.map((s) => (
             <div
               key={s.id}
-              className="flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#121622] p-5 shadow-lg hover:border-white/[0.14] transition-all"
+              className="flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-5 shadow-lg hover:border-white/[0.14] transition-all"
             >
               <div>
                 <div className="flex items-start justify-between gap-3">
@@ -229,7 +229,7 @@ export default function AdminSpacesPage() {
           onClick={() => setDeletingSpace(null)}
         >
           <div
-            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-danger/30 bg-[#121622] p-6 shadow-2xl backdrop-blur-xl"
+            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-danger/30 bg-[#0a0a0a] p-6 shadow-2xl backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold text-danger flex items-center gap-2">

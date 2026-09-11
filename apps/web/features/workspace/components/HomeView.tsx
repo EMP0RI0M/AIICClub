@@ -57,10 +57,10 @@ export function HomeView({
   ];
 
   return (
-    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-[#0b0e14] overflow-hidden">
+    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-black overflow-hidden">
       {/* ─── Floating Glass Header ─── */}
       <div className="relative z-10 px-3 pt-3 sm:px-4 sm:pt-4">
-        <header className="flex h-13 shrink-0 items-center justify-between rounded-[20px] border border-white/[0.08] bg-[#121722]/75 px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <header className="flex h-13 shrink-0 items-center justify-between rounded-[20px] border border-white/[0.08] bg-[#0a0a0a]/75 px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
           <div className="flex items-center gap-3">
             <h1 className="text-[15px] font-bold text-text-primary">Home Overview</h1>
             <span className="font-mono text-[11px] text-accent uppercase tracking-wider hidden sm:inline">
@@ -115,7 +115,7 @@ export function HomeView({
                 return (
                   <div
                     key={s.label}
-                    className="rounded-[22px] border border-white/[0.08] bg-[#121622]/80 p-4 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.25)] transition-all hover:border-accent/30"
+                    className="rounded-[22px] border border-white/[0.08] bg-[#080808]/80 p-4 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.25)] transition-all hover:border-accent/30"
                   >
                     <div className="flex items-center justify-between text-accent/80 mb-2">
                       <Icon size={16} />
@@ -144,7 +144,7 @@ export function HomeView({
                       key={ch.id}
                       type="button"
                       onClick={() => onOpenChannel?.(ch.spaceId, ch.id)}
-                      className="flex h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.06] bg-[#131824]/75 px-3.5 text-left transition-all hover:border-accent/40 hover:bg-[#181e2e]/85 active:scale-[0.98]"
+                      className="flex h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.06] bg-[#0d0d0d]/75 px-3.5 text-left transition-all hover:border-accent/40 hover:bg-[#111111]/85 active:scale-[0.98]"
                     >
                       <ChannelGlyph type={ch.type} size={15} />
                       <div className="min-w-0 flex-1">

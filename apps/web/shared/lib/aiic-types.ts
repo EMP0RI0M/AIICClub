@@ -78,12 +78,15 @@ export interface AIICAnnouncement {
   slug: string;
   content: string;
   author: string;
+  authorId?: string;
   coverImage?: string;
   publishedAt: string;
   category: "Club" | "General" | "Workshop" | "Alert" | "Milestone" | "Release" | "Event" | "Achievement";
   priority?: "normal" | "important" | "urgent" | "pinned";
   isPinned?: boolean;
   featured?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AIICArchiveEntry {

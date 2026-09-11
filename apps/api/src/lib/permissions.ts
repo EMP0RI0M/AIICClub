@@ -179,7 +179,7 @@ export async function getChannelAccess(
     });
     const permissions = computePermissions(
         false,
-        membership.assignedRoles.map((assignment) => assignment.roleId),
+        membership.assignedRoles.map((assignment: any) => assignment.roleId),
         roles,
         channel.permissionOverrides
     );

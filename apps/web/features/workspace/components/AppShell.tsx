@@ -14,6 +14,7 @@ import { BoardView } from "./BoardView";
 import { DocsView } from "./DocsView";
 import { GitHubView } from "./GitHubView";
 import { CanvasView } from "./CanvasView";
+import { NotebookView } from "./NotebookView";
 import { IncidentView } from "./IncidentView";
 import { SearchPanel, type SearchCorpus } from "./SearchPanel";
 import { ClipRecorder } from "./ClipRecorder";
@@ -28,6 +29,8 @@ import {
     NewGroupDialog,
     type SpaceTemplate,
 } from "./CreateDialogs";
+import { subscribeToWebPush, checkPushSubscriptionStatus } from "@/shared/lib/push-client";
+import { Bell, X } from "lucide-react";
 import { ToastViewport } from "@/shared/components/ui/Toast";
 
 
@@ -267,7 +270,10 @@ export function AppShell({
     const appStore = useAppStore();
     const chatStore = useChatStore();
     const isLive = !!authUser;
-    const { role: myRole, isTeamLeader } = usePermissions();
+    const { role: permsRole, isTeamLeader } = usePermissions(activeSpaceId);
+    const myRole = (authUser?.role && ["president_admin", "admin", "president", "vice_president"].includes(authUser.role))
+        ? authUser.role
+        : permsRole || authUser?.role || "visitor";
     const canCreateSpace = isTeamLeader || ["president_admin", "admin", "president", "vice_president"].includes(myRole);
     const demoPlayed = useRef(false);
 
@@ -286,6 +292,53 @@ export function AppShell({
     const allChannels = useMemo(() => sections.flatMap((s) => s.channels), [sections]);
     const activeChannel = allChannels.find((c) => c.id === activeChannelId) ?? firstText;
     const space = data.spaces.find((s) => s.id === activeSpaceId);
+
+    const [showPushBanner, setShowPushBanner] = useState(false);
+    const [pushEnabling, setPushEnabling] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator) {
+            if (Notification.permission === "default") {
+                const dismissed = localStorage.getItem("corvus-push-dismissed");
+                if (!dismissed) {
+                    setShowPushBanner(true);
+                }
+            }
+        }
+    }, [isLive]);
+
+    const handleEnablePushFromBanner = async () => {
+        setPushEnabling(true);
+        try {
+            const res = await subscribeToWebPush();
+            if (res.success) {
+                setShowPushBanner(false);
+                useToastStore.getState().addToast({
+                    title: "🔔 Notifications Enabled",
+                    body: "You'll now get instant alerts for DMs, mentions, and replies.",
+                    variant: "success",
+                });
+            } else {
+                setShowPushBanner(false);
+                useToastStore.getState().addToast({
+                    title: "Notification Setup",
+                    body: res.error || "Please allow notifications in browser permissions.",
+                    variant: "info",
+                });
+            }
+        } catch {
+            setShowPushBanner(false);
+        } finally {
+            setPushEnabling(false);
+        }
+    };
+
+    const handleDismissPushBanner = () => {
+        setShowPushBanner(false);
+        try {
+            localStorage.setItem("corvus-push-dismissed", "true");
+        } catch {}
+    };
 
     useEffect(() => {
         if (activeSpaceId && isLive) {
@@ -763,50 +816,53 @@ export function AppShell({
             if (isLive) {
                 void (async () => {
                     try {
-                        const contents: string[] = text ? [text] : [];
+                        const uploadedAttachments: SharedAttachment[] = [];
                         for (const attachment of attachments ?? []) {
-                            let uploaded: SharedAttachment;
                             if (attachment.file) {
-                                uploaded = (await uploadAttachment(attachment.file)).attachment;
+                                const res = await uploadAttachment(attachment.file);
+                                uploadedAttachments.push(res.attachment);
                             } else if (attachment.url) {
-                                uploaded = {
+                                uploadedAttachments.push({
                                     url: attachment.url,
                                     name: attachment.name,
                                     size: 0,
                                     mimeType:
                                         attachment.kind === "gif"
                                             ? "image/gif"
-                                            : "application/octet-stream",
-                                    kind: attachment.kind === "video" ? "video" : "image",
-                                };
-                            } else {
-                                continue;
+                                            : attachment.kind === "video"
+                                            ? "video/mp4"
+                                            : "image/png",
+                                    kind: attachment.kind === "video" ? "video" : attachment.kind === "gif" ? "gif" : "image",
+                                });
                             }
-                            contents.push(encodeAttachmentContent(uploaded));
                         }
 
-                        for (const [index, content] of contents.entries()) {
-                            const response = isDmTarget
-                                ? await sendDMMessage(
-                                      targetId,
-                                      content,
-                                      index === 0 ? replyTo?.id : undefined,
-                                  )
-                                : await sendChannelMessageApi(targetId, {
-                                      content,
-                                      replyToId: index === 0 ? replyTo?.id : undefined,
-                                  });
-
-                            // Reconcile: remove optimistic temp and insert confirmed server message
-                            setLocalEcho((m) => ({
-                                ...m,
-                                [targetId]: (m[targetId] ?? []).filter((msg) => msg.id !== tempId),
-                            }));
-                            chatStore.addMessage(
-                                targetId,
-                                response.message as unknown as MessageData,
-                            );
+                        let combinedContent = text || "";
+                        for (const att of uploadedAttachments) {
+                            const encoded = encodeAttachmentContent(att);
+                            combinedContent = combinedContent ? `${combinedContent}\n${encoded}` : encoded;
                         }
+
+                        const response = isDmTarget
+                            ? await sendDMMessage(
+                                  targetId,
+                                  combinedContent,
+                                  replyTo?.id,
+                              )
+                            : await sendChannelMessageApi(targetId, {
+                                  content: combinedContent,
+                                  replyToId: replyTo?.id,
+                              });
+
+                        // Reconcile: remove optimistic temp and insert confirmed server message
+                        setLocalEcho((m) => ({
+                            ...m,
+                            [targetId]: (m[targetId] ?? []).filter((msg) => msg.id !== tempId),
+                        }));
+                        chatStore.addMessage(
+                            targetId,
+                            response.message as unknown as MessageData,
+                        );
                     } catch (err) {
                         console.error("[SendMessage Error]", err);
                         chatStore.addMessage(targetId, {
@@ -1440,8 +1496,38 @@ export function AppShell({
         setShowAddSection(false);
     };
 
-    const createConversation = (members: FriendEntry[], name?: string) => {
+    const createConversation = async (members: FriendEntry[], name?: string) => {
         setShowNewGroup(false);
+        if (isLive) {
+            try {
+                const res = await fetch("/api/dms", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        participantIds: members.map((m) => m.id),
+                        name: name || undefined,
+                    }),
+                });
+                const resData = await res.json();
+                if (resData.conversation) {
+                    const c = resData.conversation;
+                    const otherParticipants = (c.participants || []).filter((p: any) => p.id !== user?.id);
+                    const convoSummary: DMSummary = {
+                        id: c.id,
+                        name: c.name || otherParticipants.map((p: any) => p.displayName || p.username).join(", ") || "Group",
+                        group: c.type === "group" ? (c.participants || []).map((p: any) => ({ id: p.id, name: p.displayName || p.username, avatar: p.avatarUrl })) : undefined,
+                        avatar: c.type !== "group" ? otherParticipants[0]?.avatarUrl : undefined,
+                        presence: otherParticipants[0]?.status || "offline",
+                    };
+                    workspace.createConversation(convoSummary);
+                    openDMs(c.id);
+                    return;
+                }
+            } catch (err) {
+                console.error("[CREATE_CONVERSATION_ERROR]", err);
+            }
+        }
+
         if (members.length === 1) {
             const f = members[0];
             const existing = data.dmConversations?.find(
@@ -1637,6 +1723,15 @@ export function AppShell({
                         onBack={() => setMobileView("channels")}
                     />
                 );
+            case "notebook":
+                return (
+                    <NotebookView
+                        key={activeChannel.id}
+                        channelName={activeChannel.name}
+                        storageKey={activeChannel.id}
+                        onBack={() => setMobileView("channels")}
+                    />
+                );
             case "incident": {
                 const channelId = activeChannel.id;
                 const incident = data.incidentsByChannel?.[channelId] ?? newIncident();
@@ -1707,7 +1802,7 @@ export function AppShell({
     };
 
     return (
-        <div className="relative flex h-full min-h-0 w-full overflow-hidden bg-[#090c12] text-text-primary">
+        <div className="relative flex h-full min-h-0 w-full overflow-hidden bg-black text-text-primary">
             {/* Ambient Background Depth Glows */}
             <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
                 <div className="absolute -top-40 right-1/3 h-[500px] w-[600px] rounded-full bg-accent/4 blur-[140px]" />
@@ -1787,10 +1882,44 @@ export function AppShell({
             {/* Chat / Message view / Main content: visible on desktop, or on mobile when in chat view */}
             <div
                 className={cn(
-                    "h-full min-w-0 flex-1 flex-col overflow-hidden",
+                    "relative h-full min-w-0 flex-1 flex-col overflow-hidden",
                     !homeActive && mobileView === "channels" ? "hidden md:flex" : "flex"
                 )}
             >
+                {showPushBanner && (
+                    <div className="relative z-30 flex items-center justify-between gap-3 border-b border-accent/20 bg-[#0c0a14]/90 px-4 py-2.5 backdrop-blur-md shadow-md animate-in slide-in-from-top duration-200">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/20 text-accent shrink-0">
+                                <Bell size={15} />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[13px] font-semibold text-text-primary truncate">
+                                    Enable Web Push Notifications
+                                </p>
+                                <p className="text-[11px] text-text-muted truncate">
+                                    Get real-time browser alerts when you receive DMs, mentions, or replies.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                disabled={pushEnabling}
+                                onClick={handleEnablePushFromBanner}
+                                className="h-7.5 rounded-lg bg-accent px-3 text-[12px] font-semibold text-on-accent transition-all hover:bg-accent-violet-bright active:scale-95 disabled:opacity-50"
+                            >
+                                {pushEnabling ? "Connecting…" : "Allow"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDismissPushBanner}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-white/[0.08] hover:text-text-primary transition-colors"
+                            >
+                                <X size={15} />
+                            </button>
+                        </div>
+                    </div>
+                )}
                 {renderMainContent()}
             </div>
 

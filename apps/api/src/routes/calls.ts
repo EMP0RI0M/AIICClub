@@ -27,7 +27,7 @@ async function finalizeRoomIfEmpty(conversationId: string, endedBy: string) {
 
     await prisma.callParticipant.deleteMany({ where: { roomId: room.id, userId: endedBy } });
 
-    const remaining = room.participants.filter((p) => p.userId !== endedBy).length;
+    const remaining = room.participants.filter((p: any) => p.userId !== endedBy).length;
     if (remaining > 0) {
         return false;
     }
@@ -39,7 +39,7 @@ async function finalizeRoomIfEmpty(conversationId: string, endedBy: string) {
         where: { conversationId },
         select: { userId: true },
     });
-    const participantUserIds = participants.map((p) => p.userId);
+    const participantUserIds = participants.map((p: any) => p.userId);
 
     const duration = Math.floor((Date.now() - room.startedAt.getTime()) / 1000);
 
@@ -130,7 +130,7 @@ calls.post("/dms/:conversationId/call/start", async (c) => {
         canSubscribe: true,
     });
 
-    const targetUserIds = participants.map((p) => p.userId).filter((id) => id !== userId);
+    const targetUserIds = participants.map((p: any) => p.userId).filter((id: any) => id !== userId);
 
     await broadcastToUsers(targetUserIds, {
         type: "incoming_call",
@@ -224,7 +224,7 @@ calls.post("/dms/:conversationId/call/decline", async (c) => {
         }),
     ]);
 
-    const targetUserIds = participants.map((p) => p.userId).filter((id) => id !== userId);
+    const targetUserIds = participants.map((p: any) => p.userId).filter((id: any) => id !== userId);
 
     await broadcastToUsers(targetUserIds, {
         type: "call_declined",

@@ -15,11 +15,13 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuthStore } from "../../../../stores/auth-store";
 import { useWorkspaceStore } from "../../../../stores/workspace-store";
 import { useChatStore } from "../../../../stores/chat-store";
 import { api, searchUsers, publishAnnouncement, fetchUserProfile } from "../../../../lib/api";
+import { NativeHaptics } from "../../../../lib/haptics";
+import { notificationService } from "../../../../lib/notifications";
 import { AttachmentCard, parseMessageAttachments } from "../../../../components/chat/AttachmentCard";
 import { Avatar } from "../../../../components/ui/Avatar";
 import { GlassCard } from "../../../../components/ui/GlassCard";
@@ -35,12 +37,21 @@ import { DocsChannelView } from "@/components/chat/DocsChannelView";
 import { BoardChannelView } from "@/components/chat/BoardChannelView";
 import { GitHubChannelView } from "@/components/chat/GitHubChannelView";
 import { SpaceDrawerModal } from "@/components/navigation/SpaceDrawerModal";
+import { CreateSpaceModal } from "@/components/space/CreateSpaceModal";
 import { MobileArchiveView } from "@/components/archive/MobileArchiveView";
 import { MobileNoticeBoardView } from "@/components/notifications/MobileNoticeBoardView";
 import { UserProfileModal, type UserProfileData } from "@/components/profile/UserProfileModal";
+import { MobileThreadModal } from "@/components/chat/MobileThreadModal";
+import { MobileAdminView } from "@/components/admin/MobileAdminView";
+import {
+  MobileAttachmentSheet,
+  MobileGifModal,
+  MobileEmojiModal,
+} from "@/components/chat/MobileMediaPickers";
 import { colors, radius } from "../../../../theme/tokens";
 import {
   MessageSquare,
+  MessagesSquare,
   Search,
   Plus,
   Calendar,
@@ -70,6 +81,8 @@ import {
   PhoneOff,
   Sparkles,
   Smile,
+  Paperclip,
+  Trash2,
   CornerUpLeft,
   Layers,
   Terminal,
@@ -489,6 +502,9 @@ function ChannelRouter({
   onSend,
   onToggleReaction,
   onOpenProfile,
+  onDeleteMessage,
+  currentUserId,
+  isAdmin,
 }: {
   channel: Channel;
   messages: Message[];
@@ -496,6 +512,9 @@ function ChannelRouter({
   onSend: (content: string, replyToId?: string) => Promise<void>;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onOpenProfile?: (user: UserProfileData) => void;
+  onDeleteMessage?: (messageId: string) => void;
+  currentUserId?: string;
+  isAdmin?: boolean;
 }) {
   if (channel.type === "voice") {
     return (
@@ -519,9 +538,6 @@ function ChannelRouter({
     );
   }
 
-  // All other channels (text, github, board, project, docs, incident, canvas, announcement, forum)
-  // route through TextChannelScreen which provides the unified channel header, dual Tool ⟷ Chat toggle,
-  // message composer, full message feed, and interactive specialized tools.
   return (
     <TextChannelScreen
       channel={channel}
@@ -530,6 +546,9 @@ function ChannelRouter({
       onSend={onSend}
       onToggleReaction={onToggleReaction}
       onOpenProfile={onOpenProfile}
+      onDeleteMessage={onDeleteMessage}
+      currentUserId={currentUserId}
+      isAdmin={isAdmin}
     />
   );
 }
@@ -545,6 +564,9 @@ function TextChannelScreen({
   onSend,
   onToggleReaction,
   onOpenProfile,
+  onDeleteMessage,
+  currentUserId,
+  isAdmin,
 }: {
   channel: Channel;
   messages: Message[];
@@ -552,8 +574,12 @@ function TextChannelScreen({
   onSend: (content: string, replyToId?: string) => Promise<void>;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onOpenProfile?: (user: UserProfileData) => void;
+  onDeleteMessage?: (messageId: string) => void;
+  currentUserId?: string;
+  isAdmin?: boolean;
 }) {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [activeThreadMessage, setActiveThreadMessage] = useState<Message | null>(null);
   const isSpecialized =
     channel.type === "github" ||
     channel.type === "board" ||
@@ -567,7 +593,11 @@ function TextChannelScreen({
   );
 
   return (
-    <View style={styles.channelScreen}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
+      style={styles.channelScreen}
+    >
       {/* Header with Back Button and Mode Toggle */}
       <View style={styles.channelHeader}>
         <Pressable onPress={onBack} hitSlop={14} style={styles.backBtn}>
@@ -683,24 +713,40 @@ function TextChannelScreen({
         )
       ) : (
         <>
-          {/* Message Feed with interactive reactions and replies */}
+          {/* Message Feed with interactive reactions, replies and delete */}
           <NativeMessageList
             messages={messages}
             onToggleReaction={onToggleReaction}
             onReply={(msg) => setReplyingTo(msg)}
             onOpenProfile={onOpenProfile}
+            onOpenThread={(msg) => setActiveThreadMessage(msg)}
+            onDeleteMessage={onDeleteMessage}
+            currentUserId={currentUserId}
+            isAdmin={isAdmin}
           />
 
-          {/* Message Composer with Reply Banner */}
+          {/* WhatsApp-Style Floating Message Composer */}
           <MessageComposer
             channelName={channel.name}
             onSend={onSend}
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}
           />
+
+          {/* Native Thread Modal Sheet */}
+          <MobileThreadModal
+            visible={Boolean(activeThreadMessage)}
+            parentMessage={activeThreadMessage as any}
+            allMessages={messages as any}
+            onClose={() => setActiveThreadMessage(null)}
+            onSendReply={async (content, replyToId) => {
+              await onSend(content, replyToId);
+            }}
+            onToggleReaction={onToggleReaction}
+          />
         </>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -718,11 +764,19 @@ function NativeMessageList({
   onToggleReaction,
   onReply,
   onOpenProfile,
+  onOpenThread,
+  onDeleteMessage,
+  currentUserId,
+  isAdmin,
 }: {
   messages: Message[];
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onReply?: (message: Message) => void;
   onOpenProfile?: (user: UserProfileData) => void;
+  onOpenThread?: (message: Message) => void;
+  onDeleteMessage?: (messageId: string) => void;
+  currentUserId?: string;
+  isAdmin?: boolean;
 }) {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
@@ -739,6 +793,11 @@ function NativeMessageList({
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
           const { cleanText, attachments } = parseMessageAttachments(item.content || "");
+          const isOwnMessage =
+            item.user.id === currentUserId ||
+            item.user.id === "me" ||
+            isAdmin;
+
           return (
             <View style={{ marginBottom: 6 }}>
               {/* Quoted reply header if message is a reply to another message */}
@@ -753,7 +812,9 @@ function NativeMessageList({
               )}
 
               <Pressable
+                delayLongPress={150}
                 onLongPress={() => {
+                  NativeHaptics.medium();
                   setSelectedMessage(item);
                   setActionMenuOpen(true);
                 }}
@@ -787,14 +848,39 @@ function NativeMessageList({
 
                 <View style={styles.messageBody}>
                   <View style={styles.messageHeader}>
-                    <Text
-                      style={[
-                        styles.displayName,
-                        { color: item.user?.roleColor || colors.textPrimary },
-                      ]}
-                    >
-                      {item.user?.displayName || "Member"}
-                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                      <Text
+                        style={[
+                          styles.displayName,
+                          {
+                            color:
+                              item.user?.displayName?.includes("Bot") ||
+                              item.user?.id === "00000000-0000-0000-0000-000000000001"
+                                ? "#818CF8"
+                                : item.user?.roleColor || colors.textPrimary,
+                          },
+                        ]}
+                      >
+                        {item.user?.displayName || "Member"}
+                      </Text>
+                      {(item.user?.displayName?.includes("Bot") ||
+                        item.user?.id === "00000000-0000-0000-0000-000000000001") && (
+                        <View
+                          style={{
+                            backgroundColor: "rgba(99, 102, 241, 0.2)",
+                            borderColor: "rgba(99, 102, 241, 0.4)",
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            paddingHorizontal: 4,
+                            paddingVertical: 1,
+                          }}
+                        >
+                          <Text style={{ color: "#818CF8", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>
+                            BOT
+                          </Text>
+                        </View>
+                      )}
+                    </View>
 
                     <Text style={styles.timestamp}>
                       {item.createdAt
@@ -820,6 +906,24 @@ function NativeMessageList({
                   <View style={styles.fileCard}>
                     <Text style={styles.fileName}>{item.attachment.name || "Attachment"}</Text>
                   </View>
+                )}
+
+                {/* Thread Indicator Badge if message has replies */}
+                {messages.filter((m) => m.replyTo?.id === item.id).length > 0 && (
+                  <Pressable
+                    onPress={() => onOpenThread?.(item)}
+                    style={styles.threadIndicatorBadge}
+                    hitSlop={6}
+                  >
+                    <MessagesSquare size={13} color={colors.accent} />
+                    <Text style={styles.threadIndicatorText}>
+                      {messages.filter((m) => m.replyTo?.id === item.id).length}{" "}
+                      {messages.filter((m) => m.replyTo?.id === item.id).length === 1
+                        ? "reply"
+                        : "replies"}
+                    </Text>
+                    <ChevronRight size={12} color={colors.textMuted} />
+                  </Pressable>
                 )}
 
                 {/* Reaction Pills & Add Reaction Button */}
@@ -880,24 +984,81 @@ function NativeMessageList({
 
             <View style={styles.actionDivider} />
 
-            <Pressable
-              style={styles.actionMenuRow}
-              onPress={() => {
-                if (selectedMessage) {
-                  onReply?.(selectedMessage);
-                }
-                setActionMenuOpen(false);
-              }}
-            >
-              <CornerUpLeft size={16} color={colors.accent} />
-              <Text style={styles.actionMenuText}>Reply to Message</Text>
-            </Pressable>
+            <View style={{ gap: 8 }}>
+              <Pressable
+                style={styles.actionMenuRow}
+                onPress={() => {
+                  if (selectedMessage) {
+                    onOpenThread?.(selectedMessage);
+                  }
+                  setActionMenuOpen(false);
+                }}
+              >
+                <MessagesSquare size={16} color={colors.accent} />
+                <Text style={styles.actionMenuText}>
+                  {selectedMessage &&
+                  messages.filter((m) => m.replyTo?.id === selectedMessage.id).length > 0
+                    ? `Open Thread (${
+                        messages.filter((m) => m.replyTo?.id === selectedMessage.id).length
+                      } replies)`
+                    : "Open Thread"}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.actionMenuRow}
+                onPress={() => {
+                  if (selectedMessage) {
+                    onReply?.(selectedMessage);
+                  }
+                  setActionMenuOpen(false);
+                }}
+              >
+                <CornerUpLeft size={16} color={colors.accent} />
+                <Text style={styles.actionMenuText}>Reply to Message</Text>
+              </Pressable>
+
+              {/* Delete Message Button (Author or Admin Only) */}
+              {selectedMessage &&
+                (selectedMessage.user.id === currentUserId ||
+                  selectedMessage.user.id === "me" ||
+                  isAdmin) && (
+                  <Pressable
+                    style={[styles.actionMenuRow, styles.actionDeleteRow]}
+                    onPress={() => {
+                      const msgId = selectedMessage.id;
+                      setActionMenuOpen(false);
+                      Alert.alert(
+                        "Delete Message",
+                        "Are you sure you want to delete this message permanently?",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Delete",
+                            style: "destructive",
+                            onPress: () => onDeleteMessage?.(msgId),
+                          },
+                        ]
+                      );
+                    }}
+                  >
+                    <Trash2 size={16} color={colors.danger} />
+                    <Text style={[styles.actionMenuText, { color: colors.danger }]}>
+                      Delete Message
+                    </Text>
+                  </Pressable>
+                )}
+            </View>
           </View>
         </Pressable>
       </Modal>
     </>
   );
 }
+
+/* =========================================================
+   WHATSAPP-STYLE MESSAGE COMPOSER
+   ========================================================= */
 
 function MessageComposer({
   channelName,
@@ -912,20 +1073,48 @@ function MessageComposer({
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [attachSheetOpen, setAttachSheetOpen] = useState(false);
+  const [gifModalOpen, setGifModalOpen] = useState(false);
+  const [emojiModalOpen, setEmojiModalOpen] = useState(false);
+  const [stagedAttachment, setStagedAttachment] = useState<{
+    url: string;
+    name: string;
+    type?: string;
+    size?: number;
+  } | null>(null);
+
+  const hasContent = text.trim().length > 0 || stagedAttachment !== null;
 
   async function send() {
-    const value = text.trim();
-    if (!value || sending) return;
+    const rawText = text.trim();
+    if ((!rawText && !stagedAttachment) || sending) return;
 
     setSending(true);
     try {
-      await onSend(value, replyingTo?.id);
+      let finalContent = rawText;
+      if (stagedAttachment) {
+        const attPayload = `attachment:${JSON.stringify(stagedAttachment)}`;
+        finalContent = rawText ? `${rawText}\n${attPayload}` : attPayload;
+      }
+      await onSend(finalContent, replyingTo?.id);
       setText("");
+      setStagedAttachment(null);
       onCancelReply?.();
     } finally {
       setSending(false);
     }
   }
+
+  const handleSelectGif = async (gifUrl: string) => {
+    try {
+      const attPayload = `attachment:${JSON.stringify({ url: gifUrl, name: "GIF", type: "image/gif" })}`;
+      await onSend(text.trim() ? `${text.trim()}\n${attPayload}` : attPayload, replyingTo?.id);
+      setText("");
+      onCancelReply?.();
+    } catch (e) {
+      console.warn("Failed to send GIF:", e);
+    }
+  };
 
   return (
     <View style={styles.composerWrapper}>
@@ -941,35 +1130,138 @@ function MessageComposer({
         </View>
       )}
 
-      <View style={styles.composer}>
-        <Pressable style={styles.composerPlus}>
-          <Plus size={18} color={colors.textPrimary} />
-        </Pressable>
+      {/* Staged Attachment Preview Banner */}
+      {stagedAttachment && (
+        <View style={styles.stagedAttachmentBanner}>
+          <View style={styles.stagedAttachmentInner}>
+            <Paperclip size={13} color={colors.accent} />
+            <Text style={styles.stagedAttachmentName} numberOfLines={1}>
+              {stagedAttachment.name}
+            </Text>
+          </View>
+          <Pressable onPress={() => setStagedAttachment(null)} hitSlop={8}>
+            <X size={14} color={colors.textMuted} />
+          </Pressable>
+        </View>
+      )}
 
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder={`Message #${channelName}`}
-          placeholderTextColor={colors.textMuted}
-          style={styles.composerInput}
-          multiline
-        />
+      {/* WhatsApp-Style Rounded Pill + Detached Floating Circle */}
+      <View style={styles.composerRow}>
+        <View style={styles.composerPill}>
+          {/* Emoji button inside left of pill */}
+          <Pressable
+            onPress={() => {
+              NativeHaptics.light();
+              setEmojiModalOpen(true);
+            }}
+            style={styles.pillIconBtn}
+            hitSlop={8}
+          >
+            <Smile size={21} color="#86899E" />
+          </Pressable>
 
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder={`Message #${channelName}`}
+            placeholderTextColor="#72768B"
+            style={styles.composerInput}
+            multiline
+          />
+
+          {/* Attachment Paperclip button inside right of pill */}
+          <Pressable
+            onPress={() => {
+              NativeHaptics.light();
+              setAttachSheetOpen(true);
+            }}
+            style={styles.pillIconBtn}
+            hitSlop={8}
+          >
+            <Paperclip size={20} color="#86899E" />
+          </Pressable>
+
+          {/* GIF badge button inside right of pill */}
+          <Pressable
+            onPress={() => {
+              NativeHaptics.light();
+              setGifModalOpen(true);
+            }}
+            style={styles.gifBadgeBtn}
+            hitSlop={8}
+          >
+            <View style={styles.gifBadge}>
+              <Text style={styles.gifBadgeText}>GIF</Text>
+            </View>
+          </Pressable>
+        </View>
+
+        {/* WhatsApp-Style Detached Floating Circle Button */}
         <Pressable
-          onPress={send}
-          disabled={!text.trim() || sending}
+          onPress={() => {
+            if (hasContent) {
+              send();
+            } else {
+              NativeHaptics.selection();
+              notificationService.show({
+                title: "Voice Note",
+                body: "Hold to record audio message.",
+                type: "info",
+              });
+            }
+          }}
+          disabled={sending}
           style={[
-            styles.sendButton,
-            (!text.trim() || sending) && styles.sendDisabled,
+            styles.detachedActionButton,
+            hasContent && styles.detachedActionButtonActive,
           ]}
+          hitSlop={6}
         >
           {sending ? (
-            <ActivityIndicator color={colors.accentContrast} size="small" />
+            <ActivityIndicator color="#000" size="small" />
+          ) : hasContent ? (
+            <Send size={18} color="#000" />
           ) : (
-            <Send size={15} color={colors.accentContrast} />
+            <Mic size={20} color={colors.accent} />
           )}
         </Pressable>
       </View>
+
+      {/* Pickers & Modals */}
+      <MobileAttachmentSheet
+        visible={attachSheetOpen}
+        onClose={() => setAttachSheetOpen(false)}
+        onSelectImage={(asset) => {
+          setStagedAttachment({
+            url: asset.uri,
+            name: asset.name || "image.jpg",
+            type: asset.type || "image/jpeg",
+            size: asset.size,
+          });
+        }}
+        onSelectDocument={(doc) => {
+          setStagedAttachment({
+            url: doc.uri,
+            name: doc.name,
+            type: doc.mimeType || "application/octet-stream",
+            size: doc.size,
+          });
+        }}
+      />
+
+      <MobileGifModal
+        visible={gifModalOpen}
+        onClose={() => setGifModalOpen(false)}
+        onSelectGif={handleSelectGif}
+      />
+
+      <MobileEmojiModal
+        visible={emojiModalOpen}
+        onClose={() => setEmojiModalOpen(false)}
+        onSelectEmoji={(emoji) => {
+          setText((prev) => prev + emoji);
+        }}
+      />
     </View>
   );
 }
@@ -1043,31 +1335,7 @@ function ArchivePage({ archive }: { archive: any[] }) {
   );
 }
 
-function AdminPage({ data }: { data: any }) {
-  return (
-    <ScrollView style={styles.page}>
-      <Text style={styles.pageTitle}>Governance & Admin Panel</Text>
-      <View style={styles.adminGrid}>
-        <View style={styles.adminStat}>
-          <Text style={styles.adminStatTitle}>Total Members</Text>
-          <Text style={styles.adminStatValue}>{data?.stats?.totalUsers ?? data?.totalMembers ?? "—"}</Text>
-        </View>
-        <View style={styles.adminStat}>
-          <Text style={styles.adminStatTitle}>Active Spaces</Text>
-          <Text style={styles.adminStatValue}>{data?.stats?.activeSpaces ?? data?.activeSpaces ?? "—"}</Text>
-        </View>
-        <View style={styles.adminStat}>
-          <Text style={styles.adminStatTitle}>Pending Approvals</Text>
-          <Text style={styles.adminStatValue}>{data?.stats?.pendingApprovals ?? data?.pendingApprovals ?? "—"}</Text>
-        </View>
-        <View style={styles.adminStat}>
-          <Text style={styles.adminStatTitle}>Squad Teams</Text>
-          <Text style={styles.adminStatValue}>{data?.stats?.activeTeams ?? data?.squadTeams ?? "—"}</Text>
-        </View>
-      </View>
-    </ScrollView>
-  );
-}
+
 
 /* =========================================================
    SEARCH MODAL WITH DEBOUNCE & REALTIME SUPABASE RESULTS
@@ -1281,6 +1549,7 @@ function CreateNoticeModal({
 
 export default function AIICDiscordApp() {
   const router = useRouter();
+  const { spaceId, channelId } = useLocalSearchParams<{ spaceId?: string; channelId?: string }>();
   const { user } = useAuthStore();
 
   const {
@@ -1298,6 +1567,7 @@ export default function AIICDiscordApp() {
     messages,
     loadChannelMessages,
     sendChannelMessageAction,
+    deleteChannelMessageAction,
     toggleReaction,
     subscribeToChannel,
     unsubscribeFromChannel,
@@ -1313,6 +1583,17 @@ export default function AIICDiscordApp() {
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
 
+  // Auto-bind route params
+  useEffect(() => {
+    if (spaceId && spaceId !== "default" && spaceId !== "[spaceId]") {
+      setSelectedServerId(spaceId);
+      setActiveSpace(spaceId);
+    }
+    if (channelId && channelId !== "default" && channelId !== "[channelId]") {
+      setSelectedChannelId(channelId);
+    }
+  }, [spaceId, channelId]);
+
   const [notices, setNotices] = useState<any[]>([]);
   const [archive, setArchive] = useState<any[]>([]);
   const [adminData, setAdminData] = useState<any>(null);
@@ -1320,6 +1601,7 @@ export default function AIICDiscordApp() {
   // Modals
   const [searchOpen, setSearchOpen] = useState(false);
   const [createNoticeOpen, setCreateNoticeOpen] = useState(false);
+  const [createSpaceModalOpen, setCreateSpaceModalOpen] = useState(false);
   const [spaceSettingsOpen, setSpaceSettingsOpen] = useState(false);
   const [selectedMemberProfile, setSelectedMemberProfile] = useState<UserProfileData | null>(null);
 
@@ -1520,6 +1802,13 @@ export default function AIICDiscordApp() {
                   }
                 }}
                 onOpenProfile={(prof) => setSelectedMemberProfile(prof)}
+                onDeleteMessage={(msgId) => {
+                  if (selectedChannelId) {
+                    deleteChannelMessageAction(selectedChannelId, msgId);
+                  }
+                }}
+                currentUserId={user?.id}
+                isAdmin={isAdmin}
               />
             ) : (
               /* SELECTED SPACE VIEW (CHANNEL SELECTOR VIEW ONLY) */
@@ -1602,7 +1891,7 @@ export default function AIICDiscordApp() {
 
           {/* ADMIN (Only accessible if isAdmin is true) */}
           {currentSection === "admin" && isAdmin && (
-            <AdminPage data={adminData} />
+            <MobileAdminView initialData={adminData} />
           )}
 
           {/* DETAILED MEMBER PROFILE & IDENTITY */}
@@ -1719,6 +2008,21 @@ export default function AIICDiscordApp() {
           setCurrentSection("space");
         }}
         onOpenSpaceSettings={() => setSpaceSettingsOpen(true)}
+        onCreateSpace={() => setCreateSpaceModalOpen(true)}
+      />
+
+      {/* Space Creation Modal */}
+      <CreateSpaceModal
+        visible={createSpaceModalOpen}
+        onClose={() => setCreateSpaceModalOpen(false)}
+        onCreated={(newServer) => {
+          if (newServer?.id) {
+            setSelectedServerId(newServer.id);
+            setActiveSpace(newServer.id);
+            setSelectedChannelId(null);
+            setCurrentSection("space");
+          }
+        }}
       />
 
       {/* Global Functional Search Modal */}
@@ -2365,6 +2669,65 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
+  composerRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+
+  composerPill: {
+    flex: 1,
+    minHeight: 46,
+    maxHeight: 120,
+    backgroundColor: "#171924",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.09)",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+
+  pillIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  gifBadgeBtn: {
+    paddingHorizontal: 4,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  detachedActionButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#171924",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.09)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  detachedActionButtonActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+
+  actionDeleteRow: {
+    backgroundColor: "rgba(255, 77, 79, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 77, 79, 0.25)",
+  },
+
   composerPlus: {
     width: 36,
     height: 36,
@@ -2808,6 +3171,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 
+  threadIndicatorBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(212, 160, 23, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(212, 160, 23, 0.25)",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 6,
+    gap: 6,
+  },
+
+  threadIndicatorText: {
+    fontFamily: "JetBrainsMono_700Bold",
+    fontSize: 11,
+    color: colors.accent,
+  },
+
   addReactionBtn: {
     paddingHorizontal: 7,
     paddingVertical: 4,
@@ -2877,6 +3260,54 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 14,
     fontWeight: "600",
+  },
+
+  stagedAttachmentBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(212, 160, 23, 0.12)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(212, 160, 23, 0.25)",
+  },
+
+  stagedAttachmentInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+
+  stagedAttachmentName: {
+    fontSize: 12,
+    color: colors.accent,
+    fontFamily: "JetBrainsMono_700Bold",
+  },
+
+  composerActionBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 4,
+  },
+
+  gifBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+
+  gifBadgeText: {
+    fontFamily: "JetBrainsMono_700Bold",
+    fontSize: 10,
+    color: colors.textPrimary,
+    fontWeight: "bold",
   },
 
   composerWrapper: {

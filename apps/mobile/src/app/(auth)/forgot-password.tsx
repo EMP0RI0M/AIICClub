@@ -88,7 +88,7 @@ export default function ForgotPasswordScreen() {
 
                 <Input
                   label="Account Email"
-                  placeholder="user@aiic.club"
+                  placeholder="student@gmail.com"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={email}

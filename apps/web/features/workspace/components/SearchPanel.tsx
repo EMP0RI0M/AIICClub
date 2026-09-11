@@ -169,7 +169,7 @@ export function SearchPanel({
   };
 
   return (
-    <aside className="absolute inset-0 z-30 flex h-full w-full shrink-0 flex-col bg-[#0e121a]/95 border-l border-white/[0.08] backdrop-blur-2xl shadow-2xl lg:static lg:w-[350px] lg:bg-[#0e121a]/85 lg:backdrop-blur-xl">
+    <aside className="absolute inset-0 z-30 flex h-full w-full shrink-0 flex-col bg-[#050505]/95 border-l border-white/[0.08] backdrop-blur-2xl shadow-2xl lg:static lg:w-[350px] lg:bg-[#050505]/90 lg:backdrop-blur-xl">
       {/* Header */}
       <div className="flex h-13 shrink-0 items-center justify-between border-b border-white/[0.06] px-4">
         <span className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-accent flex items-center gap-1.5">

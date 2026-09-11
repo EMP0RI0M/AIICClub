@@ -85,7 +85,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#0c0f17] text-text-secondary">
+      <div className="flex h-screen w-screen items-center justify-center bg-black text-text-secondary">
         <div className="flex flex-col items-center gap-3">
           <Loader2 size={28} className="animate-spin text-accent" />
           <span className="font-mono text-xs tracking-wider uppercase text-text-muted">
@@ -98,8 +98,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!authorized) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#0c0f17] p-6 text-center">
-        <div className="max-w-md rounded-3xl border border-danger/20 bg-[#121622] p-8 shadow-2xl backdrop-blur-xl">
+      <div className="flex h-screen w-screen items-center justify-center bg-black p-6 text-center">
+        <div className="max-w-md rounded-3xl border border-danger/20 bg-[#0a0a0a] p-8 shadow-2xl backdrop-blur-xl">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-danger/10 border border-danger/20 text-danger shadow-inner">
             <Lock size={24} />
           </div>
@@ -125,9 +125,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const currentNav = ADMIN_NAV.find((item) => item.href === pathname) || ADMIN_NAV[0];
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#0c0f17] text-text-primary">
+    <div className="flex h-screen w-full overflow-hidden bg-black text-text-primary">
       {/* ─── Desktop Sidebar (md+) ─── */}
-      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/[0.08] bg-[#10141f]/80 backdrop-blur-xl">
+      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/[0.08] bg-[#080808]/80 backdrop-blur-xl">
         {/* Header Branding */}
         <div className="flex h-16 items-center justify-between px-5 border-b border-white/[0.06]">
           <div className="flex items-center gap-2.5">
@@ -206,7 +206,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* ─── Main Content Container ─── */}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* Mobile Header (md:hidden) */}
-        <header className="flex h-14 w-full shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#10141f] px-4 md:hidden z-30">
+        <header className="flex h-14 w-full shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#080808] px-4 md:hidden z-30">
           <div className="flex items-center gap-2.5">
             <button
               type="button"
@@ -235,7 +235,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
               onClick={() => setDrawerOpen(false)}
             />
-            <nav className="relative z-50 flex h-full w-[280px] max-w-[85vw] flex-col border-r border-white/[0.08] bg-[#121622] p-4 shadow-2xl">
+            <nav className="relative z-50 flex h-full w-[280px] max-w-[85vw] flex-col border-r border-white/[0.08] bg-[#0a0a0a] p-4 shadow-2xl">
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
                 <div className="flex items-center gap-2">
                   <Shield size={16} className="text-accent" />

@@ -44,7 +44,7 @@ export function NavRail({
   return (
     <nav
       aria-label="Spaces"
-      className="flex h-full w-[64px] sm:w-[68px] md:w-[60px] shrink-0 flex-col items-center bg-[#0d1017]/90 border-r border-white/[0.06] py-3.5 backdrop-blur-xl z-30 shadow-[inset_-1px_0_rgba(255,255,255,0.04)]"
+      className="flex h-full w-[64px] sm:w-[68px] md:w-[60px] shrink-0 flex-col items-center bg-[#050505]/95 border-r border-white/[0.06] py-3.5 backdrop-blur-xl z-30 shadow-[inset_-1px_0_rgba(255,255,255,0.04)]"
     >
       <ItemLink
         href={homeHref}
@@ -87,7 +87,7 @@ export function NavRail({
                 <span aria-hidden>{space.name[0]?.toUpperCase()}</span>
               )}
               {space.unread && !active && (
-                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-accent ring-2 ring-[#0d1017]" />
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-accent ring-2 ring-black" />
               )}
             </ItemLink>
           );
@@ -144,7 +144,7 @@ function RailIcon({
     >
       {children}
       {unread && (
-        <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-accent ring-2 ring-[#0d1017]" />
+        <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-accent ring-2 ring-black" />
       )}
     </ItemLink>
   );

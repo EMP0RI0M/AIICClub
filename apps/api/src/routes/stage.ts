@@ -153,8 +153,8 @@ stage.get("/channels/:channelId/stage/state", async (c) => {
     });
 
     return c.json({
-        speakers: rows.filter((r) => r.role === "speaker").map((r) => r.userId),
-        raisedHands: rows.filter((r) => r.role === "raised_hand").map((r) => r.userId),
+        speakers: rows.filter((r: any) => r.role === "speaker").map((r: any) => r.userId),
+        raisedHands: rows.filter((r: any) => r.role === "raised_hand").map((r: any) => r.userId),
     });
 });
 

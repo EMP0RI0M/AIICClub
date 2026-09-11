@@ -6,6 +6,7 @@ import { View, ActivityIndicator, StyleSheet } from "react-native";
 import * as Linking from "expo-linking";
 import { useAuthStore } from "../stores/auth-store";
 import { colors } from "../theme/tokens";
+import { NotificationBanner } from "../components/ui/NotificationBanner";
 
 export default function RootLayout() {
   const { isAuthenticated, isRestoring, restoreSession, handleOAuthCallback } = useAuthStore();
@@ -80,6 +81,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" backgroundColor={colors.background} />
+      <NotificationBanner />
       <Stack
         screenOptions={{
           headerShown: false,

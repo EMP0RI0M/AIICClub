@@ -83,7 +83,7 @@ export function ClipRecorder({
 
   return (
     <div
-      className="fixed bottom-6 left-1/2 z-[200] flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/[0.12] bg-[#121722]/90 px-4 py-2 backdrop-blur-xl shadow-[0_12px_36px_rgba(0,0,0,0.6)]"
+      className="fixed bottom-6 left-1/2 z-[200] flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/[0.12] bg-[#0a0a0a]/90 px-4 py-2 backdrop-blur-xl shadow-[0_12px_36px_rgba(0,0,0,0.6)]"
     >
       <span className="flex items-center gap-1.5 font-mono text-[13px] text-danger font-bold">
         <span className="h-2 w-2 rounded-full bg-danger animate-pulse" /> {duration}
@@ -164,7 +164,7 @@ export function ClipEmbed({ duration, size, url }: { duration: string; size?: st
 
   return (
     <>
-      <div className="mt-2 w-full max-w-[420px] overflow-hidden rounded-[20px] border border-white/[0.1] bg-[#121622]/80 backdrop-blur-md shadow-md">
+      <div className="mt-2 w-full max-w-[420px] overflow-hidden rounded-[20px] border border-white/[0.1] bg-[#080808]/80 backdrop-blur-md shadow-md">
         {playing && url ? (
           <div className="relative aspect-video w-full bg-black">
             <video
@@ -185,7 +185,7 @@ export function ClipEmbed({ duration, size, url }: { duration: string; size?: st
               if (url) setPlaying(true);
               else setModalOpen(true);
             }}
-            className="group relative flex aspect-video w-full cursor-pointer items-center justify-center bg-gradient-to-br from-[#1b2234] to-[#0c0f17] transition-all"
+            className="group relative flex aspect-video w-full cursor-pointer items-center justify-center bg-gradient-to-br from-[#1b2234] to-[#050505] transition-all"
           >
             {url && (
               <video
@@ -216,7 +216,7 @@ export function ClipEmbed({ duration, size, url }: { duration: string; size?: st
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="relative w-full max-w-[640px] rounded-[28px] border border-white/[0.12] bg-[#121722]/95 p-5 shadow-[0_16px_48px_rgba(0,0,0,0.7)] backdrop-blur-2xl"
+            className="relative w-full max-w-[640px] rounded-[28px] border border-white/[0.12] bg-[#0a0a0a]/95 p-5 shadow-[0_16px_48px_rgba(0,0,0,0.7)] backdrop-blur-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">

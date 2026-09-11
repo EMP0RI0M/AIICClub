@@ -1,7 +1,7 @@
 import { Nav, Footer } from "@/features/landing";
 import { getProjects } from "@/shared/lib/aiic-data";
 import Link from "next/link";
-import { FolderGit2, ArrowUpRight, GitBranch, ExternalLink, Archive } from "lucide-react";
+import { FolderGit2, ArrowUpRight, GitBranch, ExternalLink, Archive, Sparkles } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -14,48 +14,51 @@ export default async function ProjectsPage() {
   const projects = await getProjects().catch(() => []);
 
   return (
-    <div id="landing-scroll" className="h-full overflow-y-auto overflow-x-hidden bg-background">
+    <div id="landing-scroll" className="h-full overflow-y-auto overflow-x-hidden bg-background text-text-primary">
       <Nav />
-      <main className="mx-auto max-w-[1280px] px-5 py-16 sm:px-8 sm:py-24">
-        {/* Header */}
-        <div className="max-w-2xl">
-          <span className="font-mono text-xs font-semibold uppercase tracking-wider text-accent">
-            AIIC Showcase
-          </span>
-          <h1 className="mt-3 text-[clamp(32px,5vw,52px)] font-bold tracking-tight text-text-primary">
+      <main className="mx-auto max-w-[1280px] px-5 py-14 sm:px-8 sm:py-20 space-y-12">
+        {/* Header Hero */}
+        <div className="aiic-glass-premium rounded-3xl p-7 sm:p-10 shadow-2xl space-y-4">
+          <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 font-mono text-xs font-semibold text-accent">
+            <FolderGit2 size={14} />
+            <span>AIIC Open Repositories &amp; Capstones</span>
+          </div>
+
+          <h1 className="text-[clamp(32px,5vw,52px)] font-bold tracking-tight text-white leading-tight">
             Projects &amp; Prototypes
           </h1>
-          <p className="mt-4 text-[16px] leading-relaxed text-text-secondary">
-            Every project developed under AIIC is built by student teams, documented,
-            and archived as open-source technology.
+
+          <p className="max-w-2xl text-sm sm:text-base leading-relaxed text-zinc-300">
+            Every project developed under AIIC is built by student teams, peer-reviewed,
+            and archived permanently as open-source technology.
           </p>
         </div>
 
         {/* Project Grid / Empty State */}
-        <div className="mt-14">
+        <div>
           {projects.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {projects.map((p) => (
                 <div
                   key={p.id}
-                  className="flex flex-col justify-between rounded-xl border border-border/80 bg-surface-raised p-6 transition-all hover:border-border-active hover:bg-surface-overlay"
+                  className="aiic-glass-default aiic-glass-interactive flex flex-col justify-between rounded-2xl p-6 sm:p-7 shadow-xl border border-white/[0.08]"
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[11px] font-semibold uppercase tracking-wider rounded border border-border px-2 py-0.5 text-accent">
+                      <span className="font-mono text-[11px] font-semibold uppercase tracking-wider rounded-md border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-accent">
                         {p.category}
                       </span>
-                      <span className="font-mono text-[11px] text-text-muted">
+                      <span className="font-mono text-[11px] text-zinc-400">
                         {p.status}
                       </span>
                     </div>
 
-                    <h3 className="mt-4 text-lg font-semibold text-text-primary">
-                      <Link href={`/projects/${p.slug}`} className="hover:underline">
+                    <h3 className="mt-4 text-lg font-bold text-white leading-snug">
+                      <Link href={`/projects/${p.slug}`} className="hover:text-accent transition-colors">
                         {p.title}
                       </Link>
                     </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-text-muted">
+                    <p className="mt-2 text-sm leading-relaxed text-zinc-300">
                       {p.summary || p.description}
                     </p>
 
@@ -64,7 +67,7 @@ export default async function ProjectsPage() {
                         {p.technologies.map((t) => (
                           <span
                             key={t}
-                            className="font-mono text-[10px] rounded bg-surface px-2 py-0.5 text-text-secondary border border-border/60"
+                            className="font-mono text-[10px] rounded-md bg-white/[0.04] px-2 py-0.5 text-zinc-300 border border-white/[0.08]"
                           >
                             {t}
                           </span>
@@ -73,12 +76,12 @@ export default async function ProjectsPage() {
                     )}
                   </div>
 
-                  <div className="mt-6 flex items-center justify-between border-t border-border/60 pt-4 text-xs">
+                  <div className="mt-6 flex items-center justify-between border-t border-white/[0.08] pt-4 text-xs font-mono">
                     <Link
                       href={`/projects/${p.slug}`}
-                      className="inline-flex items-center gap-1 font-medium text-accent hover:underline"
+                      className="inline-flex items-center gap-1 font-semibold text-accent hover:underline"
                     >
-                      Project details <ArrowUpRight size={13} />
+                      <span>Project details</span> <ArrowUpRight size={13} />
                     </Link>
 
                     <div className="flex items-center gap-3">
@@ -87,7 +90,7 @@ export default async function ProjectsPage() {
                           href={p.repositoryUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-text-muted hover:text-text-primary"
+                          className="text-zinc-400 hover:text-white transition-colors"
                           aria-label="GitHub repository"
                         >
                           <GitBranch size={15} />
@@ -98,7 +101,7 @@ export default async function ProjectsPage() {
                           href={p.demoUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-text-muted hover:text-text-primary"
+                          className="text-zinc-400 hover:text-white transition-colors"
                           aria-label="Live Demo"
                         >
                           <ExternalLink size={15} />
@@ -110,19 +113,21 @@ export default async function ProjectsPage() {
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-border p-12 text-center">
-              <FolderGit2 className="mx-auto h-10 w-10 text-text-faint" />
-              <h3 className="mt-4 text-base font-semibold text-text-primary">No public projects published yet</h3>
-              <p className="mx-auto mt-2 max-w-[45ch] text-sm text-text-muted">
+            <div className="aiic-glass-soft rounded-3xl p-12 text-center border border-white/[0.08]">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/[0.08] mx-auto text-zinc-500">
+                <FolderGit2 size={26} />
+              </div>
+              <h3 className="mt-4 text-base font-semibold text-white">No public projects published yet</h3>
+              <p className="mx-auto mt-2 max-w-[45ch] text-xs sm:text-sm text-zinc-400">
                 Student teams are actively building new software, AI models, and robotics projects.
                 Verified releases will appear here automatically.
               </p>
               <div className="mt-6 flex justify-center gap-3">
                 <Link
                   href="/archive"
-                  className="inline-flex h-9 items-center gap-1.5 rounded-md bg-accent px-4 font-mono text-xs font-semibold text-on-accent hover:bg-accent-violet-bright transition-colors"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-accent px-5 font-mono text-xs font-bold text-on-accent hover:bg-accent-hover transition-all shadow-md active:scale-95 cursor-pointer"
                 >
-                  <Archive size={13} /> Explore Archive
+                  <Archive size={14} /> Explore Archive
                 </Link>
               </div>
             </div>

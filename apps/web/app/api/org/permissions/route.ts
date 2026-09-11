@@ -3,23 +3,31 @@ import { getAuthUser } from "@/app/api/auth-helper";
 import { getSupabaseAdmin } from "@/shared/supabase/admin";
 
 export async function GET(req: NextRequest) {
-    const user = await getAuthUser(req);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     const { searchParams } = new URL(req.url);
     const spaceId = searchParams.get("spaceId");
     if (!spaceId) {
         return NextResponse.json({ error: "spaceId is required" }, { status: 400 });
     }
 
+    const user = await getAuthUser(req);
+    if (!user) {
+        return NextResponse.json({
+            role: "visitor",
+            roleName: "Visitor",
+            hierarchyLevel: 10,
+            permissions: ["MESSAGE_SEND", "REACTION_ADD", "BOARD_VIEW", "DOCS_VIEW"],
+            isTeamLeader: false,
+        });
+    }
+
     const supabase = getSupabaseAdmin();
 
     try {
-        // Resolve actual public.users ID
+        // Resolve actual public.users ID and user role
         let actualUserId = user.id;
         const { data: userRow } = await supabase
             .from("users")
-            .select("id")
+            .select("id, role, role_name")
             .or(`id.eq.${user.id},auth_user_id.eq.${user.id}`)
             .maybeSingle();
 
@@ -76,8 +84,11 @@ export async function GET(req: NextRequest) {
                 role = govRole.key;
                 roleName = govRole.name;
                 hierarchyLevel = govRole.hierarchy_level;
+            } else if (userRow?.role && ["president_admin", "admin", "president", "vice_president"].includes(userRow.role)) {
+                role = userRow.role;
+                roleName = userRow.role_name || (userRow.role === "president_admin" ? "President + Admin" : userRow.role);
+                hierarchyLevel = userRow.role === "president_admin" ? 100 : userRow.role === "president" ? 99 : 95;
             } else {
-
                 // Check if user is space owner
                 const { data: spaceRow } = await supabase
                     .from("servers")
@@ -89,6 +100,10 @@ export async function GET(req: NextRequest) {
                     role = "owner";
                     roleName = "Space Owner";
                     hierarchyLevel = 95;
+                } else if (userRow?.role) {
+                    role = userRow.role;
+                    roleName = userRow.role_name || userRow.role;
+                    hierarchyLevel = 10;
                 } else {
                     role = "visitor";
                     roleName = "Visitor";

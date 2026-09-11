@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/app/api/auth-helper";
 import { getSupabaseAdmin } from "@/shared/supabase/admin";
+import { processBotSentinel, checkAntiSpamAndMentions, BOT_USER_ID } from "@/shared/lib/bot-sentinel";
+import { sendWebPushToUser } from "@/shared/lib/web-push";
 
 export async function GET(
     req: NextRequest,
@@ -299,6 +301,19 @@ export async function POST(
             }
         }
 
+        // 1. Deterministic Anti-Spam & Mass Mention Checks
+        const spamCheck = checkAntiSpamAndMentions({
+            userId: actualAuthorId,
+            content,
+            userRole: user.role,
+        });
+
+        if (spamCheck.blocked) {
+            return NextResponse.json({
+                error: spamCheck.reason || "Action blocked by AI Community Sentinel.",
+            }, { status: 429 });
+        }
+
         // Diagnostic log before insert
         console.log("[MESSAGE_INSERT]", {
             channel_id: actualChannelId,
@@ -392,6 +407,98 @@ export async function POST(
                 avatarUrl: (inserted.author as any)?.avatar_url || null,
             },
         };
+
+        // Realtime Broadcast across connected WebSockets
+        try {
+            const rtChan = supabase.channel(`channel:${actualChannelId}`);
+            await rtChan.send({
+                type: "broadcast",
+                event: "new_message",
+                payload: { message: messageData },
+            });
+            if (actualChannelId !== channelId) {
+                const rtSlugChan = supabase.channel(`channel:${channelId}`);
+                await rtSlugChan.send({
+                    type: "broadcast",
+                    event: "new_message",
+                    payload: { message: messageData },
+                });
+            }
+        } catch (rtErr) {
+            console.warn("[REALTIME_CHANNEL_BROADCAST_WARN]", rtErr);
+        }
+
+        // Dispatch Web Push Notifications for @mentions and reply targets
+        (async () => {
+            try {
+                const senderName = user.displayName || user.username || "Member";
+                const messageText = inserted.content;
+
+                // 1. Reply Notification
+                if (inserted.reply_to_id && replyTo?.author?.id && replyTo.author.id !== actualAuthorId) {
+                    await sendWebPushToUser(
+                        replyTo.author.id,
+                        {
+                            title: `↩️ Reply from @${senderName}`,
+                            body: messageText.length > 120 ? `${messageText.slice(0, 117)}...` : messageText,
+                            tag: `reply:${inserted.id}`,
+                            data: {
+                                url: `/channels/${actualChannelId}`,
+                                messageId: inserted.id,
+                                channelId: actualChannelId,
+                                senderId: actualAuthorId,
+                                type: "reply",
+                            },
+                        },
+                        { messageId: inserted.id }
+                    );
+                }
+
+                // 2. Direct @mentions (e.g. @username)
+                const mentionMatches = messageText.match(/@([a-zA-Z0-9_]+)/g);
+                if (mentionMatches) {
+                    const mentionedUsernames = Array.from(
+                        new Set(mentionMatches.map((m: string) => m.slice(1).toLowerCase()))
+                    );
+
+                    const { data: mentionedUsers } = await supabase
+                        .from("users")
+                        .select("id, username")
+                        .in("username", mentionedUsernames)
+                        .neq("id", actualAuthorId);
+
+                    for (const mUser of mentionedUsers || []) {
+                        await sendWebPushToUser(
+                            mUser.id,
+                            {
+                                title: `🔔 You were mentioned`,
+                                body: `@${senderName} mentioned you in #${channelId}`,
+                                tag: `mention:${inserted.id}`,
+                                data: {
+                                    url: `/channels/${actualChannelId}`,
+                                    messageId: inserted.id,
+                                    channelId: actualChannelId,
+                                    senderId: actualAuthorId,
+                                    type: "mention",
+                                },
+                            },
+                            { messageId: inserted.id }
+                        );
+                    }
+                }
+            } catch (pushErr) {
+                console.warn("[CHANNEL_WEB_PUSH_DISPATCH_WARN]", pushErr);
+            }
+        })();
+
+        // Trigger AI Bot Sentinel asynchronously (Moderation + Summarize/LaTeX/Table/Q&A)
+        processBotSentinel({
+            channelId: actualChannelId,
+            messageId: inserted.id,
+            content: inserted.content,
+            authorId: actualAuthorId,
+            authorName: user.displayName || user.username || "Member",
+        }).catch((botErr) => console.warn("[BOT_SENTINEL_TRIGGER_WARN]", botErr));
 
         return NextResponse.json({ message: messageData }, { status: 201 });
     } catch (err: any) {

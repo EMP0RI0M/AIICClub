@@ -17,6 +17,9 @@ import {
   Star,
   ExternalLink,
   Plus,
+  ArrowUpDown,
+  X,
+  Sparkles,
 } from "lucide-react";
 import { Avatar } from "@/shared/components/ui";
 import { api } from "@/shared/lib/api";
@@ -50,16 +53,24 @@ export default function AdminTeamsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Create Team Modal State
+  const [createTeamOpen, setCreateTeamOpen] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamKey, setNewTeamKey] = useState("");
+  const [newTeamPool, setNewTeamPool] = useState<"Upper Pool" | "Lower Pool">("Upper Pool");
+  const [newTeamLeaderId, setNewTeamLeaderId] = useState("");
+  const [creatingTeam, setCreatingTeam] = useState(false);
+
   const fetchTeamsAndUsers = () => {
     setLoading(true);
     Promise.all([
       api<{ teams: TeamData[] }>("/admin/teams"),
-      api<{ users: any[] }>("/admin/users"),
+      api<{ directory?: any[]; users?: any[] }>("/admin/users"),
       api<any>("/admin/github").catch(() => ({ teamRepositories: [], teamGhTeams: [] })),
     ])
       .then(([teamsData, usersData, ghData]) => {
         setTeams(teamsData.teams || []);
-        setAllUsers(usersData.users || []);
+        setAllUsers(usersData.directory || usersData.users || []);
         setGithubData(ghData);
       })
       .catch((err: any) => console.error(err))
@@ -98,6 +109,44 @@ export default function AdminTeamsPage() {
     }
   };
 
+  const handleSwitchPool = async (team: TeamData) => {
+    const nextPool = team.pool === "Upper Pool" ? "Lower Pool" : "Upper Pool";
+    const nextPos = nextPool === "Upper Pool" ? 1 : 3;
+
+    try {
+      await api("/admin/teams/mutate", {
+        method: "POST",
+        body: JSON.stringify({
+          teamId: team.id,
+          action: "set_pool",
+          pool: nextPool,
+          position: nextPos,
+          reason: `Switched to ${nextPool} from web admin`,
+        }),
+      });
+      fetchTeamsAndUsers();
+    } catch (err: any) {
+      alert(err.message || "Failed to switch team pool.");
+    }
+  };
+
+  const handleRemoveLeader = async (teamId: string) => {
+    if (!confirm("Are you sure you want to remove the current team leader?")) return;
+    try {
+      await api("/admin/teams/mutate", {
+        method: "POST",
+        body: JSON.stringify({
+          teamId,
+          action: "remove_leader",
+          reason: "Administrative removal",
+        }),
+      });
+      fetchTeamsAndUsers();
+    } catch (err: any) {
+      alert(err.message || "Failed to remove leader.");
+    }
+  };
+
   const handleRemoveMember = async (teamId: string, userId: string) => {
     if (!confirm("Are you sure you want to remove this member from the team?")) return;
     try {
@@ -116,8 +165,38 @@ export default function AdminTeamsPage() {
     }
   };
 
-  const upperPool = teams.filter((t) => t.pool === "Upper Pool");
-  const lowerPool = teams.filter((t) => t.pool === "Lower Pool");
+  const handleCreateTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTeamName.trim()) return;
+    setCreatingTeam(true);
+
+    try {
+      await api("/admin/teams/mutate", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "create_team",
+          name: newTeamName.trim(),
+          key: newTeamKey.trim() || undefined,
+          pool: newTeamPool,
+          position: newTeamPool === "Upper Pool" ? 1 : 3,
+          userId: newTeamLeaderId || undefined,
+        }),
+      });
+
+      setCreateTeamOpen(false);
+      setNewTeamName("");
+      setNewTeamKey("");
+      setNewTeamLeaderId("");
+      fetchTeamsAndUsers();
+    } catch (err: any) {
+      alert(err.message || "Failed to create team.");
+    } finally {
+      setCreatingTeam(false);
+    }
+  };
+
+  const upperPool = teams.filter((t) => t.pool === "Upper Pool" || (t.position || 99) <= 2);
+  const lowerPool = teams.filter((t) => t.pool === "Lower Pool" && (t.position || 99) > 2);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -133,13 +212,24 @@ export default function AdminTeamsPage() {
           </p>
         </div>
 
-        <Link
-          href="/admin/github"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] px-3.5 py-2 text-xs font-semibold text-text-primary transition-all active:scale-95"
-        >
-          <FolderGit2 size={14} className="text-accent" />
-          <span>Configure GitHub Matrix</span>
-        </Link>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setCreateTeamOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-accent text-black px-3.5 py-2 text-xs font-bold hover:bg-accent/90 transition-all active:scale-95 shadow-md"
+          >
+            <Plus size={14} />
+            <span>Create Squad</span>
+          </button>
+
+          <Link
+            href="/admin/github"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] px-3.5 py-2 text-xs font-semibold text-text-primary transition-all active:scale-95"
+          >
+            <FolderGit2 size={14} className="text-accent" />
+            <span>Configure GitHub Matrix</span>
+          </Link>
+        </div>
       </div>
 
       {loading ? (
@@ -178,6 +268,112 @@ export default function AdminTeamsPage() {
         </div>
       )}
 
+      {/* ─── Create Team Modal ─── */}
+      {createTeamOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setCreateTeamOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl backdrop-blur-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
+                <Sparkles size={18} className="text-accent" />
+                Create New Squad Team
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCreateTeamOpen(false)}
+                className="text-text-muted hover:text-text-primary p-1 rounded-lg"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTeam} className="mt-4 space-y-3">
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-text-muted mb-1.5">
+                  Squad Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. AI Vision Core, Quantum Squad"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  className="w-full rounded-xl bg-white/[0.04] border border-white/[0.08] px-3.5 py-2.5 text-xs text-text-primary focus:outline-none focus:border-accent/40"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-text-muted mb-1.5">
+                  Squad Key (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. ai_vision_core"
+                  value={newTeamKey}
+                  onChange={(e) => setNewTeamKey(e.target.value)}
+                  className="w-full rounded-xl bg-white/[0.04] border border-white/[0.08] px-3.5 py-2.5 text-xs text-text-primary focus:outline-none focus:border-accent/40 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-text-muted mb-1.5">
+                  Initial Pool Allocation
+                </label>
+                <select
+                  value={newTeamPool}
+                  onChange={(e) => setNewTeamPool(e.target.value as any)}
+                  className="w-full rounded-xl bg-white/[0.04] border border-white/[0.08] px-3.5 py-2.5 text-xs text-text-primary focus:outline-none focus:border-accent/40 font-mono"
+                >
+                  <option value="Upper Pool">Upper Pool (Position 1–2: Strategy & Leadership)</option>
+                  <option value="Lower Pool">Lower Pool (Position 3–5: Engineering & Operations)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-text-muted mb-1.5">
+                  Appoint Team Leader (Optional)
+                </label>
+                <select
+                  value={newTeamLeaderId}
+                  onChange={(e) => setNewTeamLeaderId(e.target.value)}
+                  className="w-full rounded-xl bg-white/[0.04] border border-white/[0.08] px-3.5 py-2.5 text-xs text-text-primary focus:outline-none focus:border-accent/40 font-mono"
+                >
+                  <option value="">-- No Leader (Appoint Later) --</option>
+                  {allUsers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.displayName || u.username} (@{u.username})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setCreateTeamOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-text-secondary hover:bg-white/[0.06] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingTeam || !newTeamName.trim()}
+                  className="px-5 py-2 rounded-xl bg-accent text-black text-xs font-bold hover:bg-accent/90 transition-all shadow-lg active:scale-95 flex items-center gap-2"
+                >
+                  {creatingTeam && <Loader2 size={14} className="animate-spin" />}
+                  <span>Create Squad</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ─── Add Member / Appoint Leader Modal ─── */}
       {selectedTeam && actionType && (
         <div
@@ -185,7 +381,7 @@ export default function AdminTeamsPage() {
           onClick={() => setSelectedTeam(null)}
         >
           <div
-            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#121622] p-6 shadow-2xl backdrop-blur-xl"
+            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
@@ -219,7 +415,7 @@ export default function AdminTeamsPage() {
                   <option value="">-- Select a User --</option>
                   {allUsers.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.displayName} (@{u.username}) — {u.roleName}
+                      {u.displayName || u.username} (@{u.username}) — {u.roleName || u.roleKey || "member"}
                     </option>
                   ))}
                 </select>
@@ -268,11 +464,12 @@ export default function AdminTeamsPage() {
   function renderTeamCard(team: TeamData) {
     const repos = (githubData?.teamRepositories || []).filter((tr) => tr.team_id === team.id);
     const ghTeams = (githubData?.teamGhTeams || []).filter((gt) => gt.team_id === team.id);
+    const isUpper = team.pool === "Upper Pool" || (team.position || 99) <= 2;
 
     return (
       <div
         key={team.id}
-        className="flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#121622] p-5 shadow-xl hover:border-white/[0.14] transition-all"
+        className="flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-5 shadow-xl hover:border-white/[0.14] transition-all gap-4"
       >
         <div>
           {/* Header */}
@@ -282,7 +479,19 @@ export default function AdminTeamsPage() {
                 <h3 className="text-base font-bold text-text-primary">{team.name}</h3>
                 <span className="font-mono text-[10px] text-text-muted">#{team.position}</span>
               </div>
-              <span className="font-mono text-[11px] text-accent mt-0.5 block">{team.pool}</span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${isUpper ? "bg-accent/15 text-accent border-accent/30" : "bg-blue-500/15 text-blue-400 border-blue-500/30"}`}>
+                  {isUpper ? "Upper Pool" : "Lower Pool"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchPool(team)}
+                  className="text-[10px] font-mono text-text-muted hover:text-accent flex items-center gap-1 hover:underline transition-colors"
+                >
+                  <ArrowUpDown size={10} />
+                  <span>Switch to {isUpper ? "Lower" : "Upper"}</span>
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -316,9 +525,20 @@ export default function AdminTeamsPage() {
 
           {/* Leader Section */}
           <div className="mt-4 p-3 rounded-xl border border-white/[0.06] bg-white/[0.02]">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block mb-2">
-              Team Leader
-            </span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block">
+                Team Leader
+              </span>
+              {team.leader && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveLeader(team.id)}
+                  className="text-[10px] font-mono text-danger/80 hover:text-danger hover:underline transition-colors"
+                >
+                  Remove Leader
+                </button>
+              )}
+            </div>
             {team.leader ? (
               <div className="flex items-center gap-2.5">
                 <Avatar

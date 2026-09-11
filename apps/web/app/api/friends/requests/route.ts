@@ -15,12 +15,23 @@ export async function POST(req: NextRequest) {
 
         const supabase = getSupabaseAdmin();
 
-        // 1. Find the target user by ID or Username (case-insensitive)
+        // Resolve current requesting user DB record ID
+        let actualUserId = user.id;
+        const { data: currentUserRow } = await supabase
+            .from("users")
+            .select("id")
+            .or(`id.eq.${user.id},auth_user_id.eq.${user.id}`)
+            .maybeSingle();
+        if (currentUserRow?.id) {
+            actualUserId = currentUserRow.id;
+        }
+
+        // 1. Find the target user by ID, auth_user_id, display_name, or Username (case-insensitive)
         let query = supabase.from("users").select("id, username, display_name, avatar_url, status");
         if (target.includes("-") || target.length > 20) {
-            query = query.or(`id.eq.${target},username.ilike.${target}`);
+            query = query.or(`id.eq.${target},auth_user_id.eq.${target},username.ilike.${target}`);
         } else {
-            query = query.ilike("username", target);
+            query = query.or(`username.ilike.${target},display_name.ilike.${target}`);
         }
 
         const { data: targetUsers, error: findError } = await query.limit(1);
@@ -30,7 +41,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `User "${target}" could not be found.` }, { status: 404 });
         }
 
-        if (targetUser.id === user.id) {
+        if (targetUser.id === actualUserId) {
             return NextResponse.json({ error: "You cannot add yourself as a friend." }, { status: 400 });
         }
 
@@ -38,7 +49,7 @@ export async function POST(req: NextRequest) {
         const { data: existingFriend } = await supabase
             .from("friends")
             .select("id")
-            .eq("user_id", user.id)
+            .eq("user_id", actualUserId)
             .eq("friend_id", targetUser.id)
             .maybeSingle();
 
@@ -61,7 +72,7 @@ export async function POST(req: NextRequest) {
             .from("friend_requests")
             .select("id")
             .eq("sender_id", targetUser.id)
-            .eq("receiver_id", user.id)
+            .eq("receiver_id", actualUserId)
             .eq("status", "pending")
             .maybeSingle();
 
@@ -74,8 +85,8 @@ export async function POST(req: NextRequest) {
 
             // Insert bidirectional friendship
             await supabase.from("friends").upsert([
-                { user_id: user.id, friend_id: targetUser.id },
-                { user_id: targetUser.id, friend_id: user.id },
+                { user_id: actualUserId, friend_id: targetUser.id },
+                { user_id: targetUser.id, friend_id: actualUserId },
             ]);
 
             return NextResponse.json({
@@ -96,7 +107,7 @@ export async function POST(req: NextRequest) {
             .from("friend_requests")
             .upsert(
                 {
-                    sender_id: user.id,
+                    sender_id: actualUserId,
                     receiver_id: targetUser.id,
                     status: "pending",
                     created_at: new Date().toISOString(),

@@ -13,8 +13,8 @@ import type { MemberRef } from "./types";
  */
 
 const POPOVER =
-  "absolute bottom-full right-0 z-30 mb-2 rounded-[10px] border border-border bg-surface-overlay";
-const SHADOW = { boxShadow: "0 8px 24px rgba(0,0,0,0.3)" } as const;
+  "absolute bottom-full right-0 z-40 mb-2 rounded-[16px] border border-white/[0.12] bg-[#0c0c0c]/98 backdrop-blur-2xl";
+const SHADOW = { boxShadow: "0 16px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)" } as const;
 
 /* ── Emoji ──────────────────────────────────────────────────────────── */
 
@@ -39,19 +39,19 @@ const EMOJI_GROUPS: { label: string; emoji: string[] }[] = [
 
 export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
   return (
-    <div className={cn(POPOVER, "max-h-[320px] w-[296px] overflow-y-auto p-3")} style={SHADOW}>
+    <div className={cn(POPOVER, "max-h-[300px] w-[calc(100vw-32px)] sm:w-[290px] max-w-[290px] overflow-y-auto p-3 shadow-2xl")} style={SHADOW}>
       {EMOJI_GROUPS.map((group) => (
         <div key={group.label} className="mb-2">
           <p className="px-1 pb-1 font-mono text-[10px] uppercase tracking-[0.08em] text-text-muted">
             {group.label}
           </p>
-          <div className="grid grid-cols-8">
+          <div className="grid grid-cols-8 gap-0.5">
             {group.emoji.map((e) => (
               <button
                 key={e}
                 type="button"
                 onClick={() => onPick(e)}
-                className="flex h-8 w-8 items-center justify-center rounded-sm text-[18px] leading-none transition-colors hover:bg-hover-row"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[18px] leading-none transition-all hover:bg-white/[0.08] hover:scale-110 active:scale-95"
               >
                 {e}
               </button>
@@ -161,20 +161,20 @@ export function GifPicker({ onPick }: { onPick: (gif: { url: string; name: strin
   }, [query, tab]);
 
   return (
-    <div className={cn(POPOVER, "flex w-[360px] flex-col p-3")} style={SHADOW}>
-      <div className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-surface-input px-2.5">
-        <Search size={13} className="shrink-0 text-text-faint" />
+    <div className={cn(POPOVER, "flex w-[calc(100vw-32px)] sm:w-[350px] max-w-[350px] flex-col p-3 shadow-2xl")} style={SHADOW}>
+      <div className="flex h-8 shrink-0 items-center gap-2 rounded-xl border border-white/[0.1] bg-black/60 px-2.5">
+        <Search size={13} className="shrink-0 text-text-muted" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search Klipy"
+          placeholder="Search Klipy GIFs..."
           autoFocus
-          className="w-full bg-transparent text-[13px] text-text-primary outline-none placeholder:text-text-faint"
+          className="w-full bg-transparent text-[13px] text-text-primary outline-none placeholder:text-text-muted/60 font-sans"
         />
       </div>
 
       {!query && (
-        <div className="mt-2 flex shrink-0 items-center gap-1 overflow-x-auto">
+        <div className="mt-2 flex shrink-0 items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           {GIF_TABS.map((t) => (
             <button
               key={t}
@@ -182,10 +182,10 @@ export function GifPicker({ onPick }: { onPick: (gif: { url: string; name: strin
               data-active={tab === t}
               onClick={() => setTab(t)}
               className={cn(
-                "h-6 shrink-0 rounded px-2.5 text-[12px] transition-colors",
+                "h-6 shrink-0 rounded-full px-2.5 text-[11px] font-medium transition-all",
                 tab === t
-                  ? "bg-surface-raised text-text-primary"
-                  : "text-text-secondary hover:bg-hover-row hover:text-text-primary"
+                  ? "bg-accent text-on-accent font-semibold shadow-sm"
+                  : "bg-white/[0.04] text-text-muted hover:bg-white/[0.08] hover:text-text-primary"
               )}
             >
               {t}
@@ -194,7 +194,7 @@ export function GifPicker({ onPick }: { onPick: (gif: { url: string; name: strin
         </div>
       )}
 
-      <div className="mt-2.5 grid max-h-[280px] min-h-[120px] grid-cols-2 content-start gap-1.5 overflow-y-auto">
+      <div className="mt-2 grid max-h-[240px] min-h-[120px] grid-cols-2 content-start gap-1.5 overflow-y-auto pr-0.5">
         {state === "loading" && (
           <p className="col-span-2 py-8 text-center font-mono text-[11px] text-text-muted">
             loading…
@@ -224,9 +224,9 @@ export function GifPicker({ onPick }: { onPick: (gif: { url: string; name: strin
                 type="button"
                 title={g.title}
                 onClick={() => onPick({ url: full, name: g.title || "gif" })}
-                className="overflow-hidden rounded-md border border-border bg-surface-raised transition-colors hover:border-accent"
+                className="group relative overflow-hidden rounded-xl border border-white/[0.08] bg-black/40 transition-all hover:border-accent hover:scale-[1.02] active:scale-98"
               >
-                <img src={preview} alt={g.title} loading="lazy" className="block h-[88px] w-full object-cover" />
+                <img src={preview} alt={g.title} loading="lazy" className="block h-[84px] w-full object-cover" />
               </button>
             );
           })}
@@ -236,8 +236,8 @@ export function GifPicker({ onPick }: { onPick: (gif: { url: string; name: strin
           </p>
         )}
       </div>
-      <p className="pt-2 text-right font-mono text-[9px] uppercase tracking-[0.08em] text-text-faint">
-        via tenor
+      <p className="pt-1.5 text-right font-mono text-[9px] uppercase tracking-[0.08em] text-text-muted/50">
+        powered by klipy
       </p>
     </div>
   );

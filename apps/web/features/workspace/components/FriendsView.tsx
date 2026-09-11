@@ -183,7 +183,7 @@ export function FriendsView({
             </button>
           </div>
 
-          <div className="mt-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121622]/80 backdrop-blur-xl shadow-lg">
+          <div className="mt-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a]/80 backdrop-blur-xl shadow-lg">
             <div className="flex h-10 items-center justify-between border-b border-white/[0.06] px-4">
               <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-text-muted">
                 Live Directory Search
@@ -230,7 +230,7 @@ export function FriendsView({
           {visible.map((f) => (
             <div
               key={f.id}
-              className="group flex h-14 items-center gap-3 rounded-2xl border border-white/[0.06] bg-[#121622]/70 px-3.5 backdrop-blur-md transition-all hover:border-accent/40 hover:bg-[#161c2b]/85"
+              className="group flex h-14 items-center gap-3 rounded-2xl border border-white/[0.06] bg-[#0a0a0a]/70 px-3.5 backdrop-blur-md transition-all hover:border-accent/40 hover:bg-[#0d0d0d]/85"
             >
               <div className="relative shrink-0">
                 <div className="rounded-full ring-1 ring-white/10 ring-offset-1 ring-offset-black/40">
@@ -238,7 +238,7 @@ export function FriendsView({
                 </div>
                 <span
                   className={cn(
-                    "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#121622]",
+                    "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#0a0a0a]",
                     DOT[f.presence]
                   )}
                 />

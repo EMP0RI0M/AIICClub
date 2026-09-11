@@ -5,6 +5,7 @@ import { cn } from "@corvus/ui";
 import { ChevronDown, Plus } from "lucide-react";
 import { Avatar, ChannelGlyph } from "@/shared/components/ui";
 import { usePermissions } from "@/shared/lib/permissions";
+import { useAuthStore } from "@/features/auth/store/auth-store";
 import { ItemLink } from "./ItemLink";
 import { UserDock } from "./UserDock";
 import type { ChannelSection, ChannelSummary, MemberRef, Presence } from "./types";
@@ -49,10 +50,12 @@ export function SpacePanel({
   onSetStatus?: (presence: Presence, text?: string) => void;
 }) {
   const { can } = usePermissions();
-  const canManageSpace = can("SPACE_MANAGE_SETTINGS") || can("ORG_MANAGE_ROLES") || can("CHANNEL_CREATE_TEXT") || can("INVITE_CREATE") || can("SPACE_VIEW_AUDIT_LOGS");
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = Boolean(user?.role && ["president_admin", "admin", "president", "vice_president"].includes(user.role));
+  const canManageSpace = isAdmin || can("SPACE_MANAGE_SETTINGS") || can("ORG_MANAGE_ROLES") || can("CHANNEL_CREATE_TEXT") || can("INVITE_CREATE") || can("SPACE_VIEW_AUDIT_LOGS");
 
   return (
-    <aside className="flex h-full min-w-0 flex-1 md:flex-initial md:w-[244px] shrink-0 flex-col overflow-hidden bg-[#0e121a]/85 border-r border-white/[0.06] backdrop-blur-xl shadow-[inset_-1px_0_rgba(255,255,255,0.03)]">
+    <aside className="flex h-full min-w-0 flex-1 md:flex-initial md:w-[244px] shrink-0 flex-col overflow-hidden bg-[#050505]/90 border-r border-white/[0.06] backdrop-blur-xl shadow-[inset_-1px_0_rgba(255,255,255,0.03)]">
       {/* Header */}
       {canManageSpace ? (
         <button
@@ -77,11 +80,11 @@ export function SpacePanel({
             section={section}
             activeChannelId={activeChannelId}
             onSelect={onSelectChannel}
-            onAddChannel={can("CHANNEL_CREATE_TEXT") ? onAddChannel : undefined}
+            onAddChannel={(isAdmin || can("CHANNEL_CREATE_TEXT")) ? onAddChannel : undefined}
             hrefFor={channelHref}
           />
         ))}
-        {onAddSection && can("CHANNEL_MANAGE_CATEGORIES") && (
+        {onAddSection && (isAdmin || can("CHANNEL_MANAGE_CATEGORIES")) && (
           <button
             type="button"
             onClick={onAddSection}

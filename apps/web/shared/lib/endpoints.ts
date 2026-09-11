@@ -7,13 +7,17 @@ function apiBase(url: string) {
     return normalized.endsWith("/api") ? normalized : `${normalized}/api`;
 }
 
-const envApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || "";
-
-export const API_URL = envApiUrl
-    ? apiBase(envApiUrl)
-    : typeof window !== "undefined"
-      ? "/api"
-      : "http://localhost:3000/api";
+// On the web client (browser), always use local Next.js "/api" routes.
+// External API URLs are only used for desktop/mobile clients if explicitly configured.
+export const API_URL = typeof window !== "undefined"
+    ? "/api"
+    : process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/api`
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}/api`
+        : process.env.NEXT_PUBLIC_VERCEL_URL
+          ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api`
+          : "http://localhost:3000/api";
 
 export function ensureApiUrl() {
     return API_URL;

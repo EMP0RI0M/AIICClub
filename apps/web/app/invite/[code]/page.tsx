@@ -101,12 +101,12 @@ export default function InvitePage() {
   };
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center bg-[#090c12] p-4 text-text-primary overflow-hidden">
+    <div className="relative flex min-h-screen w-full items-center justify-center bg-black p-4 text-text-primary overflow-hidden">
       {/* Background Ambient Glow */}
       <div className="pointer-events-none absolute -top-40 left-1/2 h-[500px] w-[600px] -translate-x-1/2 rounded-full bg-accent/10 blur-[140px]" />
       <div className="pointer-events-none absolute -bottom-40 right-1/4 h-[400px] w-[500px] rounded-full bg-accent/5 blur-[120px]" />
 
-      <div className="relative z-10 w-full max-w-[420px] rounded-[28px] border border-white/[0.1] bg-[#121722]/85 p-6 sm:p-8 backdrop-blur-2xl shadow-[0_16px_48px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)]">
+      <div className="relative z-10 w-full max-w-[420px] rounded-[28px] border border-white/[0.1] bg-[#0a0a0a]/85 p-6 sm:p-8 backdrop-blur-2xl shadow-[0_16px_48px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)]">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 size={32} className="animate-spin text-accent" />

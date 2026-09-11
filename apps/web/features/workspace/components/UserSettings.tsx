@@ -9,6 +9,8 @@ import { playNotificationTone, showSystemNotification } from "@/shared/lib/notif
 import { NOTIFICATION_SOUNDS, type NotificationKind } from "@/shared/lib/sounds";
 import { API_URL } from "@/shared/lib/endpoints";
 import { fetchUserSettings, saveUserSettings } from "@/shared/lib/api";
+import { subscribeToWebPush, checkPushSubscriptionStatus } from "@/shared/lib/push-client";
+import { useToastStore } from "@/shared/stores/toast-store";
 
 /**
  * User/app settings sections (brief §Settings) — every control here reads and
@@ -523,6 +525,15 @@ const KIND_LABEL: Record<NotificationKind, { label: string; hint: string }> = {
 
 export function NotificationsSettings() {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
+  const [dmsNotify, setDmsNotify] = useLocalPref("corvus-notif-dms", true);
+  const [mentionsNotify, setMentionsNotify] = useLocalPref("corvus-notif-mentions", true);
+  const [repliesNotify, setRepliesNotify] = useLocalPref("corvus-notif-replies", true);
+  const [spaceNotify, setSpaceNotify] = useLocalPref("corvus-notif-space", false);
+  const [corvusNotify, setCorvusNotify] = useLocalPref("corvus-notif-bot", true);
+
   const [soundsOn, setSoundsOn] = useLocalPref("corvus-notif-sounds", true);
   const [volume, setVolume] = useLocalPref("corvus-notif-volume", 55);
   const [messageSound, setMessageSound] = useLocalPref("corvus-notif-sound-message", "chime");
@@ -531,7 +542,38 @@ export function NotificationsSettings() {
 
   useEffect(() => {
     setPermission(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
+    checkPushSubscriptionStatus().then(setPushEnabled);
   }, []);
+
+  const handleTogglePush = async () => {
+    setPushLoading(true);
+    try {
+      const res = await subscribeToWebPush();
+      if (res.success) {
+        setPushEnabled(true);
+        setPermission(Notification.permission);
+        useToastStore.getState().addToast({
+          title: "Web Push Enabled",
+          body: "You will now receive notifications across all your devices.",
+          variant: "success",
+        });
+      } else {
+        useToastStore.getState().addToast({
+          title: "Notification Setup",
+          body: res.error || "Could not enable web push.",
+          variant: "error",
+        });
+      }
+    } catch (err: any) {
+      useToastStore.getState().addToast({
+        title: "Error",
+        body: err.message,
+        variant: "error",
+      });
+    } finally {
+      setPushLoading(false);
+    }
+  };
 
   const soundFor: Record<NotificationKind, [string, (v: string) => void]> = {
     message: [messageSound, setMessageSound],
@@ -541,35 +583,70 @@ export function NotificationsSettings() {
 
   return (
     <div className="mt-6 flex flex-col gap-7">
-      {/* Desktop notifications */}
-      <div className="flex items-center justify-between border-b border-border pb-4">
-        <div className="pr-6">
-          <div className="text-[14px] text-text-primary">Desktop notifications</div>
-          <div className="mt-0.5 font-mono text-[11px] text-text-muted">
-            permission: {permission}
+      {/* Web Push notifications banner */}
+      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="pr-6">
+            <div className="text-[14px] font-bold text-text-primary flex items-center gap-2">
+              <span>🔔 Real-Time Web Push Notifications</span>
+              {pushEnabled && (
+                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-400">
+                  ACTIVE
+                </span>
+              )}
+            </div>
+            <div className="mt-0.5 text-[12px] text-text-muted">
+              Receive device &amp; browser alerts when someone messages, mentions, or replies to you even when the tab is closed.
+            </div>
           </div>
+          <button
+            type="button"
+            disabled={pushLoading}
+            onClick={handleTogglePush}
+            className={cn(
+              "h-8 shrink-0 rounded-xl px-3.5 text-[12px] font-bold transition-all active:scale-95 disabled:opacity-50",
+              pushEnabled
+                ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                : "bg-accent text-on-accent hover:opacity-90 shadow-md"
+            )}
+          >
+            {pushLoading ? "Connecting…" : pushEnabled ? "✓ Subscribed" : "Enable Web Push"}
+          </button>
         </div>
-        {permission === "granted" ? (
-          <button
-            type="button"
-            onClick={() => void showSystemNotification("AIIC", "Notifications are working.")}
-            className="h-8 rounded-md border border-border px-3 text-[13px] text-text-secondary transition-colors hover:border-border-active hover:text-text-primary"
-          >
-            Send test
-          </button>
-        ) : permission === "default" ? (
-          <button
-            type="button"
-            onClick={() => void Notification.requestPermission().then(setPermission)}
-            className="h-8 rounded-md bg-accent px-3 text-[13px] font-medium text-on-accent transition-colors hover:bg-accent-violet-bright"
-          >
-            Enable
-          </button>
-        ) : (
-          <span className="text-[12px] text-text-muted">
-            {permission === "denied" ? "Blocked in browser settings" : "Not supported here"}
-          </span>
-        )}
+      </div>
+
+      {/* Notification Categories */}
+      <div className="flex flex-col">
+        <ToggleRow
+          label="Direct messages"
+          hint="Send push alerts for private messages."
+          checked={dmsNotify}
+          onChange={setDmsNotify}
+        />
+        <ToggleRow
+          label="@ Mentions"
+          hint="Send push alerts when somebody mentions your username."
+          checked={mentionsNotify}
+          onChange={setMentionsNotify}
+        />
+        <ToggleRow
+          label="Message replies"
+          hint="Send push alerts when somebody replies to your messages."
+          checked={repliesNotify}
+          onChange={setRepliesNotify}
+        />
+        <ToggleRow
+          label="Space activity"
+          hint="Notify for general channel announcements."
+          checked={spaceNotify}
+          onChange={setSpaceNotify}
+        />
+        <ToggleRow
+          label="Corvus Sentinel alerts"
+          hint="Notify when moderation appeals or summaries are ready."
+          checked={corvusNotify}
+          onChange={setCorvusNotify}
+        />
       </div>
 
       <ToggleRow

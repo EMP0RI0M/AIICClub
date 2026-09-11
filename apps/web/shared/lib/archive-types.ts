@@ -163,7 +163,7 @@ export interface AIICArchiveDocumentVersion {
 
 export interface AIICArchiveDocument {
   archiveId: string;
-  category: "Prospectus" | "Policy" | "Specification" | "Research Paper" | "Report" | "Guide" | "Official Record" | "Other";
+  category: "Prospectus" | "Policy" | "Specification" | "Research Paper" | "Report" | "Guide" | "Official Record" | "Other" | string;
   author: string;
   currentVersion: string;
   versions: AIICArchiveDocumentVersion[];
@@ -173,6 +173,7 @@ export interface AIICArchiveDocument {
   mimeType: string;
   sha256?: string;
   summary?: string;
+  content?: string; // Rich markdown or extracted document text
   downloadCount?: number;
 }
 

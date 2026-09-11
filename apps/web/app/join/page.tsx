@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Nav, Footer } from "@/features/landing";
 import { submitApplication } from "@/shared/lib/aiic-data";
-import { CheckCircle2, Send, Sparkles, AlertCircle } from "lucide-react";
+import { CheckCircle2, Send, Sparkles, AlertCircle, UserPlus, Shield } from "lucide-react";
 
 export default function JoinPage() {
   const [name, setName] = useState("");
@@ -53,32 +53,35 @@ export default function JoinPage() {
   };
 
   return (
-    <div id="landing-scroll" className="h-full overflow-y-auto overflow-x-hidden bg-background">
+    <div id="landing-scroll" className="h-full overflow-y-auto overflow-x-hidden bg-background text-text-primary">
       <Nav />
-      <main className="mx-auto max-w-[840px] px-5 py-16 sm:px-8 sm:py-24">
-        {/* Header */}
-        <div className="max-w-2xl">
-          <span className="font-mono text-xs font-semibold uppercase tracking-wider text-accent">
-            Recruitment &amp; Membership
-          </span>
-          <h1 className="mt-3 text-[clamp(32px,5vw,52px)] font-bold tracking-tight text-text-primary">
+      <main className="mx-auto max-w-[880px] px-5 py-14 sm:px-8 sm:py-20 space-y-10">
+        {/* Header Hero */}
+        <div className="aiic-glass-premium rounded-3xl p-7 sm:p-10 shadow-2xl space-y-4">
+          <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 font-mono text-xs font-semibold text-accent">
+            <UserPlus size={14} />
+            <span>AIIC Recruitment &amp; Membership · 2026–27</span>
+          </div>
+
+          <h1 className="text-[clamp(32px,5vw,52px)] font-bold tracking-tight text-white leading-tight">
             Apply to Join AIIC
           </h1>
-          <p className="mt-4 text-[16px] leading-relaxed text-text-secondary">
+
+          <p className="max-w-2xl text-sm sm:text-base leading-relaxed text-zinc-300">
             AIIC invites passionate student engineers, researchers, algorithmic competitors,
-            and builders to join our teams for the upcoming session.
+            and software builders to join our research and engineering teams.
           </p>
         </div>
 
         {/* Application Form */}
-        <div className="mt-12 rounded-xl border border-border/80 bg-surface-raised p-6 sm:p-10 shadow-sm">
+        <div className="aiic-glass-default rounded-3xl p-6 sm:p-10 shadow-2xl border border-white/[0.08]">
           {submitted ? (
-            <div className="py-12 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/10 text-success">
-                <CheckCircle2 size={32} />
+            <div className="py-12 text-center space-y-4">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-live/10 border border-live/30 text-live shadow-inner">
+                <CheckCircle2 size={36} />
               </div>
-              <h2 className="mt-5 text-2xl font-bold text-text-primary">Application Submitted</h2>
-              <p className="mx-auto mt-2 max-w-[48ch] text-sm text-text-secondary">
+              <h2 className="text-2xl font-bold text-white">Application Submitted</h2>
+              <p className="mx-auto max-w-[48ch] text-sm text-zinc-300 leading-relaxed">
                 Thank you for applying to AIIC. The recruitment board will review your submission
                 and contact you via email regarding interview scheduling and team placement.
               </p>
@@ -86,7 +89,7 @@ export default function JoinPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
-                <div className="flex items-center gap-2 rounded-lg border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
+                <div className="flex items-center gap-2 rounded-xl border border-danger/40 bg-danger/10 p-3.5 text-xs text-danger">
                   <AlertCircle size={15} />
                   <span>{error}</span>
                 </div>
@@ -94,7 +97,7 @@ export default function JoinPage() {
 
               <div className="grid gap-6 sm:grid-cols-2">
                 <div>
-                  <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-zinc-400">
                     Full Name *
                   </label>
                   <input
@@ -103,12 +106,12 @@ export default function JoinPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Rafi Ullah Khan"
-                    className="mt-2 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary outline-none focus:border-accent"
+                    className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3.5 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-zinc-400">
                     Email Address *
                   </label>
                   <input
@@ -117,14 +120,14 @@ export default function JoinPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="e.g. rafi@example.com"
-                    className="mt-2 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary outline-none focus:border-accent"
+                    className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3.5 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 transition-all"
                   />
                 </div>
               </div>
 
               <div className="grid gap-6 sm:grid-cols-2">
                 <div>
-                  <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-zinc-400">
                     Academic Year
                   </label>
                   <input
@@ -132,26 +135,26 @@ export default function JoinPage() {
                     value={classYear}
                     onChange={(e) => setClassYear(e.target.value)}
                     placeholder="e.g. 2nd Year / Class 11"
-                    className="mt-2 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary outline-none focus:border-accent"
+                    className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3.5 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-text-muted">
-                    GitHub / Profile URL
+                  <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                    GitHub / Portfolio URL
                   </label>
                   <input
                     type="url"
                     value={githubUrl}
                     onChange={(e) => setGithubUrl(e.target.value)}
                     placeholder="https://github.com/..."
-                    className="mt-2 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary outline-none focus:border-accent"
+                    className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3.5 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 transition-all"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-text-muted">
+                <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-zinc-400">
                   Technical Interests (comma separated)
                 </label>
                 <input
@@ -159,12 +162,12 @@ export default function JoinPage() {
                   value={interests}
                   onChange={(e) => setInterests(e.target.value)}
                   placeholder="e.g. Neural Networks, Robotics, Fullstack Systems, Microcontrollers"
-                  className="mt-2 h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary outline-none focus:border-accent"
+                  className="mt-2 h-11 w-full rounded-xl border border-white/[0.08] bg-black/40 px-3.5 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 transition-all"
                 />
               </div>
 
               <div>
-                <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-text-muted">
+                <label className="block font-mono text-xs font-semibold uppercase tracking-wider text-zinc-400">
                   Why do you want to join AIIC? *
                 </label>
                 <textarea
@@ -173,7 +176,7 @@ export default function JoinPage() {
                   value={whyJoin}
                   onChange={(e) => setWhyJoin(e.target.value)}
                   placeholder="Tell us what you want to build, research, or learn at AIIC..."
-                  className="mt-2 w-full rounded-md border border-border bg-surface p-3 text-sm text-text-primary outline-none focus:border-accent"
+                  className="mt-2 w-full rounded-xl border border-white/[0.08] bg-black/40 p-3.5 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 transition-all leading-relaxed"
                 />
               </div>
 
@@ -181,7 +184,7 @@ export default function JoinPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex h-11 items-center gap-2 rounded-md bg-accent px-6 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-50"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-accent px-6 font-mono text-xs font-bold text-on-accent transition-all hover:bg-accent-hover active:scale-95 disabled:opacity-50 shadow-md cursor-pointer"
                 >
                   {loading ? "Submitting..." : "Submit Application"} <Send size={14} />
                 </button>

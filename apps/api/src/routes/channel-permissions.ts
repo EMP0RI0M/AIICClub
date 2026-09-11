@@ -32,7 +32,7 @@ channelPermissions.get("/channels/:channelId/permissions", async (c) => {
     });
 
     return c.json({
-        overrides: overrides.map((o) => ({
+        overrides: overrides.map((o: any) => ({
             id: o.id,
             channelId: o.channelId,
             roleId: o.roleId,

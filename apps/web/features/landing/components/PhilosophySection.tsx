@@ -3,6 +3,8 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 
+import { MorphingText, TextHighlight } from "@/shared/components/motion";
+
 export function PhilosophySection() {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
@@ -17,7 +19,7 @@ export function PhilosophySection() {
           transition={{ duration: 0.7 }}
           className="mb-8 sm:mb-12 md:mb-20 font-serif-instrument text-[clamp(2.5rem,8vw,5.5rem)] leading-tight tracking-tight text-white whitespace-normal"
         >
-          Innovation <em className="italic text-white/40 font-normal">x</em> Vision
+          Innovation <em className="italic text-zinc-500 font-normal">x</em> Vision
         </motion.h2>
 
         {/* Two-Column Grid -> Stacked on Mobile */}
@@ -27,7 +29,7 @@ export function PhilosophySection() {
             initial={{ opacity: 0, x: -20 }}
             animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
             transition={{ duration: 0.7 }}
-            className="aspect-[4/3] w-full overflow-hidden rounded-2xl sm:rounded-3xl border border-white/10"
+            className="aspect-[4/3] w-full overflow-hidden rounded-2xl sm:rounded-3xl border border-white/10 aiic-dark-glass shadow-2xl"
           >
             <video
               muted
@@ -49,13 +51,12 @@ export function PhilosophySection() {
           >
             {/* Block 1 */}
             <div>
-              <span className="mb-2 block font-mono text-[10px] uppercase tracking-widest text-white/50 sm:text-xs">
+              <span className="mb-2 block font-mono text-[10px] uppercase tracking-widest text-zinc-400 sm:text-xs">
                 Choose your space · Accountability
               </span>
-              <p className="text-xs sm:text-sm md:text-base leading-relaxed text-white/70">
+              <p className="text-xs sm:text-sm md:text-base leading-relaxed text-zinc-300">
                 Every meaningful breakthrough begins at the intersection of disciplined strategy and
-                remarkable technical curiosity. AIIC operates at that crossroads, turning raw ideas
-                into tangible software that solves problems and educates minds.
+                remarkable technical curiosity. AIIC operates at that crossroads, turning <TextHighlight>raw ideas into production-grade systems</TextHighlight>.
               </p>
             </div>
 
@@ -63,10 +64,11 @@ export function PhilosophySection() {
 
             {/* Block 2 */}
             <div>
-              <span className="mb-2 block font-mono text-[10px] uppercase tracking-widest text-white/50 sm:text-xs">
-                Shape the future · Learn → Build → Ship
-              </span>
-              <p className="text-xs sm:text-sm md:text-base leading-relaxed text-white/70">
+              <div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-zinc-400 sm:text-xs">
+                <span>Core Mandate · We</span>
+                <MorphingText texts={["THINK", "BUILD", "RESEARCH", "INVENT", "DEPLOY"]} />
+              </div>
+              <p className="text-xs sm:text-sm md:text-base leading-relaxed text-zinc-300">
                 We believe that the best engineering emerges when curiosity meets commitment.
                 Through our 4-Stage Capability Pipeline, students master Python, data extraction,
                 computer vision, and neural network foundations before high school graduation.

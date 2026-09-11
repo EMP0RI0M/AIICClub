@@ -79,8 +79,8 @@ export function AuthShell({
             <p className="mt-1 text-[14px] text-text-muted">{tagline}</p>
           </div>
 
-          {/* Form — borderless on the background at >=sm, subtle card on mobile */}
-          <div className="rounded-xl border border-border bg-surface/60 p-6 backdrop-blur-sm sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+          {/* Form — Premium Glass Authentication Card */}
+          <div className="aiic-glass-premium rounded-2xl p-6 sm:p-8 shadow-2xl">
             {children}
           </div>
 

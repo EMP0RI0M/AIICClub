@@ -243,6 +243,48 @@ export async function getPeople(): Promise<AIICMemberProfile[]> {
 // ANNOUNCEMENTS
 // ─────────────────────────────────────────────────────────────
 
+export const DEFAULT_ANNOUNCEMENTS: AIICAnnouncement[] = [
+  {
+    id: "ann-001",
+    title: "AIIC Institutional Platform v2.0 Live Release & Neural Architecture Overview",
+    slug: "aiic-platform-v2-live",
+    content: "Welcome to AIIC Platform v2.0. This release includes the complete Institutional Lecture Archive, real-time LaTeX formula rendering with KaTeX, 1080p inline video theater, pgvector RAG Sentinel knowledge engine, and interactive sandbox viewports for Website Part 1 & Part 2. All club members are encouraged to explore the archive and take lecture mastery quizzes.",
+    author: "Rafi Ullah Khan",
+    category: "Release",
+    priority: "pinned",
+    isPinned: true,
+    publishedAt: "2026-09-09T12:00:00.000Z",
+    createdAt: "2026-09-09T12:00:00.000Z",
+    updatedAt: "2026-09-10T12:00:00.000Z",
+  },
+  {
+    id: "ann-002",
+    title: "Term 2 Capstone Project Submission & AI Model Benchmark Guidelines",
+    slug: "term-2-capstone-guidelines",
+    content: "All AIIC research teams must submit their repository links and architecture specifications before the upcoming sprint deadline. Ensure your GitHub repositories are linked to your profile in the Member Hub and all environment variables are documented.",
+    author: "AIIC Executive Board",
+    category: "Academic",
+    priority: "urgent",
+    isPinned: false,
+    publishedAt: "2026-09-08T10:00:00.000Z",
+    createdAt: "2026-09-08T10:00:00.000Z",
+    updatedAt: "2026-09-08T10:00:00.000Z",
+  },
+  {
+    id: "ann-003",
+    title: "Lecture 3 Masterclass: Autonomous Multi-Agent Workflows & Tool Calling",
+    slug: "lecture-3-multi-agent-masterclass",
+    content: "The recording and official notes for Lecture 3 (Autonomous Agents, ReAct loops, and tool orchestration) are now indexed in the Institutional Archive. Video playback is available in 1080p directly from the archive explorer.",
+    author: "Rafi Ullah Khan",
+    category: "Workshop",
+    priority: "normal",
+    isPinned: false,
+    publishedAt: "2026-09-07T14:30:00.000Z",
+    createdAt: "2026-09-07T14:30:00.000Z",
+    updatedAt: "2026-09-07T14:30:00.000Z",
+  },
+];
+
 export async function getAnnouncements(): Promise<AIICAnnouncement[]> {
   try {
     const supabase = getSupabaseAdmin();
@@ -253,7 +295,7 @@ export async function getAnnouncements(): Promise<AIICAnnouncement[]> {
       .order("published_at", { ascending: false });
 
     if (error || !data || data.length === 0) {
-      return [];
+      return DEFAULT_ANNOUNCEMENTS;
     }
 
     return data.map((a: any) => ({
@@ -262,15 +304,18 @@ export async function getAnnouncements(): Promise<AIICAnnouncement[]> {
       slug: a.slug,
       content: a.content,
       author: a.author || "AIIC Executive Board",
+      authorId: a.author_id,
       coverImage: a.cover_image,
       publishedAt: a.published_at,
       category: a.category || "General",
       priority: a.priority || "normal",
       isPinned: a.is_pinned || false,
       featured: a.featured || false,
+      createdAt: a.created_at,
+      updatedAt: a.updated_at,
     }));
   } catch {
-    return [];
+    return DEFAULT_ANNOUNCEMENTS;
   }
 }
 

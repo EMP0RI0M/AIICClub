@@ -4,20 +4,38 @@ import type { SharedAttachment } from "@/shared/lib/attachments";
 function getToken(): string | null {
     if (typeof window === "undefined") return null;
     try {
+        // 1. Check zustand auth store
         const stored = localStorage.getItem("corvus-auth");
         if (stored) {
-            const parsed = JSON.parse(stored);
-            if (parsed?.state?.token) return parsed.state.token;
+            try {
+                const parsed = JSON.parse(stored);
+                if (parsed?.state?.token) return parsed.state.token;
+            } catch {}
         }
 
-        // Fallback: check Supabase auth storage in localStorage
+        // 2. Check explicit corvus supabase auth storage
+        const corvusSb = localStorage.getItem("corvus-supabase-auth");
+        if (corvusSb) {
+            try {
+                const parsed = JSON.parse(corvusSb);
+                if (parsed?.access_token) return parsed.access_token;
+                if (parsed?.currentSession?.access_token) return parsed.currentSession.access_token;
+            } catch {}
+        }
+
+        // 3. Fallback: check any Supabase or auth storage key in localStorage
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key && (key.startsWith("sb-") || key.includes("supabase")) && key.endsWith("-auth-token")) {
-                const sbRaw = localStorage.getItem(key);
-                if (sbRaw) {
-                    const sbParsed = JSON.parse(sbRaw);
-                    if (sbParsed?.access_token) return sbParsed.access_token;
+            if (key && (key.startsWith("sb-") || key.includes("supabase") || key.includes("corvus") || key.includes("auth"))) {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    try {
+                        const parsed = JSON.parse(raw);
+                        if (parsed?.access_token) return parsed.access_token;
+                        if (parsed?.currentSession?.access_token) return parsed.currentSession.access_token;
+                        if (parsed?.token) return parsed.token;
+                        if (parsed?.state?.token) return parsed.state.token;
+                    } catch {}
                 }
             }
         }
@@ -34,8 +52,19 @@ export interface CustomRequestInit extends RequestInit {
     maxRetries?: number;
 }
 
+function buildRequestUrl(baseUrl: string, path: string): string {
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    if (!baseUrl || baseUrl === "/") return cleanPath;
+    const cleanBase = baseUrl.replace(/\/+$/, "");
+    if (cleanBase.endsWith("/api") && cleanPath.startsWith("/api/")) {
+        return `${cleanBase}${cleanPath.slice(4)}`;
+    }
+    return `${cleanBase}${cleanPath}`;
+}
+
 export async function api<T>(path: string, options: CustomRequestInit = {}): Promise<T> {
     const baseUrl = ensureApiUrl();
+    const requestUrl = buildRequestUrl(baseUrl, path);
     const token = getToken();
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -71,7 +100,7 @@ export async function api<T>(path: string, options: CustomRequestInit = {}): Pro
         }
 
         try {
-            res = await fetch(`${baseUrl}${path}`, {
+            res = await fetch(requestUrl, {
                 ...options,
                 headers,
                 signal: controller.signal,
@@ -96,14 +125,15 @@ export async function api<T>(path: string, options: CustomRequestInit = {}): Pro
 
             if (err instanceof Error && err.name === "AbortError") {
                 throw new Error(
-                    `Request to ${baseUrl}${path} timed out. ` +
+                    `Request to ${requestUrl} timed out. ` +
                         "Please check your connection and try again.",
                 );
             }
 
+            console.error(`[API Network Error] ${requestUrl}:`, err);
             throw new Error(
-                `Failed to reach API at ${baseUrl}. ` +
-                    "The server may be waking up — please try again in a moment.",
+                `Failed to reach API at ${requestUrl}. ` +
+                    (err instanceof Error ? err.message : "The server may be waking up — please try again."),
             );
         }
     }

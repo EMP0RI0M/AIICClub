@@ -8,6 +8,8 @@ import {
   Footer,
 } from "@/features/landing";
 
+import { TechMarquee } from "@/shared/components/motion";
+
 export const dynamic = "force-dynamic";
 
 export default function HomePage() {
@@ -20,10 +22,13 @@ export default function HomePage() {
         {/* Section 1: Cinematic Video Hero */}
         <HeroCinematic />
 
+        {/* Continuous Editorial Tech Marquee */}
+        <TechMarquee />
+
         {/* Section 2: About Section with InView Motion */}
         <AboutSection />
 
-        {/* Section 3: Featured Video Section with Liquid Glass Card */}
+        {/* Section 3: Featured Video Section with Dark Glass Card */}
         <FeaturedVideoSection />
 
         {/* Section 4: Philosophy / Innovation x Vision */}

@@ -145,7 +145,7 @@ export function AutomationsSettings({ spaceId = "default" }: { spaceId?: string 
 
       {/* ─── Rule Builder ─── */}
       {building && (
-        <div className="flex flex-col gap-3.5 rounded-2xl border border-accent/30 bg-[#121622] p-4 sm:p-5 shadow-xl animate-in fade-in duration-200">
+        <div className="flex flex-col gap-3.5 rounded-2xl border border-accent/30 bg-[#0a0a0a] p-4 sm:p-5 shadow-xl animate-in fade-in duration-200">
           <div className="flex items-center justify-between">
             <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-accent flex items-center gap-1.5">
               <Sparkles size={13} /> Construct Automation Rule

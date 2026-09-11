@@ -142,7 +142,7 @@ export default function AdminUsersPage() {
       {/* ─── Filters & Search ─── */}
       <form
         onSubmit={handleSearchSubmit}
-        className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#121622] p-3"
+        className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-3"
       >
         <div className="relative flex-1 w-full">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -192,11 +192,11 @@ export default function AdminUsersPage() {
           <Loader2 className="animate-spin text-accent" size={24} />
         </div>
       ) : users.length === 0 ? (
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-12 text-center text-xs text-text-muted font-mono">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-12 text-center text-xs text-text-muted font-mono">
           No users found.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121622] shadow-xl">
+        <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="border-b border-white/[0.08] bg-white/[0.02] font-mono text-[11px] uppercase tracking-wider text-text-muted">
@@ -325,7 +325,7 @@ export default function AdminUsersPage() {
           onClick={() => setEditingUser(null)}
         >
           <div
-            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#121622] p-6 shadow-2xl backdrop-blur-xl"
+            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
@@ -359,6 +359,7 @@ export default function AdminUsersPage() {
                 >
                   <option value="visitor">Visitor (Rank 10)</option>
                   <option value="member">Member (Rank 40)</option>
+                  <option value="bot">AI Bot Sentinel (Rank 65)</option>
                   <option value="staff">Staff (Rank 60)</option>
                   <option value="teacher">Teacher (Rank 80)</option>
                   <option value="vice_president">Vice President (Rank 90)</option>

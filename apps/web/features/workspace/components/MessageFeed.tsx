@@ -27,6 +27,8 @@ import { ClipEmbed } from "./ClipRecorder";
 import { GitHubEvent } from "./GitHubView";
 import { ConfirmModal } from "@/shared/components/ui/Modal";
 import { useToastStore } from "@/shared/stores/toast-store";
+import { MermaidBlock } from "./MermaidBlock";
+import katex from "katex";
 
 const GROUP_WINDOW_MS = 7 * 60 * 1000;
 
@@ -147,6 +149,7 @@ function MessageRow({
 } & MessageActions) {
   const [reactOpen, setReactOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showToolbar, setShowToolbar] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [draft, setDraft] = useState(message.text);
@@ -154,8 +157,13 @@ function MessageRow({
   return (
     <div
       id={`msg-${message.id}`}
+      tabIndex={0}
+      onMouseEnter={() => setShowToolbar(true)}
+      onMouseLeave={() => {
+        if (!menuOpen && !reactOpen) setShowToolbar(false);
+      }}
       className={cn(
-        "group relative flex flex-col py-0.5 rounded-2xl transition-all duration-200",
+        "group relative flex flex-col py-0.5 rounded-2xl transition-all duration-200 outline-none",
         mine ? "items-end" : "items-start"
       )}
     >
@@ -220,8 +228,9 @@ function MessageRow({
 
         {/* ─── Glass Bubble ─── */}
         <div
+          onClick={() => setShowToolbar((v) => !v)}
           className={cn(
-            "relative flex flex-col px-3.5 py-2.5 transition-all",
+            "relative flex flex-col px-3.5 py-2.5 transition-all cursor-pointer select-text",
             mine
               ? "rounded-[18px] rounded-br-[4px] bg-[#1d1633]/85 text-text-primary border border-accent/30 shadow-[0_4px_20px_rgba(var(--c-accent-rgb,138,92,246),0.12),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md"
               : "rounded-[18px] rounded-bl-[4px] bg-[#141824]/85 text-text-primary border border-white/[0.08] shadow-[0_4px_16px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md"
@@ -287,13 +296,70 @@ function MessageRow({
                 } catch {}
               }
 
-              const cleanText = rawText.replace(/attachment:(?:%7B|{).*?(?:%7D|})/g, "").trim();
+              let cleanText = rawText.replace(/attachment:(?:%7B|{).*?(?:%7D|})/g, "").trim();
+              let thoughtContent: string | null = null;
+
+              // Extract <think> ... </think> or "Here's a thinking process:"
+              const thinkMatch = cleanText.match(/<think>([\s\S]*?)<\/think>/i);
+              if (thinkMatch) {
+                thoughtContent = thinkMatch[1].trim();
+                cleanText = cleanText.replace(/<think>[\s\S]*?<\/think>/i, "").trim();
+              } else if (/Here's a thinking process:/i.test(cleanText)) {
+                const parts = cleanText.split(/Here's a thinking process:/i);
+                if (parts.length > 1) {
+                  const splitBody = parts[1].split(/\n\n(?=###|Hello|\*\*|\[|`{3}|Here is|The |This |flowchart|graph|sequenceDiagram)/i);
+                  thoughtContent = splitBody[0].trim();
+                  cleanText = splitBody.slice(1).join("\n\n").trim() || "";
+                }
+              }
 
               return (
                 <>
+                  {thoughtContent && (
+                    <details className="mb-2 rounded-lg border border-white/[0.08] bg-black/40 p-2 font-mono text-[11px] text-text-muted">
+                      <summary className="cursor-pointer select-none text-[10.5px] font-semibold text-cyan-400">
+                        AI Reasoning & Thought Process
+                      </summary>
+                      <pre className="mt-1.5 overflow-x-auto whitespace-pre-wrap text-text-secondary leading-relaxed">
+                        {thoughtContent}
+                      </pre>
+                    </details>
+                  )}
+
                   {cleanText ? (
                     <div className="whitespace-pre-wrap break-words text-[14px] sm:text-[14.5px] leading-[1.55] text-text-primary/95">
-                      <InlineMarkdown text={cleanText} />
+                      {(() => {
+                        // Check if text contains ```mermaid ... ```
+                        if (/```mermaid[\s\S]*?```/i.test(cleanText)) {
+                          const mermaidBlocks = cleanText.split(/```mermaid([\s\S]*?)```/gi);
+                          return mermaidBlocks.map((chunk, idx) => {
+                            if (idx % 2 === 1) {
+                              return <MermaidBlock key={`mmd-${idx}`} chart={chunk} />;
+                            }
+                            return chunk.trim() ? <InlineMarkdown key={`txt-${idx}`} text={chunk} /> : null;
+                          });
+                        }
+
+                        // Check if text contains raw unfenced mermaid block starting with standard diagram header
+                        const rawMermaidPattern = /(?:^|\n)(flowchart\s+[A-Z]{2}|graph\s+[A-Z]{2}|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|mindmap|timeline)[\s\S]*?(?=(?:\n\s*\n\s*(?:###|Hello|\*\*|\[|Here is|The |This |Explanation|Note|Summary)\b)|$)/i;
+                        const rawMatch = cleanText.match(rawMermaidPattern);
+
+                        if (rawMatch && rawMatch.index !== undefined) {
+                          const before = cleanText.slice(0, rawMatch.index).trim();
+                          const chartCode = rawMatch[0].trim();
+                          const after = cleanText.slice(rawMatch.index + rawMatch[0].length).trim();
+
+                          return (
+                            <>
+                              {before && <InlineMarkdown text={before} />}
+                              <MermaidBlock chart={chartCode} />
+                              {after && <InlineMarkdown text={after} />}
+                            </>
+                          );
+                        }
+
+                        return <InlineMarkdown text={cleanText} />;
+                      })()}
                       {message.edited && (
                         <span className="ml-1.5 font-mono text-[10px] text-text-muted/60">
                           (edited)
@@ -357,26 +423,54 @@ function MessageRow({
           )}
         </div>
 
-        {/* ─── Floating Glass Action Toolbar on Hover ─── */}
+        {/* ─── Floating Glass Action Toolbar (Desktop Hover / Touch / Active) ─── */}
         <div
           className={cn(
-            "absolute -top-3 z-20 items-center gap-0.5 rounded-full border border-white/[0.12] bg-[#161c29]/95 px-1.5 py-0.5 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.4)] transition-all group-hover:flex group-focus-within:flex",
-            mine ? "left-2" : "right-2",
-            menuOpen || reactOpen ? "flex" : "hidden"
+            "absolute -top-3 z-30 flex items-center gap-0.5 rounded-full border border-white/[0.15] bg-[#161c29]/95 px-1.5 py-0.5 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.4)] transition-all",
+            mine ? "right-2" : "right-2",
+            showToolbar || menuOpen || reactOpen
+              ? "opacity-100 pointer-events-auto scale-100"
+              : "opacity-0 pointer-events-none scale-95 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:pointer-events-auto group-focus-within:scale-100"
           )}
         >
-          <ActionIcon label="React" onClick={() => setReactOpen((v) => !v)}>
+          <ActionIcon
+            label="React"
+            onClick={(e) => {
+              e.stopPropagation();
+              setReactOpen((v) => !v);
+              setMenuOpen(false);
+            }}
+          >
             <SmilePlus size={13} />
           </ActionIcon>
-          <ActionIcon label="Reply" onClick={() => onReply?.(message.id)}>
+          <ActionIcon
+            label="Reply"
+            onClick={(e) => {
+              e.stopPropagation();
+              onReply?.(message.id);
+            }}
+          >
             <Reply size={13} />
           </ActionIcon>
           {onOpenThread && (
-            <ActionIcon label="Thread" onClick={() => onOpenThread(message.id)}>
+            <ActionIcon
+              label="Thread"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenThread(message.id);
+              }}
+            >
               <MessagesSquare size={13} />
             </ActionIcon>
           )}
-          <ActionIcon label="More" onClick={() => setMenuOpen((v) => !v)}>
+          <ActionIcon
+            label="More"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((v) => !v);
+              setReactOpen(false);
+            }}
+          >
             <MoreHorizontal size={13} />
           </ActionIcon>
         </div>
@@ -386,9 +480,10 @@ function MessageRow({
           <div
             role="menu"
             className={cn(
-              "absolute top-6 z-30 min-w-[180px] rounded-2xl border border-white/[0.12] bg-[#161c29]/95 p-1.5 backdrop-blur-xl shadow-[0_12px_32px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-150",
-              mine ? "left-0" : "right-0"
+              "absolute top-5 z-40 min-w-[180px] rounded-2xl border border-white/[0.15] bg-[#161c29]/95 p-1.5 backdrop-blur-xl shadow-[0_12px_32px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-150",
+              mine ? "right-0" : "right-0"
             )}
+            onClick={(e) => e.stopPropagation()}
           >
             <MenuItem
               icon={<Copy size={13} />}
@@ -443,9 +538,10 @@ function MessageRow({
           <div
             role="menu"
             className={cn(
-              "absolute -top-10 z-30 flex items-center gap-1 rounded-full border border-white/[0.12] bg-[#161c29]/95 p-1 backdrop-blur-xl shadow-[0_12px_32px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-150",
-              mine ? "left-0" : "right-0"
+              "absolute -top-11 z-40 flex items-center gap-1 rounded-full border border-white/[0.15] bg-[#161c29]/95 p-1 backdrop-blur-xl shadow-[0_12px_32px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-150",
+              mine ? "right-0" : "right-0"
             )}
+            onClick={(e) => e.stopPropagation()}
           >
             {QUICK_REACTIONS.map((e) => (
               <button
@@ -456,7 +552,7 @@ function MessageRow({
                   onReact?.(message.id, e);
                   setReactOpen(false);
                 }}
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[16px] leading-none transition-transform hover:scale-125 active:scale-95"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[16px] leading-none transition-transform hover:scale-125 active:scale-95 cursor-pointer"
               >
                 {e}
               </button>
@@ -470,7 +566,25 @@ function MessageRow({
 
 /* ── Content renderers ──────────────────────────────────────────────── */
 
-const INLINE_TOKEN_RE = /https?:\/\/[^\s<>"]+|\*\*[^*\n]+\*\*|~~[^~\n]+~~|`[^`\n]+`|\*[^*\n]+\*/g;
+function renderLatex(latex: string, displayMode: boolean = false): React.ReactNode {
+  try {
+    const html = katex.renderToString(latex.trim(), {
+      displayMode,
+      throwOnError: false,
+      output: "htmlAndMathml",
+    });
+    return (
+      <span
+        className={displayMode ? "my-2 block overflow-x-auto text-center font-serif text-cyan-300 py-1" : "inline font-serif text-cyan-300 px-0.5"}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  } catch {
+    return <code className="font-mono text-cyan-400">{latex}</code>;
+  }
+}
+
+const INLINE_TOKEN_RE = /\$\$[\s\S]*?\$\$|\$(?!\$)[\s\S]*?\$|https?:\/\/[^\s<>"]+|\*\*[^*\n]+\*\*|~~[^~\n]+~~|`[^`\n]+`|\*[^*\n]+\*/g;
 
 export function InlineMarkdown({ text, depth = 0 }: { text: string; depth?: number }) {
   const nodes: React.ReactNode[] = [];
@@ -483,7 +597,15 @@ export function InlineMarkdown({ text, depth = 0 }: { text: string; depth?: numb
     const token = match[0];
     const key = `${match.index}-${token}`;
 
-    if (token.startsWith("http://") || token.startsWith("https://")) {
+    if (token.startsWith("$$") && token.endsWith("$$")) {
+      // Display / Block Math $$ ... $$
+      const latex = token.slice(2, -2);
+      nodes.push(<Fragment key={key}>{renderLatex(latex, true)}</Fragment>);
+    } else if (token.startsWith("$") && token.endsWith("$") && !token.startsWith("$$")) {
+      // Inline Math $ ... $
+      const latex = token.slice(1, -1);
+      nodes.push(<Fragment key={key}>{renderLatex(latex, false)}</Fragment>);
+    } else if (token.startsWith("http://") || token.startsWith("https://")) {
       nodes.push(
         <a
           key={key}
@@ -699,7 +821,7 @@ function ActionIcon({
   children,
 }: {
   label: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   children: React.ReactNode;
 }) {
   return (
@@ -707,7 +829,7 @@ function ActionIcon({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="flex h-6 w-6 items-center justify-center rounded-full text-text-muted hover:bg-white/[0.1] hover:text-text-primary active:scale-95 transition-all"
+      className="flex h-6 w-6 items-center justify-center rounded-full text-text-muted hover:bg-white/[0.1] hover:text-text-primary active:scale-95 transition-all cursor-pointer"
     >
       {children}
     </button>

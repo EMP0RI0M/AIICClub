@@ -44,7 +44,7 @@ members.get("/servers/:serverId/members", async (c) => {
     });
 
     return c.json({
-        members: memberList.map((m) => ({
+        members: memberList.map((m: any) => ({
             id: m.id,
             userId: m.user.id,
             role: m.role,

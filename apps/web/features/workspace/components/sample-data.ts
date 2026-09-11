@@ -57,6 +57,7 @@ export const SAMPLE_DATA: AppShellData = {
         channels: [
           { id: "c11", name: "sprint-12", type: "board" },
           { id: "c12", name: "handbook", type: "docs" },
+          { id: "c14", name: "data-science", type: "notebook" },
           { id: "c13", name: "pull-requests", type: "github" },
           { id: "c14", name: "wireframes", type: "canvas" },
         ],

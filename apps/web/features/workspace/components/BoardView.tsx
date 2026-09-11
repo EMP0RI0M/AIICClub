@@ -124,10 +124,10 @@ export function BoardView({
   };
 
   return (
-    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-[#0b0e14] overflow-hidden">
+    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-black overflow-hidden">
       {/* ─── Floating Glass Header ─── */}
       <div className="relative z-10 px-3 pt-3 sm:px-4 sm:pt-4">
-        <header className="flex h-13 shrink-0 items-center gap-3 rounded-[20px] border border-white/[0.08] bg-[#121722]/75 px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <header className="flex h-13 shrink-0 items-center gap-3 rounded-[20px] border border-white/[0.08] bg-[#0a0a0a]/75 px-4 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
           {onBack && (
             <button
               type="button"
@@ -316,7 +316,7 @@ function Column({
   return (
     <div
       className={cn(
-        "flex max-h-full w-[280px] shrink-0 flex-col rounded-[22px] border bg-[#121622]/85 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.36),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all",
+        "flex max-h-full w-[280px] shrink-0 flex-col rounded-[22px] border bg-[#080808]/85 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.36),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all",
         over && dragging ? "border-accent/60 shadow-[0_0_20px_rgba(var(--c-accent-rgb,138,92,246),0.2)]" : "border-white/[0.08]"
       )}
       onDragOver={(e) => {
@@ -594,7 +594,7 @@ function Card({
       onDragEnd={onDragEnd}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && onOpen()}
-      className="flex cursor-grab flex-col gap-2 rounded-[16px] border border-white/[0.06] bg-[#171c28]/70 p-3.5 backdrop-blur-md shadow-sm transition-all hover:border-accent/40 hover:bg-[#1a202e]/85 active:scale-[0.98] active:cursor-grabbing"
+      className="flex cursor-grab flex-col gap-2 rounded-[16px] border border-white/[0.06] bg-[#0d0d0d]/70 p-3.5 backdrop-blur-md shadow-sm transition-all hover:border-accent/40 hover:bg-[#111111]/85 active:scale-[0.98] active:cursor-grabbing"
     >
       {card.label && <CardLabel label={card.label} />}
       <p className="text-[13px] font-medium leading-snug text-text-primary">{card.title}</p>

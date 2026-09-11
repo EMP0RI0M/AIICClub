@@ -125,6 +125,23 @@ export default function ArchiveScreen() {
           </View>
         )}
 
+        {(item.type === "document" || item.document) && (
+          <TouchableOpacity
+            style={styles.metaRow}
+            onPress={() => {
+              const docUrl = item.document?.url || item.url || item.documentUrl;
+              if (docUrl) {
+                import("react-native").then(({ Linking }) => Linking.openURL(docUrl).catch(() => {}));
+              }
+            }}
+          >
+            <FileText size={12} color={colors.info} />
+            <Text style={[styles.metaText, { color: colors.info }]}>
+              {item.document?.fileName || item.title} {item.document?.fileSize ? `(${item.document.fileSize})` : ""} · Tap to View
+            </Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.cardFooter}>
           <Text style={styles.sessionText}>
             {item.repository?.full_name || item.session || "AIIC Archive"}

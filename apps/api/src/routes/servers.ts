@@ -251,18 +251,18 @@ servers.get("/:id", async (c) => {
     }
 
     // Compute unread counts per channel
-    const channelIds = server.channels.filter((ch) => ch.type === "text").map((ch) => ch.id);
+    const channelIds = server.channels.filter((ch: any) => ch.type === "text").map((ch: any) => ch.id);
     const reads = await prisma.channelRead.findMany({
         where: { userId, channelId: { in: channelIds } },
         select: { channelId: true, lastReadAt: true },
     });
-    const readMap = new Map(reads.map((r) => [r.channelId, r.lastReadAt]));
+    const readMap = new Map(reads.map((r: any) => [r.channelId, r.lastReadAt]));
 
     // Count unread messages per channel (messages after lastReadAt, not authored by current user)
     const unreadCounts: Record<string, number> = {};
     if (channelIds.length > 0) {
         const countResults = await Promise.all(
-            channelIds.map(async (chId) => {
+            channelIds.map(async (chId: any) => {
                 const lastRead = readMap.get(chId);
                 const count = await prisma.message.count({
                     where: {

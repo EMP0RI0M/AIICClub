@@ -68,7 +68,7 @@ function VoiceCallUI({
     const isConnectingOrRinging = status === "calling" || status === "ringing" || status === "connecting";
 
     return (
-        <div className="relative flex h-full min-h-[380px] sm:min-h-[460px] w-full flex-col items-center justify-between rounded-[32px] border border-white/[0.08] bg-gradient-to-b from-[#141a28]/95 via-[#0e121b]/95 to-[#090c12]/95 p-6 sm:p-8 backdrop-blur-2xl shadow-2xl overflow-hidden">
+        <div className="relative flex h-full min-h-[380px] sm:min-h-[460px] w-full flex-col items-center justify-between rounded-[32px] border border-white/[0.08] bg-gradient-to-b from-[#141a28]/95 via-[#050505]/95 to-[#000000]/95 p-6 sm:p-8 backdrop-blur-2xl shadow-2xl overflow-hidden">
             {/* Ambient Background Glow */}
             <div className="pointer-events-none absolute -top-24 left-1/2 h-[320px] w-[380px] -translate-x-1/2 rounded-full bg-accent/15 blur-[100px]" />
             <div className="pointer-events-none absolute -bottom-24 left-1/2 h-[280px] w-[340px] -translate-x-1/2 rounded-full bg-emerald-500/10 blur-[90px]" />
@@ -107,7 +107,7 @@ function VoiceCallUI({
                                 : "opacity-0"
                         )}
                     />
-                    <div className="relative flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full border-2 border-emerald-500/40 bg-[#151c2c] shadow-[0_0_40px_rgba(16,185,129,0.25)]">
+                    <div className="relative flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full border-2 border-emerald-500/40 bg-[#0a0a0a] shadow-[0_0_40px_rgba(16,185,129,0.25)]">
                         <Avatar
                             src={peer.avatar}
                             name={peer.name}
@@ -133,7 +133,7 @@ function VoiceCallUI({
             </div>
 
             {/* Bottom: Floating Rounded Controls Capsule */}
-            <div className="relative z-10 flex items-center justify-center gap-3 rounded-full border border-white/[0.1] bg-[#161c2b]/90 px-4 py-2 backdrop-blur-xl shadow-lg">
+            <div className="relative z-10 flex items-center justify-center gap-3 rounded-full border border-white/[0.1] bg-[#0a0a0a]/90 px-4 py-2 backdrop-blur-xl shadow-lg">
                 <CallControls
                     state={state}
                     onToggle={onToggle}
@@ -185,9 +185,9 @@ function VideoCallUI({
     }, [localStream]);
 
     return (
-        <div className="relative flex h-full min-h-[420px] sm:min-h-[500px] w-full flex-col justify-between rounded-[32px] border border-white/[0.08] bg-[#0c0f17] backdrop-blur-2xl shadow-2xl overflow-hidden">
+        <div className="relative flex h-full min-h-[420px] sm:min-h-[500px] w-full flex-col justify-between rounded-[32px] border border-white/[0.08] bg-[#080808] backdrop-blur-2xl shadow-2xl overflow-hidden">
             {/* Main Stage: Remote Participant Video / Avatar */}
-            <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#0d111a]">
+            <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#080808]">
                 {remoteStream ? (
                     <video
                         ref={remoteVideoRef}
@@ -197,7 +197,7 @@ function VideoCallUI({
                     />
                 ) : (
                     <div className="flex flex-col items-center text-center p-6">
-                        <div className="flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full border border-white/[0.12] bg-[#161c2c] shadow-xl">
+                        <div className="flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full border border-white/[0.12] bg-[#0a0a0a] shadow-xl">
                             <Avatar src={peer.avatar} name={peer.name} size={84} radius={42} />
                         </div>
                         <h3 className="mt-3 text-base font-bold text-text-primary">{peer.name}</h3>
@@ -226,7 +226,7 @@ function VideoCallUI({
             </div>
 
             {/* Floating Picture-in-Picture (PiP) for Local User (Bottom Right) */}
-            <div className="absolute bottom-20 right-4 sm:right-6 z-20 h-28 w-24 sm:h-36 sm:w-28 rounded-2xl border border-white/[0.15] bg-[#121622]/90 shadow-2xl overflow-hidden backdrop-blur-md">
+            <div className="absolute bottom-20 right-4 sm:right-6 z-20 h-28 w-24 sm:h-36 sm:w-28 rounded-2xl border border-white/[0.15] bg-[#080808]/90 shadow-2xl overflow-hidden backdrop-blur-md">
                 {state.camera && localStream ? (
                     <video
                         ref={localVideoRef}
@@ -255,7 +255,7 @@ function VideoCallUI({
 
             {/* Bottom Controls Overlay */}
             <div className="relative z-10 flex w-full items-center justify-center p-4 sm:p-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-                <div className="flex items-center justify-center gap-3 rounded-full border border-white/[0.12] bg-[#161c2b]/90 px-4 py-2 backdrop-blur-xl shadow-lg">
+                <div className="flex items-center justify-center gap-3 rounded-full border border-white/[0.12] bg-[#0a0a0a]/90 px-4 py-2 backdrop-blur-xl shadow-lg">
                     <CallControls
                         state={state}
                         onToggle={onToggle}
@@ -423,7 +423,7 @@ export function CallSession({
             {audioHost}
             <div className="relative flex h-full max-h-[640px] w-full max-w-[840px] flex-col">
                 {state.whiteboard ? (
-                    <div className="relative h-full w-full overflow-hidden rounded-[32px] border border-border bg-[#0b0e14]">
+                    <div className="relative h-full w-full overflow-hidden rounded-[32px] border border-border bg-black">
                         <WhiteboardLayer
                             storageKey={`call-${call.conversationId}`}
                             onClose={() => toggle("whiteboard")}
@@ -498,7 +498,7 @@ export function IncomingCallCard({
     return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200">
 
-            <div className="relative flex w-full max-w-[360px] flex-col items-center justify-between rounded-[32px] border border-white/[0.12] bg-gradient-to-b from-[#161c2c]/98 to-[#0d111a]/98 p-6 text-center backdrop-blur-2xl shadow-[0_16px_48px_rgba(0,0,0,0.6)]">
+            <div className="relative flex w-full max-w-[360px] flex-col items-center justify-between rounded-[32px] border border-white/[0.12] bg-gradient-to-b from-[#161c2c]/98 to-[#080808]/98 p-6 text-center backdrop-blur-2xl shadow-[0_16px_48px_rgba(0,0,0,0.6)]">
                 {/* Ambient Glow */}
                 <div className="pointer-events-none absolute -top-16 left-1/2 h-[200px] w-[200px] -translate-x-1/2 rounded-full bg-accent/20 blur-[80px]" />
 
@@ -510,7 +510,7 @@ export function IncomingCallCard({
                 {/* Caller Avatar with Pulsing Ring */}
                 <div className="relative my-6 flex items-center justify-center">
                     <div className="absolute h-28 w-28 rounded-full bg-emerald-500/25 animate-ping" />
-                    <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-2 border-emerald-400/50 bg-[#1a2236] shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                    <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-2 border-emerald-400/50 bg-[#111111] shadow-[0_0_30px_rgba(16,185,129,0.3)]">
                         <Avatar src={caller.avatar} name={caller.name} size={80} radius={40} />
                     </div>
                 </div>

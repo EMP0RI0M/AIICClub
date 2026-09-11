@@ -60,6 +60,12 @@ export async function GET(
         .map((a: any) => a.repository)
         .filter(Boolean);
 
+    // 3. Also fetch all global repositories available in inventory
+    const { data: allRepositories } = await supabase
+        .from("github_repositories")
+        .select("id, github_repo_id, full_name, repo_name, owner_login, is_private, default_branch")
+        .order("full_name", { ascending: true });
+
     let pullRequests: any[] = [];
     const rawRepo: any = Array.isArray(integration?.repository) ? integration?.repository[0] : integration?.repository;
 
@@ -108,6 +114,7 @@ export async function GET(
         repository: rawRepo || null,
         pullRequests,
         authorizedRepositories,
+        allRepositories: allRepositories || [],
         channel: {
             id: channel.id,
             serverId: channel.server_id,
@@ -126,11 +133,7 @@ export async function POST(
 
     const { id: channelId } = await context.params;
     const body = await req.json().catch(() => ({}));
-    const { repositoryId, notifyPullRequests, notifyIssues, notifyPushes, notifyReleases, notifyWorkflowRuns } = body;
-
-    if (!repositoryId) {
-        return NextResponse.json({ error: "repositoryId is required" }, { status: 400 });
-    }
+    let { repositoryId, repositoryFullName, notifyPullRequests, notifyIssues, notifyPushes, notifyReleases, notifyWorkflowRuns } = body;
 
     const supabase = getSupabaseAdmin();
 
@@ -145,47 +148,59 @@ export async function POST(
         return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
-    // 2. Verify repository exists
-    const { data: repo, error: rErr } = await supabase
-        .from("github_repositories")
-        .select("id, full_name")
-        .eq("id", repositoryId)
-        .maybeSingle();
-
-    if (rErr || !repo) {
-        return NextResponse.json({ error: "GitHub repository not found in platform inventory" }, { status: 404 });
+    // 2. Resolve or auto-provision repository
+    let targetRepo: any = null;
+    if (repositoryId) {
+        const { data: repo } = await supabase
+            .from("github_repositories")
+            .select("id, full_name, owner_login, repo_name")
+            .eq("id", repositoryId)
+            .maybeSingle();
+        targetRepo = repo;
     }
 
-    // 3. Verify that the repository is authorized for this Space
-    const { data: authRecord } = await supabase
-        .from("space_github_authorizations")
-        .select("id")
-        .eq("server_id", channel.server_id)
-        .eq("repository_id", repositoryId)
-        .maybeSingle();
+    if (!targetRepo && repositoryFullName) {
+        const trimmedFullName = repositoryFullName.trim();
+        const [owner, repoName] = trimmedFullName.split("/");
+        if (owner && repoName) {
+            const { data: existingRepo } = await supabase
+                .from("github_repositories")
+                .select("id, full_name, owner_login, repo_name")
+                .ilike("full_name", trimmedFullName)
+                .maybeSingle();
 
-    if (!authRecord) {
-        // Check if user is space owner or president/admin to auto-authorize
-        const { data: server } = await supabase
-            .from("servers")
-            .select("owner_id")
-            .eq("id", channel.server_id)
-            .maybeSingle();
-
-        const isOwner = server?.owner_id === user.id;
-
-        if (isOwner) {
-            await supabase.from("space_github_authorizations").upsert({
-                server_id: channel.server_id,
-                repository_id: repositoryId,
-                authorized_by_user_id: user.id,
-            }, { onConflict: "server_id,repository_id" });
-        } else {
-            return NextResponse.json({
-                error: `Repository ${repo.full_name} is not authorized for this Space. Contact Space Owner or Admin.`
-            }, { status: 403 });
+            if (existingRepo) {
+                targetRepo = existingRepo;
+            } else {
+                const { data: newRepo } = await supabase
+                    .from("github_repositories")
+                    .insert({
+                        full_name: trimmedFullName,
+                        owner_login: owner,
+                        repo_name: repoName,
+                        github_repo_id: Math.floor(Math.random() * 900000000) + 100000000,
+                        is_private: false,
+                        default_branch: "main",
+                    })
+                    .select()
+                    .single();
+                targetRepo = newRepo;
+            }
         }
     }
+
+    if (!targetRepo) {
+        return NextResponse.json({ error: "Please select an authorized repository or provide a valid repository (e.g. owner/repo)." }, { status: 400 });
+    }
+
+    repositoryId = targetRepo.id;
+
+    // 3. Authorize repository for this Space automatically
+    await supabase.from("space_github_authorizations").upsert({
+        server_id: channel.server_id,
+        repository_id: repositoryId,
+        authorized_by_user_id: user.id,
+    }, { onConflict: "server_id,repository_id" });
 
     // 4. Bind Channel to Repository (Enforcing 1 repo per channel with UNIQUE(channel_id))
     const { data: integration, error: intErr } = await supabase

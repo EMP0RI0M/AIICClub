@@ -41,7 +41,7 @@ export function DeveloperSection() {
                         ))}
                     </div>
                 </div>
-                <div className="overflow-hidden rounded-xl bg-[#090a0d] shadow-e3 ring-1 ring-white/10">
+                <div className="overflow-hidden rounded-xl bg-black shadow-e3 ring-1 ring-white/10">
                     <div className="flex h-10 items-center gap-2 border-b border-white/5 px-4">
                         <span className="h-2 w-2 rounded-full bg-danger/70" />
                         <span className="h-2 w-2 rounded-full bg-warning/70" />

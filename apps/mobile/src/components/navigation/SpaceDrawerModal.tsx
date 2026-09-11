@@ -51,6 +51,7 @@ export function SpaceDrawerModal({
   selectedChannelId,
   onSelectChannel,
   onOpenSpaceSettings,
+  onCreateSpace,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -61,6 +62,7 @@ export function SpaceDrawerModal({
   selectedChannelId: string | null;
   onSelectChannel: (channelId: string) => void;
   onOpenSpaceSettings: () => void;
+  onCreateSpace?: () => void;
 }) {
   const currentServer =
     servers.find((s) => s.id === selectedServerId) || servers[0] || null;
@@ -135,6 +137,20 @@ export function SpaceDrawerModal({
                   </Pressable>
                 );
               })}
+
+              {/* Add / Create Space Button */}
+              {onCreateSpace && (
+                <Pressable
+                  onPress={() => {
+                    onClose();
+                    onCreateSpace();
+                  }}
+                  style={[styles.spaceOrb, styles.addSpaceOrb]}
+                  hitSlop={6}
+                >
+                  <Plus size={20} color={colors.accent} />
+                </Pressable>
+              )}
             </ScrollView>
           </View>
 
@@ -256,6 +272,11 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
     borderRadius: 14,
     backgroundColor: "rgba(232, 163, 61, 0.2)",
+  },
+  addSpaceOrb: {
+    borderStyle: "dashed",
+    borderColor: "rgba(232, 163, 61, 0.4)",
+    backgroundColor: "rgba(232, 163, 61, 0.08)",
   },
   spaceImg: {
     width: "100%",

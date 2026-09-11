@@ -30,7 +30,7 @@ export function ThreadPanel({
   onClose: () => void;
 }) {
   return (
-    <aside className="absolute inset-0 z-30 flex h-full w-full shrink-0 flex-col bg-[#0e121a]/95 border-l border-white/[0.08] backdrop-blur-2xl shadow-2xl lg:static lg:w-[340px] lg:bg-[#0e121a]/85 lg:backdrop-blur-xl">
+    <aside className="absolute inset-0 z-30 flex h-full w-full shrink-0 flex-col bg-[#050505]/95 border-l border-white/[0.08] backdrop-blur-2xl shadow-2xl lg:static lg:w-[340px] lg:bg-[#050505]/90 lg:backdrop-blur-xl">
       {/* Thread Header */}
       <header className="flex h-13 shrink-0 items-center justify-between border-b border-white/[0.06] px-4">
         <div className="flex items-center gap-2 min-w-0">
@@ -74,7 +74,7 @@ export function ThreadPanel({
 
         {/* Replies Divider */}
         <div className="flex items-center justify-center my-3">
-          <span className="rounded-full border border-white/[0.08] bg-[#121622]/80 px-3 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-accent backdrop-blur-md">
+          <span className="rounded-full border border-white/[0.08] bg-[#0a0a0a]/80 px-3 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-accent backdrop-blur-md">
             {replies.length} {replies.length === 1 ? "Reply" : "Replies"}
           </span>
         </div>

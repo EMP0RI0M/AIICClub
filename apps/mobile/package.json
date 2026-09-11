@@ -50,6 +50,7 @@
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@corvus/config": "workspace:*",
+    "@expo/ngrok": "^4.1.0",
     "@types/react": "~19.1.10",
     "typescript": "^5.9.3"
   }

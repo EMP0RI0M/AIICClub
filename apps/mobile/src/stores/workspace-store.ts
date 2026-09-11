@@ -19,6 +19,7 @@ import {
   createDMConversation as apiCreateDM,
   fetchChannelGitHub,
 } from "../lib/api";
+import { offlineManager } from "../lib/offline-manager";
 import { parseMessageAttachments } from "../components/chat/AttachmentCard";
 
 interface WorkspaceState {
@@ -50,6 +51,8 @@ interface WorkspaceState {
   setActiveSpace: (id: string | null) => void;
   setActiveChannel: (id: string | null) => void;
   setActiveDM: (id: string | null) => void;
+  markChannelAsRead: (channelId: string) => void;
+  markDMAsRead: (dmId: string) => void;
   createSpaceAction: (name: string, description?: string) => Promise<any>;
   createChannelAction: (
     spaceId: string,
@@ -83,7 +86,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   isLoadingFriends: false,
 
   loadSpaces: async () => {
-    set({ isLoadingSpaces: true });
+    // 1. Hydrate from cache immediately
+    const cached = await offlineManager.getCache<SpaceSummary[]>("spaces_list");
+    if (cached && cached.length > 0) {
+      set({
+        spaces: cached,
+        activeSpaceId: get().activeSpaceId || cached[0].id,
+      });
+    }
+
+    set({ isLoadingSpaces: !cached });
     try {
       const res = await fetchSpaces();
       const rawServers = res?.servers || [];
@@ -95,6 +107,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }));
 
       const activeId = get().activeSpaceId || (formattedSpaces[0]?.id ?? null);
+      await offlineManager.setCache("spaces_list", formattedSpaces);
+
       set({
         spaces: formattedSpaces,
         activeSpaceId: activeId,
@@ -111,7 +125,17 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   loadChannelsForSpace: async (spaceId: string) => {
-    set({ isLoadingChannels: true });
+    const cachedSections = await offlineManager.getCache<ChannelSection[]>(`sections_${spaceId}`);
+    if (cachedSections && cachedSections.length > 0) {
+      set((state) => ({
+        sections: {
+          ...state.sections,
+          [spaceId]: cachedSections,
+        },
+      }));
+    }
+
+    set({ isLoadingChannels: !cachedSections });
     try {
       const res = await fetchChannels(spaceId);
       const rawChannels = res?.channels || [];
@@ -138,6 +162,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       );
 
       const firstChanId = sections[0]?.channels[0]?.id ?? null;
+      await offlineManager.setCache(`sections_${spaceId}`, sections);
+
       set((state) => ({
         sections: {
           ...state.sections,
@@ -246,8 +272,39 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
   },
 
-  setActiveChannel: (id) => set({ activeChannelId: id }),
-  setActiveDM: (id) => set({ activeDMId: id }),
+  setActiveChannel: (id) => {
+    set({ activeChannelId: id });
+    if (id) {
+      get().markChannelAsRead(id);
+    }
+  },
+  setActiveDM: (id) => {
+    set({ activeDMId: id });
+    if (id) {
+      get().markDMAsRead(id);
+    }
+  },
+
+  markChannelAsRead: (channelId: string) => {
+    set((state) => {
+      const nextSections = { ...state.sections };
+      for (const spaceId in nextSections) {
+        nextSections[spaceId] = nextSections[spaceId].map((sec) => ({
+          ...sec,
+          channels: sec.channels.map((ch) =>
+            ch.id === channelId ? { ...ch, unread: false, unreadCount: 0 } : ch
+          ),
+        }));
+      }
+      return { sections: nextSections };
+    });
+  },
+
+  markDMAsRead: (dmId: string) => {
+    set((state) => ({
+      dms: state.dms.map((d) => (d.id === dmId ? { ...d, unreadCount: 0 } : d)),
+    }));
+  },
 
   createSpaceAction: async (name: string, description?: string) => {
     const res = await apiCreateSpace(name, description);

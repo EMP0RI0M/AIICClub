@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import { colors, radius } from "../../theme/tokens";
 import { FileText, Download, ExternalLink, Image as ImageIcon } from "lucide-react-native";
+import { ImageViewerModal } from "../ui/ImageViewerModal";
+import { NativeHaptics } from "../../lib/haptics";
 
 export interface AttachmentItem {
   id?: string;
@@ -27,6 +29,7 @@ interface AttachmentCardProps {
 export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return "";
@@ -36,7 +39,10 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
   };
 
   const handleOpen = () => {
-    if (attachment.url) {
+    NativeHaptics.light();
+    if (isImage && !imageError) {
+      setViewerOpen(true);
+    } else if (attachment.url) {
       Linking.openURL(attachment.url).catch((err) =>
         console.warn("Failed to open URL:", err)
       );
@@ -51,30 +57,39 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
 
   if (isImage && !imageError) {
     return (
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={handleOpen}
-        style={styles.imageContainer}
-      >
-        {imageLoading && (
-          <View style={styles.imagePlaceholder}>
-            <ActivityIndicator size="small" color={colors.accent} />
+      <>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={handleOpen}
+          style={styles.imageContainer}
+        >
+          {imageLoading && (
+            <View style={styles.imagePlaceholder}>
+              <ActivityIndicator size="small" color={colors.accent} />
+            </View>
+          )}
+          <Image
+            source={{ uri: attachment.url }}
+            style={styles.imagePreview}
+            resizeMode="cover"
+            onLoadEnd={() => setImageLoading(false)}
+            onError={() => setImageError(true)}
+          />
+          <View style={styles.imageOverlay}>
+            <Text style={styles.imageFilename} numberOfLines={1}>
+              {attachment.name || "Image attachment"}
+            </Text>
+            <ExternalLink size={12} color={colors.textSecondary} />
           </View>
-        )}
-        <Image
-          source={{ uri: attachment.url }}
-          style={styles.imagePreview}
-          resizeMode="cover"
-          onLoadEnd={() => setImageLoading(false)}
-          onError={() => setImageError(true)}
+        </TouchableOpacity>
+
+        <ImageViewerModal
+          visible={viewerOpen}
+          imageUrl={attachment.url}
+          title={attachment.name || "Image attachment"}
+          onClose={() => setViewerOpen(false)}
         />
-        <View style={styles.imageOverlay}>
-          <Text style={styles.imageFilename} numberOfLines={1}>
-            {attachment.name || "Image attachment"}
-          </Text>
-          <ExternalLink size={12} color={colors.textSecondary} />
-        </View>
-      </TouchableOpacity>
+      </>
     );
   }
 
@@ -134,9 +149,29 @@ export function parseMessageAttachments(rawText: string): {
     });
   }
 
+  // Also auto-detect plain standalone image URLs (e.g. Supabase storage, giphy, tenor, unsplash, direct extensions)
+  const rawUrlRegex = /(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^\s]*)?)/gi;
+  let rawUrlMatch;
+  while ((rawUrlMatch = rawUrlRegex.exec(rawText)) !== null) {
+    const matchedUrl = rawUrlMatch[1];
+    if (!attachments.some((a) => a.url === matchedUrl)) {
+      const filename = matchedUrl.split("/").pop()?.split("?")[0] || "Image";
+      attachments.push({
+        name: filename,
+        url: matchedUrl,
+        kind: "image",
+      });
+    }
+  }
+
   cleanText = cleanText
     .replace(/attachment:((?:%7B.*?%7D)|(?:\{.*?\}))/gi, "")
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, "")
+    .replace(/(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^\s]*)?)/gi, (match) => {
+      // If the entire message is just the image URL, clear the text so only image displays
+      if (cleanText.trim() === match.trim()) return "";
+      return match;
+    })
     .trim();
 
   return { cleanText, attachments };

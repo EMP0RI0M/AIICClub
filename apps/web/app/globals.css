@@ -10,36 +10,137 @@
 @tailwind utilities;
 
 @layer components {
-  .liquid-glass {
-    background: rgba(255, 255, 255, 0.01);
-    background-blend-mode: luminosity;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    border: none;
-    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
-    position: relative;
-    overflow: hidden;
+  /* ── AIIC Ambient Canvas (Global Level 0/1 — Soft Atmospheric Light Behind UI) ── */
+  .aiic-ambient-canvas {
+    background-color: #000000;
+    background-image:
+      radial-gradient(circle at 12% 14%, rgba(190, 130, 35, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 88% 18%, rgba(100, 70, 180, 0.065) 0%, transparent 42%),
+      radial-gradient(circle at 50% 82%, rgba(40, 100, 140, 0.05) 0%, transparent 45%);
+    background-attachment: fixed;
   }
 
-  .liquid-glass::before {
+  .aiic-ambient-hero {
+    background-image:
+      radial-gradient(circle at 18% 22%, rgba(232, 163, 61, 0.12) 0%, transparent 45%),
+      radial-gradient(circle at 82% 25%, rgba(120, 80, 200, 0.09) 0%, transparent 48%),
+      radial-gradient(circle at 50% 75%, rgba(45, 212, 191, 0.06) 0%, transparent 50%);
+  }
+
+  .aiic-ambient-profile {
+    background-image:
+      radial-gradient(circle at 25% 15%, rgba(232, 163, 61, 0.10) 0%, transparent 42%),
+      radial-gradient(circle at 75% 30%, rgba(90, 60, 160, 0.07) 0%, transparent 45%);
+  }
+
+  .aiic-ambient-space {
+    background-image:
+      radial-gradient(circle at 10% 20%, rgba(232, 163, 61, 0.06) 0%, transparent 35%),
+      radial-gradient(circle at 90% 80%, rgba(100, 70, 180, 0.05) 0%, transparent 40%);
+  }
+
+  /* ── LEVEL 1 — SOFT GLASS (Ordinary cards, archive entries, content blocks) ── */
+  .aiic-glass-soft {
+    position: relative;
+    background: rgba(10, 10, 10, 0.65);
+    backdrop-filter: blur(14px) saturate(130%);
+    -webkit-backdrop-filter: blur(14px) saturate(130%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+      0 12px 36px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .aiic-glass-soft::before {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    padding: 1.4px;
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.45) 0%,
-      rgba(255, 255, 255, 0.15) 20%,
-      rgba(255, 255, 255, 0) 40%,
-      rgba(255, 255, 255, 0) 60%,
-      rgba(255, 255, 255, 0.15) 80%,
-      rgba(255, 255, 255, 0.45) 100%
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
     pointer-events: none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 22%);
+  }
+
+  /* ── LEVEL 2 — DEFAULT GLASS (Feature cards, project cards, workshops, Space cards) ── */
+  .aiic-glass-default,
+  .aiic-dark-glass {
+    position: relative;
+    background: rgba(12, 12, 12, 0.74);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .aiic-glass-default::before,
+  .aiic-dark-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 28%);
+  }
+
+  /* ── LEVEL 3 — PREMIUM GLASS (Hero feature, identity card, auth card, featured showcase) ── */
+  .aiic-glass-premium,
+  .aiic-featured-glass {
+    position: relative;
+    background: rgba(14, 14, 14, 0.80);
+    backdrop-filter: blur(22px) saturate(150%);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    border: 1px solid rgba(232, 163, 61, 0.28);
+    box-shadow:
+      0 24px 70px rgba(0, 0, 0, 0.65),
+      0 0 24px rgba(232, 163, 61, 0.06),
+      inset 0 1px 0 rgba(232, 163, 61, 0.18);
+  }
+
+  .aiic-glass-premium::before,
+  .aiic-featured-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(232, 163, 61, 0.12) 0%, transparent 32%);
+  }
+
+  /* ── LEVEL 4 — FLOATING GLASS (Navbars, bottom navigation, modals, popovers) ── */
+  .aiic-glass-floating {
+    position: relative;
+    background: rgba(8, 8, 8, 0.88);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow:
+      0 28px 80px rgba(0, 0, 0, 0.8),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .aiic-glass-floating::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 28%);
+  }
+
+  /* ── GLASS INTERACTIVE HOVER (Elevation + specular border lift) ── */
+  .aiic-glass-interactive {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.3s ease,
+                box-shadow 0.3s ease;
+  }
+
+  .aiic-glass-interactive:hover {
+    transform: translateY(-2px);
+    border-color: rgba(232, 163, 61, 0.35);
+    box-shadow:
+      0 24px 64px rgba(0, 0, 0, 0.6),
+      0 0 20px rgba(232, 163, 61, 0.08);
   }
 
   .font-serif-instrument {
@@ -195,7 +296,7 @@
 @layer utilities {
   /* Glassmorphism surface */
   .glass-surface {
-    background: rgba(15, 16, 26, 0.88);
+    background: rgba(10, 10, 10, 0.88);
     backdrop-filter: blur(16px) saturate(160%);
     -webkit-backdrop-filter: blur(16px) saturate(160%);
   }
@@ -416,11 +517,43 @@
   transform: scale(1.03);
 }
 
-/* Reduced-motion: keep a steady rim, drop the animation. */
-@media (prefers-reduced-motion: reduce) {
-  .speaker-ring--active::before { animation: none; opacity: 0.5; }
-  .speaker-ring--active .speaker-ring__avatar {
-    animation: none;
-    box-shadow: 0 0 0 2px rgb(var(--c-live)), 0 0 14px rgb(var(--c-live) / 0.4);
+/* ── Mermaid Error DOM Suppression (Prevent intrusive bottom-screen overlay) ── */
+#d3-render-error,
+div[id^="d3-render-error"],
+.error-icon,
+.error-text,
+body > svg[id^="mermaid-"],
+body > [id^="d3-render-error"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* ── Anti-Screenshot & Screen Capture Stealth Protection (Chess.com Style) ── */
+@media print {
+  html, body, #__next, body * {
+    visibility: hidden !important;
+    display: none !important;
   }
 }
+
+html.aiic-exam-stealth-blurred #quiz-active-exam-container,
+body.aiic-exam-stealth-blurred #quiz-active-exam-container {
+  filter: blur(90px) grayscale(100%) !important;
+  opacity: 0.02 !important;
+  user-select: none !important;
+  pointer-events: none !important;
+  transform: scale(0.97);
+  transition: none !important;
+}
+
+.aiic-watermark-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  overflow: hidden;
+  opacity: 0.035;
+  user-select: none;
+}
+

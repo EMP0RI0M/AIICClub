@@ -126,7 +126,7 @@ export default function AdminApprovalsPage() {
       </div>
 
       {/* ─── Search & Filters Bar ─── */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#121622] p-3">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-3">
         <div className="relative flex-1 w-full">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
@@ -160,7 +160,7 @@ export default function AdminApprovalsPage() {
           <Loader2 className="animate-spin text-accent" size={24} />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-12 text-center text-xs text-text-muted font-mono">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-12 text-center text-xs text-text-muted font-mono">
           No users match the selected criteria.
         </div>
       ) : (
@@ -168,7 +168,7 @@ export default function AdminApprovalsPage() {
           {filtered.map((item) => (
             <div
               key={item.id}
-              className="flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#121622] p-5 shadow-lg hover:border-white/[0.14] transition-all"
+              className="flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-5 shadow-lg hover:border-white/[0.14] transition-all"
             >
               <div>
                 {/* Header Profile Row */}
@@ -293,7 +293,7 @@ export default function AdminApprovalsPage() {
           onClick={() => setSelectedUser(null)}
         >
           <div
-            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#121622] p-6 shadow-2xl backdrop-blur-xl"
+            className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold text-text-primary flex items-center gap-2">

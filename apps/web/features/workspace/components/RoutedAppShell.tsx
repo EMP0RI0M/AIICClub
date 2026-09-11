@@ -28,6 +28,7 @@ import { notifyEvent } from "@/shared/lib/notify";
 import { AppShell } from "./AppShell";
 import { useShellData } from "./useShellData";
 import { useToastStore } from "@/shared/stores/toast-store";
+import { registerServiceWorker } from "@/shared/lib/push-client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 /** Readable URL segment from a display name — "voice-lounge", "design-crew". */
@@ -129,6 +130,13 @@ export function RoutedAppShell({ isDemo = false }: { isDemo?: boolean }) {
     )
         .sort()
         .join("|");
+
+    // Register service worker
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            registerServiceWorker();
+        }
+    }, []);
 
     // Load servers once when authenticated.
     useEffect(() => {
@@ -285,58 +293,129 @@ export function RoutedAppShell({ isDemo = false }: { isDemo?: boolean }) {
         };
     }, [isAuthenticated, activeSpaceId, setWorkspaceModules]);
 
-    // Load the active channel's messages on first open.
+    // Load and stream the active channel's messages via Vercel Edge SSE Streaming + Polling Fallback
     useEffect(() => {
         if (!isAuthenticated || !channelIdFromUrl) return;
-        if (messages[channelIdFromUrl]) return;
         let cancelled = false;
-        setLoading(channelIdFromUrl, true);
-        fetchMessages(channelIdFromUrl)
-            .then((r) => {
-                if (!cancelled) setMessages(channelIdFromUrl, r.messages, r.nextCursor, r.hasMore);
-            })
-            .catch((error) =>
-                useToastStore.getState().addToast({
-                    title: "Messages failed to load",
-                    body: error instanceof Error ? error.message : "Try opening the channel again.",
-                    variant: "error",
-                }),
-            )
-            .finally(() => setLoading(channelIdFromUrl, false));
+
+        const syncMessages = () => {
+            fetchMessages(channelIdFromUrl)
+                .then((r) => {
+                    if (cancelled) return;
+                    setMessages(channelIdFromUrl, r.messages, r.nextCursor, r.hasMore);
+                })
+                .catch(() => {});
+        };
+
+        if (!messages[channelIdFromUrl]) {
+            setLoading(channelIdFromUrl, true);
+            fetchMessages(channelIdFromUrl)
+                .then((r) => {
+                    if (!cancelled) setMessages(channelIdFromUrl, r.messages, r.nextCursor, r.hasMore);
+                })
+                .catch((error) =>
+                    useToastStore.getState().addToast({
+                        title: "Messages failed to load",
+                        body: error instanceof Error ? error.message : "Try opening the channel again.",
+                        variant: "error",
+                    }),
+                )
+                .finally(() => setLoading(channelIdFromUrl, false));
+        }
+
+        // 1. Vercel Live Edge SSE Stream
+        let eventSource: EventSource | null = null;
+        try {
+            if (typeof window !== "undefined" && window.EventSource) {
+                eventSource = new EventSource(`/api/channels/${channelIdFromUrl}/stream`);
+                eventSource.addEventListener("new_message", (e) => {
+                    try {
+                        const parsed = JSON.parse(e.data);
+                        const msg = parsed.message || parsed;
+                        if (msg && msg.id) {
+                            addMessage(channelIdFromUrl, msg);
+                        }
+                    } catch {}
+                });
+            }
+        } catch {}
+
+        // 2. High-frequency sync interval fallback (2s)
+        const interval = setInterval(syncMessages, 2000);
+
         return () => {
             cancelled = true;
+            clearInterval(interval);
+            if (eventSource) {
+                eventSource.close();
+            }
         };
-    }, [isAuthenticated, channelIdFromUrl, messages, setMessages, setLoading]);
+    }, [isAuthenticated, channelIdFromUrl, setMessages, setLoading, addMessage]);
 
+    // Load and stream active DM messages via Vercel Edge SSE Streaming + Polling Fallback
     useEffect(() => {
         if (!isAuthenticated || !dmIdFromUrl) return;
-        if (messages[dmIdFromUrl]) return;
         let cancelled = false;
-        setLoading(dmIdFromUrl, true);
-        fetchDMMessages(dmIdFromUrl)
-            .then((r) => {
-                if (!cancelled)
+
+        const syncDMs = () => {
+            fetchDMMessages(dmIdFromUrl)
+                .then((r) => {
+                    if (cancelled) return;
                     setMessages(dmIdFromUrl, r.messages as never, r.nextCursor, r.hasMore);
-            })
-            .catch((error) =>
-                useToastStore.getState().addToast({
-                    title: "Messages failed to load",
-                    body:
-                        error instanceof Error
-                            ? error.message
-                            : "Try opening the conversation again.",
-                    variant: "error",
-                }),
-            )
-            .finally(() => setLoading(dmIdFromUrl, false));
+                })
+                .catch(() => {});
+        };
+
+        if (!messages[dmIdFromUrl]) {
+            setLoading(dmIdFromUrl, true);
+            fetchDMMessages(dmIdFromUrl)
+                .then((r) => {
+                    if (!cancelled)
+                        setMessages(dmIdFromUrl, r.messages as never, r.nextCursor, r.hasMore);
+                })
+                .catch((error) =>
+                    useToastStore.getState().addToast({
+                        title: "Messages failed to load",
+                        body:
+                            error instanceof Error
+                                ? error.message
+                                : "Try opening the conversation again.",
+                        variant: "error",
+                    }),
+                )
+                .finally(() => setLoading(dmIdFromUrl, false));
+        }
+
+        // 1. Vercel Live Edge SSE Stream for DMs
+        let eventSource: EventSource | null = null;
+        try {
+            if (typeof window !== "undefined" && window.EventSource) {
+                eventSource = new EventSource(`/api/dms/${dmIdFromUrl}/stream`);
+                eventSource.addEventListener("new_dm_message", (e) => {
+                    try {
+                        const parsed = JSON.parse(e.data);
+                        const msg = parsed.message || parsed;
+                        if (msg && msg.id) {
+                            addMessage(dmIdFromUrl, msg);
+                        }
+                    } catch {}
+                });
+            }
+        } catch {}
+
+        const interval = setInterval(syncDMs, 2000);
+
         return () => {
             cancelled = true;
+            clearInterval(interval);
+            if (eventSource) {
+                eventSource.close();
+            }
         };
-    }, [isAuthenticated, dmIdFromUrl, messages, setMessages, setLoading]);
+    }, [isAuthenticated, dmIdFromUrl, setMessages, setLoading, addMessage]);
 
     // Keep one user subscription alive for notifications/calls, plus topic
-    // subscriptions for every conversation currently known to this client. The
-    // user topic covers messages from spaces that have not been opened yet.
+    // subscriptions for every conversation currently known to this client.
     useEffect(() => {
         if (!isAuthenticated || !isSupabaseConfigured() || !user) return;
 
@@ -354,11 +433,14 @@ export function RoutedAppShell({ isDemo = false }: { isDemo?: boolean }) {
 
         const applyEvent = (targetId: string, event: string, payload: unknown) => {
             const data = payload as Record<string, unknown>;
-            if (event === "new_message") addMessage(targetId, data as unknown as MessageData);
+            if (event === "new_message") {
+                const message = ((data.message || data) as unknown) as MessageData | undefined;
+                if (message && message.id) addMessage(targetId, message);
+            }
             if (event === "new_dm_message") {
-                const message = data.message as MessageData | undefined;
+                const message = ((data.message || data) as unknown) as MessageData | undefined;
                 const conversation = data.conversation as DMConversationData | null | undefined;
-                if (message) addMessage(targetId, message);
+                if (message && message.id) addMessage(targetId, message);
                 if (conversation) upsertDMConversation(conversation);
             }
             if (event === "message_update" || event === "dm_message_update") {
@@ -398,8 +480,8 @@ export function RoutedAppShell({ isDemo = false }: { isDemo?: boolean }) {
                     .on("broadcast", { event: "*" }, ({ event, payload }) => {
                         const data = payload as Record<string, unknown>;
                         if (event === "new_message") {
-                            const message = data as unknown as MessageData;
-                            if (message.channelId) {
+                            const message = ((data.message || data) as unknown) as MessageData | undefined;
+                            if (message && message.channelId) {
                                 applyEvent(message.channelId, event, payload);
                                 if (
                                     message.author.id !== user.id &&
@@ -416,8 +498,8 @@ export function RoutedAppShell({ isDemo = false }: { isDemo?: boolean }) {
                             return;
                         }
                         if (event === "new_dm_message") {
-                            const targetId = data.conversationId as string | undefined;
-                            const message = data.message as MessageData | undefined;
+                            const targetId = (data.conversationId || (data.message as any)?.conversationId) as string | undefined;
+                            const message = ((data.message || data) as unknown) as MessageData | undefined;
                             if (targetId) applyEvent(targetId, event, payload);
                             if (
                                 message &&
@@ -430,15 +512,15 @@ export function RoutedAppShell({ isDemo = false }: { isDemo?: boolean }) {
                                     body: message.content,
                                 });
                             }
-              return;
-            }
-            if (event === "presence_update") {
-              const presenceUserId = data.userId as string | undefined;
-              const status = data.status as string | undefined;
-              if (presenceUserId && status) applyUserPresence(presenceUserId, status);
-              return;
-            }
-            window.dispatchEvent(
+                            return;
+                        }
+                        if (event === "presence_update") {
+                            const presenceUserId = data.userId as string | undefined;
+                            const status = data.status as string | undefined;
+                            if (presenceUserId && status) applyUserPresence(presenceUserId, status);
+                            return;
+                        }
+                        window.dispatchEvent(
                             new CustomEvent("corvus:realtime", { detail: { event, payload } }),
                         );
                     })
@@ -453,9 +535,10 @@ export function RoutedAppShell({ isDemo = false }: { isDemo?: boolean }) {
                             window.dispatchEvent(
                                 new CustomEvent("corvus:realtime", { detail: { event, payload } }),
                             );
-                        })
+                        });
 
-                        .on(
+                    if (target.kind === "channel") {
+                        channel.on(
                             "postgres_changes",
                             {
                                 event: "*",
@@ -466,7 +549,6 @@ export function RoutedAppShell({ isDemo = false }: { isDemo?: boolean }) {
                             async (payload) => {
                                 if (payload.eventType === "INSERT") {
                                     const row = payload.new as any;
-                                    // Fetch author details
                                     const { data: authorData } = await supabase
                                         .from("users")
                                         .select("id, username, display_name, avatar_url")
@@ -503,8 +585,51 @@ export function RoutedAppShell({ isDemo = false }: { isDemo?: boolean }) {
                                     deleteMessage(target.id, row.id);
                                 }
                             }
-                        )
-                        .subscribe();
+                        );
+                    } else if (target.kind === "dm") {
+                        channel.on(
+                            "postgres_changes",
+                            {
+                                event: "*",
+                                schema: "public",
+                                table: "dm_messages",
+                                filter: `conversation_id=eq.${target.id}`,
+                            },
+                            async (payload) => {
+                                if (payload.eventType === "INSERT") {
+                                    const row = payload.new as any;
+                                    const { data: authorData } = await supabase
+                                        .from("users")
+                                        .select("id, username, display_name, avatar_url")
+                                        .eq("id", row.author_id)
+                                        .maybeSingle();
+
+                                    const formatted: MessageData = {
+                                        id: row.id,
+                                        conversationId: row.conversation_id,
+                                        authorId: row.author_id,
+                                        content: row.content,
+                                        type: "DEFAULT",
+                                        createdAt: row.created_at,
+                                        updatedAt: row.created_at,
+                                        reactions: [],
+                                        author: {
+                                            id: authorData?.id || row.author_id,
+                                            username: authorData?.username || "unknown",
+                                            displayName: authorData?.display_name || authorData?.username || "User",
+                                            avatarUrl: authorData?.avatar_url || null,
+                                        },
+                                    } as any;
+                                    addMessage(target.id, formatted);
+                                } else if (payload.eventType === "DELETE") {
+                                    const row = payload.old as any;
+                                    deleteMessage(target.id, row.id);
+                                }
+                            }
+                        );
+                    }
+
+                    channel.subscribe();
                     subscriptions.push(channel);
                 }
             })

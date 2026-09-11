@@ -7,6 +7,7 @@ import {
   Bell,
   Archive,
   Users,
+  Trophy,
   User as UserIcon,
   Shield,
   LogIn,
@@ -54,6 +55,11 @@ export function Navbar() {
       name: "Archive",
       url: "/archive",
       icon: Archive,
+    },
+    {
+      name: "Quiz",
+      url: "/quiz",
+      icon: Trophy,
     },
     {
       name: "Members",

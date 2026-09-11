@@ -43,7 +43,7 @@ roles.get("/servers/:serverId/roles", async (c) => {
     });
 
     return c.json({
-        roles: roleList.map((r) => ({
+        roles: roleList.map((r: any) => ({
             id: r.id,
             name: r.name,
             color: r.color,

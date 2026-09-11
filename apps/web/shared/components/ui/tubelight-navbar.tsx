@@ -58,8 +58,8 @@ export function NavBar({ items, className }: NavBarProps) {
           "text-sm font-medium",
           "transition-all duration-300",
           "min-h-[44px] min-w-[44px]",
-          "text-white/60 hover:text-white",
-          active && "text-white"
+          "text-zinc-400 hover:text-white",
+          active && "text-accent font-semibold"
         )}
       >
         {/* Desktop label */}
@@ -73,7 +73,7 @@ export function NavBar({ items, className }: NavBarProps) {
         {active && (
           <motion.div
             layoutId="aiic-navbar-active"
-            className="absolute inset-0 -z-10 rounded-full bg-white/[0.08]"
+            className="absolute inset-0 -z-10 rounded-full bg-accent/15 border border-accent/30"
             initial={false}
             transition={{
               type: "spring",
@@ -82,10 +82,10 @@ export function NavBar({ items, className }: NavBarProps) {
             }}
           >
             {/* Desktop top indicator */}
-            <div className="absolute -top-[3px] left-1/2 hidden h-[2px] w-7 -translate-x-1/2 rounded-full bg-white md:block" />
+            <div className="absolute -top-[3px] left-1/2 hidden h-[2px] w-7 -translate-x-1/2 rounded-full bg-accent shadow-[0_0_8px_rgba(232,163,61,0.6)] md:block" />
 
             {/* Subtle glow */}
-            <div className="absolute inset-0 rounded-full bg-white/[0.03] blur-md" />
+            <div className="absolute inset-0 rounded-full bg-accent/10 blur-sm" />
           </motion.div>
         )}
       </Link>
@@ -121,12 +121,10 @@ export function NavBar({ items, className }: NavBarProps) {
           // Desktop sizing
           "md:max-w-[1200px]",
 
-          // Glass
+          // Floating Glass Level 4
           "rounded-full",
-          "border border-white/[0.10]",
-          "bg-black/45",
-          "backdrop-blur-2xl",
-          "shadow-2xl shadow-black/30",
+          "aiic-glass-floating",
+          "shadow-2xl shadow-black/80",
 
           // Spacing
           "gap-0.5 p-1 md:gap-1.5 md:p-1.5",

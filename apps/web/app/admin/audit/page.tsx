@@ -89,7 +89,7 @@ export default function AdminAuditPage() {
       {/* ─── Filters & Search ─── */}
       <form
         onSubmit={handleSearchSubmit}
-        className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#121622] p-3"
+        className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-3"
       >
         <div className="relative flex-1 w-full">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -126,11 +126,11 @@ export default function AdminAuditPage() {
           <Loader2 className="animate-spin text-accent" size={24} />
         </div>
       ) : logs.length === 0 ? (
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-12 text-center text-xs text-text-muted font-mono">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-12 text-center text-xs text-text-muted font-mono">
           No audit records found.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121622] shadow-xl">
+        <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a] shadow-xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="border-b border-white/[0.08] bg-white/[0.02] font-mono text-[11px] uppercase tracking-wider text-text-muted">

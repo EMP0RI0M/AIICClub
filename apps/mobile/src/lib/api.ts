@@ -19,10 +19,7 @@ import {
 
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, "") ||
-  // The web app and API are separate Vercel projects. Keep this fallback on
-  // the API deployment; Expo builds otherwise silently receive the web app's
-  // HTML 404 pages from aiic-bbs.vercel.app/api/*.
-  "https://aiic-api.vercel.app/api";
+  "https://aiic-bbs.vercel.app/api";
 
 let memoryToken: string | null = null;
 
@@ -153,10 +150,25 @@ export async function fetchChannels(spaceId: string): Promise<{ channels: any[] 
   return api<{ channels: any[] }>(`/servers/${spaceId}/channels`);
 }
 
-export async function createSpace(name: string, description?: string) {
+export async function createSpace(
+  payloadOrName:
+    | string
+    | {
+        name: string;
+        description?: string;
+        iconUrl?: string;
+        channels?: Array<{ name: string; type: string; category?: string }>;
+      },
+  description?: string
+) {
+  const body =
+    typeof payloadOrName === "string"
+      ? { name: payloadOrName, description }
+      : payloadOrName;
+
   return api<{ server: any }>("/servers", {
     method: "POST",
-    body: JSON.stringify({ name, description }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -221,6 +233,12 @@ export async function removeMessageReaction(
   });
 }
 
+export async function deleteChannelMessage(messageId: string) {
+  return api<{ message: string }>(`/messages/${messageId}`, {
+    method: "DELETE",
+  });
+}
+
 // ─────────────────────────────────────────────────────────────
 // 4. DIRECT MESSAGES & FRIENDS
 // ─────────────────────────────────────────────────────────────
@@ -257,6 +275,21 @@ export async function sendDMMessage(
     method: "POST",
     body: JSON.stringify({ content, replyToId }),
   });
+}
+
+export async function deleteDMMessage(dmId: string, messageId: string) {
+  return api<{ message: string }>(`/dms/${dmId}/messages/${messageId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchGifs(query?: string, category?: string) {
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  if (category) params.set("category", category);
+  return api<{ gifs: Array<{ id: string; title: string; url: string; previewUrl?: string }> }>(
+    `/gifs?${params.toString()}`
+  );
 }
 
 export async function fetchFriendsDashboard() {
@@ -439,5 +472,106 @@ export async function saveCanvasState(channelId: string, data: any) {
   return api<{ data: any }>(`/channels/${channelId}/canvas`, {
     method: "PUT",
     body: JSON.stringify({ data }),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// 8. SPACE CREATION & ADMIN MUTATIONS
+// ─────────────────────────────────────────────────────────────
+
+export async function deleteSpace(spaceId: string, reason?: string) {
+  return api<{ success: boolean; action: string }>("/admin/spaces/manage", {
+    method: "POST",
+    body: JSON.stringify({ spaceId, action: "delete", reason }),
+  });
+}
+
+export async function assignUserRole(
+  targetUserId: string,
+  roleKey: string,
+  reason?: string,
+  confirmHighPrivilege?: boolean
+) {
+  return api<{ success: boolean; user: any }>("/admin/users/role", {
+    method: "POST",
+    body: JSON.stringify({
+      targetUserId,
+      roleKey,
+      reason,
+      confirmHighPrivilege,
+    }),
+  });
+}
+
+export async function appointTeamLeader(
+  teamId: string,
+  userId: string,
+  reason?: string
+) {
+  return api<{ success: boolean; action: string }>("/admin/teams/mutate", {
+    method: "POST",
+    body: JSON.stringify({
+      teamId,
+      action: "appoint_leader",
+      userId,
+      reason,
+    }),
+  });
+}
+
+export async function removeTeamLeader(teamId: string, reason?: string) {
+  return api<{ success: boolean; action: string }>("/admin/teams/mutate", {
+    method: "POST",
+    body: JSON.stringify({
+      teamId,
+      action: "remove_leader",
+      reason,
+    }),
+  });
+}
+
+export async function setTeamPool(
+  teamId: string,
+  pool: "Upper Pool" | "Lower Pool",
+  position?: number
+) {
+  return api<{ success: boolean; action: string; position: number; pool: string }>(
+    "/admin/teams/mutate",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        teamId,
+        action: "set_pool",
+        pool,
+        position,
+      }),
+    }
+  );
+}
+
+export async function addTeamMember(
+  teamId: string,
+  userId: string,
+  role = "member"
+) {
+  return api<{ success: boolean; action: string }>("/admin/teams/mutate", {
+    method: "POST",
+    body: JSON.stringify({
+      teamId,
+      action: "add_member",
+      userId,
+      role,
+    }),
+  });
+}
+
+export async function removeTeamMember(teamId: string, userId: string) {
+  return api<{ success: boolean; action: string }>("/admin/teams/mutate", {
+    method: "POST",
+    body: JSON.stringify({
+      teamId,
+      action: "remove_member",
+      userId,
+    }),
   });
 }

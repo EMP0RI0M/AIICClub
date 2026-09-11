@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { cn } from "@corvus/ui";
 import {
   Plus,
@@ -58,6 +58,23 @@ export function Composer({
   const [pending, setPending] = useState<Attachment[]>([]);
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close popovers on click outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setAttachOpen(false);
+        setPicker(null);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("touchstart", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+    };
+  }, []);
 
   // “@token” at the caret end opens the mention menu.
   const mentionMatch = members?.length ? /(?:^|\s)@(\w*)$/.exec(value) : null;
@@ -109,11 +126,11 @@ export function Composer({
   };
 
   return (
-    <div className="relative z-10 shrink-0 px-3 pb-3 sm:px-4 sm:pb-4 pb-[max(0.85rem,env(safe-area-inset-bottom))]">
+    <div ref={containerRef} className="relative z-10 shrink-0 px-3 pb-3 sm:px-4 sm:pb-4 pb-[max(0.85rem,env(safe-area-inset-bottom))]">
       {/* ─── Floating Glass Capsule Container ─── */}
       <div
         className={cn(
-          "relative flex flex-col rounded-[24px] border bg-[#131824]/80 backdrop-blur-xl transition-all duration-200 shadow-[0_8px_32px_rgba(0,0,0,0.36),inset_0_1px_0_rgba(255,255,255,0.08)]",
+          "relative flex flex-col rounded-[24px] border bg-[#0a0a0a]/80 backdrop-blur-xl transition-all duration-200 shadow-[0_8px_32px_rgba(0,0,0,0.36),inset_0_1px_0_rgba(255,255,255,0.08)]",
           focused
             ? "border-accent/40 shadow-[0_8px_32px_rgba(var(--c-accent-rgb,138,92,246),0.18),inset_0_1px_0_rgba(255,255,255,0.12)]"
             : "border-white/[0.08]"
@@ -206,7 +223,7 @@ export function Composer({
             {/* Floating Attachment Menu */}
             {attachOpen && (
               <div
-                className="absolute bottom-full left-0 z-30 mb-2 min-w-[200px] rounded-2xl border border-white/[0.12] bg-[#161c29]/95 p-1.5 backdrop-blur-xl shadow-[0_12px_32px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-150"
+                className="absolute bottom-full left-0 z-30 mb-2 min-w-[200px] rounded-2xl border border-white/[0.12] bg-[#0d0d0d]/95 p-1.5 backdrop-blur-xl shadow-[0_12px_32px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-150"
               >
                 <AttachItem
                   icon={<FileUp size={15} className="text-accent" />}
@@ -290,7 +307,7 @@ export function Composer({
               <div className="absolute bottom-full right-0 z-30 mb-2">
                 <GifPicker
                   onPick={(gif: { url: string; name: string }) => {
-                    onSend?.("", [{ kind: "gif", name: gif.name, url: gif.url }]);
+                    setPending((prev) => [...prev, { kind: "gif", name: gif.name, url: gif.url }]);
                     setPicker(null);
                   }}
                 />

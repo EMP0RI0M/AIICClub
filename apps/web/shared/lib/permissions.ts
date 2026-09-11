@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { api } from "./api";
+import { useAuthStore } from "@/features/auth/store/auth-store";
 
 export interface UserPermissionsState {
     role: string;
@@ -49,12 +50,13 @@ export const usePermissionStore = create<UserPermissionsState>((set, get) => ({
                 initialized: true,
             });
         } catch (err) {
-            console.error("[PERMISSIONS] Fetch error:", err);
-            // Default safe visitor fallback
+            const authUser = useAuthStore.getState().user;
+            const fallbackRole = authUser?.role || "visitor";
+            const fallbackRoleName = authUser?.role === "president_admin" ? "President + Admin" : (authUser?.role || "Visitor");
             set({
-                role: "visitor",
-                roleName: "Visitor",
-                hierarchyLevel: 10,
+                role: fallbackRole,
+                roleName: fallbackRoleName,
+                hierarchyLevel: ["president_admin", "admin", "president"].includes(fallbackRole) ? 100 : 10,
                 permissions: new Set(["MESSAGE_SEND", "REACTION_ADD", "BOARD_VIEW", "DOCS_VIEW"]),
                 isTeamLeader: false,
                 loading: false,
@@ -65,22 +67,25 @@ export const usePermissionStore = create<UserPermissionsState>((set, get) => ({
 
     can: (permissionKey: string) => {
         const { role, permissions } = get();
-        const r = (role || "").toLowerCase().trim();
-        if (r === "admin" || r === "president" || r === "president_admin") return true;
+        const authRole = useAuthStore.getState().user?.role;
+        const effectiveRole = (authRole || role || "").toLowerCase().trim();
+        if (["admin", "president", "president_admin"].includes(effectiveRole)) return true;
         return permissions.has(permissionKey);
     },
 
     hasAny: (permissionKeys: string[]) => {
         const { role, permissions } = get();
-        const r = (role || "").toLowerCase().trim();
-        if (r === "admin" || r === "president" || r === "president_admin") return true;
+        const authRole = useAuthStore.getState().user?.role;
+        const effectiveRole = (authRole || role || "").toLowerCase().trim();
+        if (["admin", "president", "president_admin"].includes(effectiveRole)) return true;
         return permissionKeys.some((k) => permissions.has(k));
     },
 
     hasAll: (permissionKeys: string[]) => {
         const { role, permissions } = get();
-        const r = (role || "").toLowerCase().trim();
-        if (r === "admin" || r === "president" || r === "president_admin") return true;
+        const authRole = useAuthStore.getState().user?.role;
+        const effectiveRole = (authRole || role || "").toLowerCase().trim();
+        if (["admin", "president", "president_admin"].includes(effectiveRole)) return true;
         return permissionKeys.every((k) => permissions.has(k));
     },
 }));
@@ -88,6 +93,7 @@ export const usePermissionStore = create<UserPermissionsState>((set, get) => ({
 /** Reactive hook to check permissions in any component */
 export function usePermissions(spaceId?: string) {
     const store = usePermissionStore();
+    const authUser = useAuthStore((s) => s.user);
 
     useEffect(() => {
         if (spaceId && (store.spaceId !== spaceId || !store.initialized) && !store.loading) {
@@ -95,10 +101,14 @@ export function usePermissions(spaceId?: string) {
         }
     }, [spaceId, store.spaceId, store.initialized, store.loading]);
 
+    const effectiveRole = (store.role && store.role !== "visitor") ? store.role : (authUser?.role || store.role || "visitor");
+    const effectiveRoleName = (store.roleName && store.roleName !== "Visitor") ? store.roleName : (authUser?.role === "president_admin" ? "President + Admin" : authUser?.role || store.roleName || "Visitor");
+    const effectiveHierarchy = ["president_admin", "president", "admin"].includes(effectiveRole) ? 100 : store.hierarchyLevel;
+
     return {
-        role: store.role,
-        roleName: store.roleName,
-        hierarchyLevel: store.hierarchyLevel,
+        role: effectiveRole,
+        roleName: effectiveRoleName,
+        hierarchyLevel: effectiveHierarchy,
         isTeamLeader: store.isTeamLeader,
         loading: store.loading,
         initialized: store.initialized,

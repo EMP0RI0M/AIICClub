@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
         // Fetch team memberships
         const { data: teamMembers } = await supabase
             .from("aiic_team_members")
-            .select("user_id, role, team:aiic_teams(id, name, key, position)")
+            .select("user_id, position, team:aiic_teams(id, name, key, position)")
             .in("user_id", userIds);
 
         const teamMap = new Map<string, any[]>();
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
                 teamName: tm.team?.name,
                 teamKey: tm.team?.key,
                 position: tm.team?.position,
-                memberRole: tm.role,
+                memberRole: tm.position || "member",
                 pool: (tm.team?.position || 99) <= 2 ? "Upper Pool" : "Lower Pool",
             });
             teamMap.set(tm.user_id, list);

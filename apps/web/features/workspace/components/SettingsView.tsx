@@ -524,7 +524,7 @@ function SpaceProfileSettings({
 
         {/* Create / Customize Invite Form */}
         {showCreateForm && (
-          <form onSubmit={handleCreateInvite} className="mt-4 rounded-2xl border border-white/[0.1] bg-[#121622]/90 p-4 sm:p-5 backdrop-blur-xl shadow-lg space-y-4">
+          <form onSubmit={handleCreateInvite} className="mt-4 rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/90 p-4 sm:p-5 backdrop-blur-xl shadow-lg space-y-4">
             <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-text-primary">
               Custom Invite Configuration
             </h3>
@@ -639,7 +639,7 @@ function SpaceProfileSettings({
               return (
                 <div
                   key={inv.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-[#121622]/70 p-3.5 backdrop-blur-md transition-all hover:border-accent/40"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-[#0a0a0a]/70 p-3.5 backdrop-blur-md transition-all hover:border-accent/40"
                 >
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
@@ -904,7 +904,7 @@ function IntegrationsSettings({ spaceId = "default" }: { spaceId?: string }) {
   return (
     <div className="mt-6 space-y-6">
       {/* GitHub First-Class Card */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-5 shadow-xl space-y-4">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-5 shadow-xl space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/15 border border-accent/25 text-accent">

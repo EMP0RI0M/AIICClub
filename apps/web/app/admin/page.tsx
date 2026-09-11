@@ -91,7 +91,7 @@ export default function AdminOverviewPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* ─── Top Welcome & Banner ─── */}
-      <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-r from-[#141926] via-[#10141f] to-[#0c0f17] p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
+      <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-r from-[#0c0c0c] via-[#080808] to-[#050505] p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
         <div className="pointer-events-none absolute -top-24 right-10 h-48 w-48 rounded-full bg-accent/15 blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -121,7 +121,7 @@ export default function AdminOverviewPage() {
 
       {/* ─── Metric KPI Cards ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-5 shadow-lg">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-5 shadow-lg">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono uppercase tracking-wider text-text-muted">Total Users</span>
             <Users size={16} className="text-accent" />
@@ -132,7 +132,7 @@ export default function AdminOverviewPage() {
           <span className="text-[11px] text-text-muted/80 mt-1 block">Registered in database</span>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-5 shadow-lg">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-5 shadow-lg">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono uppercase tracking-wider text-text-muted">Pending Review</span>
             <UserCheck size={16} className="text-amber-400" />
@@ -143,7 +143,7 @@ export default function AdminOverviewPage() {
           <span className="text-[11px] text-text-muted/80 mt-1 block">Awaiting role approval</span>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-5 shadow-lg">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-5 shadow-lg">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono uppercase tracking-wider text-text-muted">Active Spaces</span>
             <FolderKanban size={16} className="text-blue-400" />
@@ -156,7 +156,7 @@ export default function AdminOverviewPage() {
           </span>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-5 shadow-lg">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-5 shadow-lg">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono uppercase tracking-wider text-text-muted">Teams</span>
             <Layers size={16} className="text-emerald-400" />
@@ -169,7 +169,7 @@ export default function AdminOverviewPage() {
       </div>
 
       {/* ─── Role Distribution & Hierarchy ─── */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-6 shadow-xl">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-6 shadow-xl">
         <div className="flex items-center justify-between mb-5">
           <div>
             <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
@@ -215,7 +215,7 @@ export default function AdminOverviewPage() {
       </div>
 
       {/* ─── Recent Governance Activity ─── */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#121622] p-6 shadow-xl">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#0a0a0a] p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-base font-bold text-text-primary flex items-center gap-2">

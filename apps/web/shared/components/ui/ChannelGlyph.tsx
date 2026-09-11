@@ -9,6 +9,7 @@ import {
   Presentation,
   GitPullRequest,
   TriangleAlert,
+  Terminal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ export type ChannelType =
   | "announcement"
   | "board"
   | "docs"
+  | "notebook"
   | "canvas"
   | "github"
   | "incident";
@@ -31,6 +33,7 @@ const ICON: Record<ChannelType, LucideIcon> = {
   announcement: Megaphone,
   board: SquareKanban,
   docs: FileText,
+  notebook: Terminal,
   canvas: Presentation,
   github: GitPullRequest,
   incident: TriangleAlert,

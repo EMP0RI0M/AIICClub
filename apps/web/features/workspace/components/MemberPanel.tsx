@@ -26,7 +26,7 @@ export function MemberPanel({
   const offline = members.filter((m) => !m.presence || m.presence === "offline");
 
   return (
-    <aside className="absolute inset-0 z-30 flex h-full w-full shrink-0 flex-col bg-[#0e121a]/95 border-l border-white/[0.08] backdrop-blur-2xl shadow-2xl lg:static lg:w-[240px] lg:bg-[#0e121a]/85 lg:backdrop-blur-xl">
+    <aside className="absolute inset-0 z-30 flex h-full w-full shrink-0 flex-col bg-[#050505]/95 border-l border-white/[0.08] backdrop-blur-2xl shadow-2xl lg:static lg:w-[240px] lg:bg-[#050505]/90 lg:backdrop-blur-xl">
       <header className="flex h-13 shrink-0 items-center justify-between border-b border-white/[0.06] px-4">
         <span className="text-[14px] font-bold text-text-primary">Space Members</span>
         <button
@@ -68,7 +68,7 @@ function Group({ label, members, dim }: { label: string; members: MemberRef[]; d
               </div>
               <span
                 className={cn(
-                  "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0e121a]",
+                  "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#050505]",
                   DOT[m.presence ?? "offline"]
                 )}
               />

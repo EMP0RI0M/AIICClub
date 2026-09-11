@@ -1,11 +1,12 @@
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
-import { Users, Search, Pin, Phone, Video, AtSign, ArrowLeft, X, ExternalLink, Globe, Shield, Calendar } from "lucide-react";
+import { Users, Search, Pin, Phone, Video, AtSign, ArrowLeft, X, ExternalLink, Globe, Shield, Calendar, Sparkles } from "lucide-react";
 import { ChannelGlyph, Avatar, type ChannelType } from "@/shared/components/ui";
 
 import { EmptyState } from "@corvus/ui";
 import type { Attachment, ChatMessage, MemberRef } from "./types";
 import { Composer } from "./Composer";
 import { MessageFeed } from "./MessageFeed";
+import { KnowledgePopout } from "@/features/knowledge/KnowledgePopout";
 
 /** Channel message view (Premium Glass / Liquid UI refinement). */
 export function MessageArea({
@@ -71,6 +72,7 @@ export function MessageArea({
   const prependHeight = useRef<number | null>(null);
   const loadRequested = useRef(false);
   const [showNewMessages, setShowNewMessages] = useState(false);
+  const [showKnowledgePopout, setShowKnowledgePopout] = useState(false);
 
   useLayoutEffect(() => {
     const element = scrollRef.current;
@@ -112,7 +114,7 @@ export function MessageArea({
   };
 
   return (
-    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-[#0b0e14] overflow-hidden">
+    <section className="relative flex h-full min-w-0 flex-1 flex-col bg-black overflow-hidden">
       {/* Background Ambient Depth Glow */}
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
         <div className="absolute -top-32 right-1/4 h-[380px] w-[500px] rounded-full bg-accent/5 blur-[120px]" />
@@ -120,8 +122,8 @@ export function MessageArea({
       </div>
 
       {/* ─── Floating Glass Header Capsule ─── */}
-      <div className="relative z-10 px-3 pt-3 sm:px-4 sm:pt-4">
-        <header className="flex h-13 shrink-0 items-center justify-between rounded-[20px] border border-white/[0.08] bg-[#121722]/75 px-3.5 sm:px-4 py-2.5 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
+      <div className="relative z-10 px-2.5 pt-2 sm:px-4 sm:pt-4">
+        <header className="flex h-11 sm:h-13 shrink-0 items-center justify-between rounded-[16px] sm:rounded-[20px] border border-white/[0.08] bg-[#0a0a0a]/85 px-3 sm:px-4 py-1.5 sm:py-2.5 backdrop-blur-xl shadow-[0_4px_20px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)]">
           <div className="flex min-w-0 items-center gap-2.5">
             {onBack && (
               <button
@@ -194,6 +196,12 @@ export function MessageArea({
             <HeaderGlassIcon label="Search" onClick={onOpenSearch}>
               <Search size={16} />
             </HeaderGlassIcon>
+            <HeaderGlassIcon
+              label="AIIC Knowledge Engine"
+              onClick={() => setShowKnowledgePopout(true)}
+            >
+              <Sparkles size={16} className="text-cyan-400" />
+            </HeaderGlassIcon>
           </div>
         </header>
       </div>
@@ -202,7 +210,7 @@ export function MessageArea({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="relative z-0 flex flex-1 flex-col overflow-y-auto px-1 sm:px-2 py-4 scrollbar-thin scrollbar-thumb-white/10"
+        className="relative z-0 flex flex-1 flex-col overflow-y-auto px-1 sm:px-2 pt-2 pb-32 sm:pb-36 scrollbar-thin scrollbar-thumb-white/10"
       >
         {loading && messages.length === 0 ? (
           <div aria-label="Loading messages" className="space-y-4 px-4 py-6">
@@ -274,6 +282,13 @@ export function MessageArea({
           onClose={() => setShowProfileModal(false)}
         />
       )}
+
+      {/* ─── AIIC Knowledge Engine Drawer ─── */}
+      <KnowledgePopout
+        isOpen={showKnowledgePopout}
+        onClose={() => setShowKnowledgePopout(false)}
+        channelName={channelName}
+      />
     </section>
   );
 }
@@ -336,7 +351,7 @@ function FriendProfileModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-sm overflow-hidden rounded-[28px] border border-white/10 bg-[#121622] p-6 shadow-2xl backdrop-blur-xl"
+        className="relative w-full max-w-sm overflow-hidden rounded-[28px] border border-white/10 bg-[#080808] p-6 shadow-2xl backdrop-blur-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}

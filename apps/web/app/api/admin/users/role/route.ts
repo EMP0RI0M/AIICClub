@@ -72,9 +72,19 @@ export async function POST(req: NextRequest) {
             .from("organization_roles")
             .select("id, key, name, hierarchy_level")
             .eq("key", roleKey)
-            .single();
+            .maybeSingle();
 
-        if (rErr || !roleRow) {
+        let resolvedRole = roleRow;
+        if (!resolvedRole && roleKey === "bot") {
+            const { data: createdBotRole } = await supabase
+                .from("organization_roles")
+                .upsert({ key: "bot", name: "AI Bot Sentinel", hierarchy_level: 65 }, { onConflict: "key" })
+                .select("id, key, name, hierarchy_level")
+                .single();
+            resolvedRole = createdBotRole;
+        }
+
+        if (!resolvedRole) {
             return NextResponse.json({ error: `Role '${roleKey}' does not exist.` }, { status: 400 });
         }
 
@@ -93,7 +103,7 @@ export async function POST(req: NextRequest) {
             .insert({
                 server_id: serverId,
                 user_id: targetUserId,
-                role_id: roleRow.id,
+                role_id: resolvedRole.id,
                 is_active: true,
                 assigned_by: auth.user.id,
             });
@@ -105,7 +115,7 @@ export async function POST(req: NextRequest) {
         await supabase
             .from("users")
             .update({
-                role: roleRow.key,
+                role: resolvedRole.key,
                 updated_at: new Date().toISOString(),
             })
             .eq("id", targetUserId);
@@ -117,12 +127,12 @@ export async function POST(req: NextRequest) {
             action: "ROLE_CHANGED",
             category: "governance",
             entity_type: "organization_roles",
-            entity_id: roleRow.id,
+            entity_id: resolvedRole.id,
             metadata: {
                 previous_role: targetUser.role,
-                new_role: roleRow.key,
-                role_name: roleRow.name,
-                hierarchy_level: roleRow.hierarchy_level,
+                new_role: resolvedRole.key,
+                role_name: resolvedRole.name,
+                hierarchy_level: resolvedRole.hierarchy_level,
                 reason: reason || "Administrative role change",
                 actor_username: auth.user.username,
             },
@@ -132,9 +142,9 @@ export async function POST(req: NextRequest) {
             success: true,
             user: {
                 id: targetUserId,
-                roleKey: roleRow.key,
-                roleName: roleRow.name,
-                hierarchyLevel: roleRow.hierarchy_level,
+                roleKey: resolvedRole.key,
+                roleName: resolvedRole.name,
+                hierarchyLevel: resolvedRole.hierarchy_level,
             },
         });
     } catch (err: any) {

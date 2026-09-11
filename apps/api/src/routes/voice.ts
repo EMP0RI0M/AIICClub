@@ -173,7 +173,7 @@ voice.get("/servers/:serverId/voice/states", async (c) => {
         where: { serverId, type: { in: ["voice", "stage"] } },
         select: { id: true },
     });
-    const channelIds = voiceChannels.map((ch) => ch.id);
+    const channelIds = voiceChannels.map((ch: any) => ch.id);
 
     const rows = await prisma.voiceParticipant.findMany({
         where: { channelId: { in: channelIds } },

@@ -124,6 +124,32 @@ export function parseAttachmentContent(content: string): SharedAttachment | null
     }
 }
 
+export function parseMessageContent(rawContent: string): {
+    text: string;
+    attachments: SharedAttachment[];
+} {
+    if (!rawContent) return { text: "", attachments: [] };
+
+    const lines = rawContent.split("\n");
+    const textLines: string[] = [];
+    const attachments: SharedAttachment[] = [];
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        const singleAttachment = parseAttachmentContent(trimmed);
+        if (singleAttachment) {
+            attachments.push(singleAttachment);
+        } else {
+            textLines.push(line);
+        }
+    }
+
+    return {
+        text: textLines.join("\n").trim(),
+        attachments,
+    };
+}
+
 export function formatAttachmentSize(bytes: number): string {
     if (!bytes || bytes <= 0) return "";
     if (bytes < 1024) return `${bytes} B`;

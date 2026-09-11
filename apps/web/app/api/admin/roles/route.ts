@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminBoardAccess } from "@/shared/lib/admin-auth";
 import { getSupabaseAdmin } from "@/shared/supabase/admin";
+import { ensureBotEntity } from "@/shared/lib/bot-sentinel";
 
 export async function GET(req: NextRequest) {
     const auth = await verifyAdminBoardAccess(req);
@@ -9,6 +10,7 @@ export async function GET(req: NextRequest) {
     }
 
     const supabase = getSupabaseAdmin();
+    await ensureBotEntity();
 
     try {
         // Fetch all organizational roles ordered by hierarchy level descending
@@ -22,7 +24,7 @@ export async function GET(req: NextRequest) {
         // Fetch active assignments count per role
         const { data: assignments } = await supabase
             .from("organization_role_assignments")
-            .select("role_id, user_id, is_active, user:users(id, username, display_name, avatar_url, email)")
+            .select("role_id, user_id, is_active, user:users!user_id(id, username, display_name, avatar_url, email)")
             .eq("is_active", true);
 
         const holdersMap = new Map<string, any[]>();

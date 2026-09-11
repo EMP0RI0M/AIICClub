@@ -101,7 +101,7 @@ channels.get("/servers/:serverId/channels", async (c) => {
     });
 
     const visible = await Promise.all(
-        channelList.map(async (channel) => {
+        channelList.map(async (channel: any) => {
             const access = await getChannelAccess(prisma, channel.id, userId);
             return access && hasPermission(access.permissions, Permissions.VIEW_CHANNEL)
                 ? channel
@@ -109,7 +109,7 @@ channels.get("/servers/:serverId/channels", async (c) => {
         })
     );
 
-    return c.json({ channels: visible.filter((channel) => channel !== null) });
+    return c.json({ channels: visible.filter((channel: any) => channel !== null) });
 });
 
 // ─── PATCH /channels/:id — Update channel ───────────────────────

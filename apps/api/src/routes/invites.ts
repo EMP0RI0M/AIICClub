@@ -164,7 +164,7 @@ invites.post("/invites/:code/join", async (c) => {
 
     // Claim a limited invite and create membership atomically. The conditional
     // update prevents concurrent requests from exceeding maxUses.
-    const joined = await prisma.$transaction(async (tx) => {
+    const joined = await prisma.$transaction(async (tx: any) => {
         if (invite.maxUses !== null) {
             const claimed = await tx.invite.updateMany({
                 where: { id: invite.id, uses: { lt: invite.maxUses } },

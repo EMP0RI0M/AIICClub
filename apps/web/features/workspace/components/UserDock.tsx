@@ -78,7 +78,7 @@ export function UserDock({
       {/* ─── Floating Liquid Glass Status Panel ─── */}
       {open && (
         <div
-          className="absolute bottom-full left-2 right-2 z-50 mb-2 rounded-[22px] border border-white/[0.12] bg-[#141926]/95 p-4 backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.12)] animate-in fade-in zoom-in-95 duration-150"
+          className="aiic-glass-floating absolute bottom-full left-2 right-2 z-50 mb-2 rounded-[22px] p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         >
           {/* User Header */}
           <div className="flex items-center gap-3 border-b border-white/[0.08] pb-3.5">
@@ -88,7 +88,7 @@ export function UserDock({
               </div>
               <span
                 className={cn(
-                  "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#141926]",
+                  "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#0a0a0a]",
                   PRESENCE_DOT[presence]
                 )}
               />
@@ -186,7 +186,7 @@ export function UserDock({
       )}
 
       {/* ─── Floating Glass Capsule Dock Bar ─── */}
-      <div className="flex h-[58px] items-center justify-between rounded-[20px] border border-white/[0.08] bg-[#121622]/80 px-2.5 backdrop-blur-xl shadow-[0_6px_20px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.08)]">
+      <div className="flex h-[58px] items-center justify-between rounded-[20px] aiic-glass-default px-2.5 shadow-xl">
         <button
           type="button"
           aria-label="Set status"
@@ -200,7 +200,7 @@ export function UserDock({
             </div>
             <span
               className={cn(
-                "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#121622]",
+                "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#080808]",
                 PRESENCE_DOT[presence]
               )}
             />
