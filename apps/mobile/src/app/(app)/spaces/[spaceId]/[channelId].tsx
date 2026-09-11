@@ -603,6 +603,7 @@ function TextChannelScreen({
       {/* Ambient Color Glows for Liquid Glass Refraction */}
       <View style={styles.ambientGlowAmber} pointerEvents="none" />
       <View style={styles.ambientGlowTeal} pointerEvents="none" />
+      <View style={styles.ambientGlowPurple} pointerEvents="none" />
 
       {/* Curved Liquid Glass Header */}
       <View style={styles.channelHeader}>
@@ -824,125 +825,152 @@ function NativeMessageList({
                 </View>
               )}
 
-              <Pressable
-                delayLongPress={150}
-                onLongPress={() => {
-                  NativeHaptics.medium();
-                  setSelectedMessage(item);
-                  setActionMenuOpen(true);
-                }}
-                style={({ pressed }) => [
-                  styles.messageRow,
-                  isOwnMessage && styles.ownMessageRow,
-                  pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] },
+              <View
+                style={[
+                  styles.messageRowWrapper,
+                  isOwnMessage && styles.messageRowWrapperOwn,
                 ]}
               >
-                <Pressable
-                  onPress={() => {
-                    fetchUserProfile(item.user.id).then((res) => onOpenProfile?.(res.user)).catch(() => onOpenProfile?.({
-                      id: item.user.id,
-                      displayName: item.user.displayName,
-                      username: item.user.displayName.toLowerCase().replace(/\s+/g, ""),
-                      avatarUrl: item.user.avatarUrl,
-                      status: "online",
-                    }));
-                  }}
-                  hitSlop={6}
-                >
-                  {item.user?.avatarUrl ? (
-                    <Image source={{ uri: item.user.avatarUrl }} style={styles.messageAvatar} />
-                  ) : (
-                    <View style={styles.messageAvatarFallback}>
-                      <Text style={styles.avatarLetter}>
-                        {(item.user?.displayName || "U").charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
-
-                <View style={styles.messageBody}>
-                  <View style={styles.messageHeader}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                      <Text
-                        style={[
-                          styles.displayName,
-                          {
-                            color:
-                              item.user?.displayName?.includes("Bot") ||
-                              item.user?.id === "00000000-0000-0000-0000-000000000001"
-                                ? "#818CF8"
-                                : item.user?.roleColor || colors.textPrimary,
-                          },
-                        ]}
-                      >
-                        {item.user?.displayName || "Member"}
-                      </Text>
-                      {(item.user?.displayName?.includes("Bot") ||
-                        item.user?.id === "00000000-0000-0000-0000-000000000001") && (
-                        <View
-                          style={{
-                            backgroundColor: "rgba(99, 102, 241, 0.2)",
-                            borderColor: "rgba(99, 102, 241, 0.4)",
-                            borderWidth: 1,
-                            borderRadius: 4,
-                            paddingHorizontal: 4,
-                            paddingVertical: 1,
-                          }}
-                        >
-                          <Text style={{ color: "#818CF8", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>
-                            BOT
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-
-                    <Text style={styles.timestamp}>
-                      {item.createdAt
-                        ? new Date(item.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : ""}
-                    </Text>
-                  </View>
-
-                {cleanText ? <Text style={styles.messageText}>{cleanText}</Text> : null}
-
-                {attachments.map((att, idx) => (
-                  <AttachmentCard key={idx} attachment={att} />
-                ))}
-
-                {item.attachment?.url && isImageUrl(item.attachment.url, item.attachment.mimeType) && (
-                  <Image source={{ uri: item.attachment.url }} style={styles.attachmentImage} resizeMode="cover" />
-                )}
-
-                {item.attachment?.url && !isImageUrl(item.attachment.url, item.attachment.mimeType) && (
-                  <View style={styles.fileCard}>
-                    <Text style={styles.fileName}>{item.attachment.name || "Attachment"}</Text>
-                  </View>
-                )}
-
-                {/* Thread Indicator Badge if message has replies */}
-                {messages.filter((m) => m.replyTo?.id === item.id).length > 0 && (
+                {!isOwnMessage && (
                   <Pressable
-                    onPress={() => onOpenThread?.(item)}
-                    style={styles.threadIndicatorBadge}
+                    onPress={() => {
+                      fetchUserProfile(item.user.id).then((res) => onOpenProfile?.(res.user)).catch(() => onOpenProfile?.({
+                        id: item.user.id,
+                        displayName: item.user.displayName,
+                        username: item.user.displayName.toLowerCase().replace(/\s+/g, ""),
+                        avatarUrl: item.user.avatarUrl,
+                        status: "online",
+                      }));
+                    }}
                     hitSlop={6}
+                    style={styles.avatarGlowContainer}
                   >
-                    <MessagesSquare size={13} color={colors.accent} />
-                    <Text style={styles.threadIndicatorText}>
-                      {messages.filter((m) => m.replyTo?.id === item.id).length}{" "}
-                      {messages.filter((m) => m.replyTo?.id === item.id).length === 1
-                        ? "reply"
-                        : "replies"}
-                    </Text>
-                    <ChevronRight size={12} color={colors.textMuted} />
+                    {item.user?.avatarUrl ? (
+                      <Image source={{ uri: item.user.avatarUrl }} style={styles.messageAvatar} />
+                    ) : (
+                      <View style={styles.messageAvatarFallback}>
+                        <Text style={styles.avatarLetter}>
+                          {(item.user?.displayName || "U").charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
                   </Pressable>
                 )}
 
-                {/* Reaction Pills & Add Reaction Button */}
-                <View style={styles.reactions}>
-                  {item.reactions?.map((reaction) => (
+                <Pressable
+                  delayLongPress={150}
+                  onLongPress={() => {
+                    NativeHaptics.medium();
+                    setSelectedMessage(item);
+                    setActionMenuOpen(true);
+                  }}
+                  style={({ pressed }) => [
+                    styles.organicBubble,
+                    isOwnMessage
+                      ? styles.organicBubbleOwn
+                      : (item.user?.displayName?.includes("Bot") || item.user?.id === "00000000-0000-0000-0000-000000000001")
+                      ? styles.organicBubbleBot
+                      : styles.organicBubbleOther,
+                    pressed && { opacity: 0.88, transform: [{ scale: 0.985 }] },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={
+                      isOwnMessage
+                        ? ["rgba(255, 255, 255, 0.18)", "rgba(255, 255, 255, 0.02)"]
+                        : ["rgba(255, 255, 255, 0.10)", "rgba(255, 255, 255, 0.01)"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                    style={styles.bubbleTopSpecular}
+                  />
+
+                  <View style={styles.messageBody}>
+                    <View style={styles.messageHeader}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                        <Text
+                          style={[
+                            styles.displayName,
+                            {
+                              color:
+                                item.user?.displayName?.includes("Bot") ||
+                                item.user?.id === "00000000-0000-0000-0000-000000000001"
+                                  ? "#818CF8"
+                                  : isOwnMessage
+                                  ? "#F59E0B"
+                                  : item.user?.roleColor || colors.textPrimary,
+                            },
+                          ]}
+                        >
+                          {isOwnMessage ? "You" : item.user?.displayName || "Member"}
+                        </Text>
+                        {(item.user?.displayName?.includes("Bot") ||
+                          item.user?.id === "00000000-0000-0000-0000-000000000001") && (
+                          <View
+                            style={{
+                              backgroundColor: "rgba(99, 102, 241, 0.2)",
+                              borderColor: "rgba(99, 102, 241, 0.4)",
+                              borderWidth: 1,
+                              borderRadius: 4,
+                              paddingHorizontal: 4,
+                              paddingVertical: 1,
+                            }}
+                          >
+                            <Text style={{ color: "#818CF8", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>
+                              BOT
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <Text style={styles.timestamp}>
+                        {item.createdAt
+                          ? new Date(item.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : ""}
+                      </Text>
+                    </View>
+
+                    {cleanText ? <Text style={styles.messageText}>{cleanText}</Text> : null}
+
+                    {attachments.map((att, idx) => (
+                      <AttachmentCard key={idx} attachment={att} />
+                    ))}
+
+                    {item.attachment?.url && isImageUrl(item.attachment.url, item.attachment.mimeType) && (
+                      <Image source={{ uri: item.attachment.url }} style={styles.attachmentImage} resizeMode="cover" />
+                    )}
+
+                    {item.attachment?.url && !isImageUrl(item.attachment.url, item.attachment.mimeType) && (
+                      <View style={styles.fileCard}>
+                        <Text style={styles.fileName}>{item.attachment.name || "Attachment"}</Text>
+                      </View>
+                    )}
+
+                    {/* Thread Indicator Badge if message has replies */}
+                    {messages.filter((m) => m.replyTo?.id === item.id).length > 0 && (
+                      <Pressable
+                        onPress={() => onOpenThread?.(item)}
+                        style={styles.threadIndicatorBadge}
+                        hitSlop={6}
+                      >
+                        <MessagesSquare size={13} color={colors.accent} />
+                        <Text style={styles.threadIndicatorText}>
+                          {messages.filter((m) => m.replyTo?.id === item.id).length}{" "}
+                          {messages.filter((m) => m.replyTo?.id === item.id).length === 1 ? "reply" : "replies"}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </Pressable>
+              </View>
+
+              {/* Reaction Pills & Add Reaction Button */}
+              {item.reactions && item.reactions.length > 0 && (
+                <View style={[styles.reactions, isOwnMessage && { justifyContent: "flex-end" }]}>
+                  {item.reactions.map((reaction) => (
                     <Pressable
                       key={reaction.emoji}
                       onPress={() => onToggleReaction?.(item.id, reaction.emoji)}
@@ -967,12 +995,11 @@ function NativeMessageList({
                     <Smile size={13} color={colors.textMuted} />
                   </Pressable>
                 </View>
-              </View>
-            </Pressable>
-          </View>
-        );
-      }}
-    />
+              )}
+            </View>
+          );
+        }}
+      />
 
       {/* Message Action & Reaction Modal */}
       <Modal visible={actionMenuOpen} transparent animationType="fade" onRequestClose={() => setActionMenuOpen(false)}>
@@ -2569,22 +2596,32 @@ const styles = StyleSheet.create({
 
   ambientGlowAmber: {
     position: "absolute",
-    width: 380,
-    height: 380,
-    borderRadius: 190,
-    backgroundColor: "rgba(212, 160, 23, 0.05)",
-    top: 60,
-    left: -100,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: "rgba(232, 163, 61, 0.07)",
+    top: 40,
+    left: -120,
   },
 
   ambientGlowTeal: {
     position: "absolute",
-    width: 340,
-    height: 340,
-    borderRadius: 170,
-    backgroundColor: "rgba(45, 212, 191, 0.04)",
-    bottom: 120,
-    right: -100,
+    width: 360,
+    height: 360,
+    borderRadius: 180,
+    backgroundColor: "rgba(45, 212, 191, 0.05)",
+    top: "40%",
+    right: -110,
+  },
+
+  ambientGlowPurple: {
+    position: "absolute",
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+    backgroundColor: "rgba(139, 92, 246, 0.06)",
+    bottom: 40,
+    left: -100,
   },
 
   channelHeader: {
@@ -2631,20 +2668,68 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
 
-  messageRow: {
+  messageRowWrapper: {
     flexDirection: "row",
+    alignItems: "flex-end",
     marginBottom: 10,
-    gap: 10,
-    padding: 12,
-    borderRadius: 18,
-    backgroundColor: "rgba(22, 26, 36, 0.65)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    gap: 8,
+    width: "100%",
   },
 
-  ownMessageRow: {
+  messageRowWrapperOwn: {
+    justifyContent: "flex-end",
+  },
+
+  avatarGlowContainer: {
+    marginBottom: 2,
+  },
+
+  organicBubble: {
+    maxWidth: "86%",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    overflow: "hidden",
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+
+  organicBubbleOther: {
+    backgroundColor: "rgba(18, 22, 34, 0.42)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 32,
+    borderBottomRightRadius: 28,
+    borderBottomLeftRadius: 6,
+  },
+
+  organicBubbleOwn: {
     backgroundColor: "rgba(232, 163, 61, 0.12)",
-    borderColor: "rgba(232, 163, 61, 0.30)",
+    borderColor: "rgba(232, 163, 61, 0.28)",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 24,
+    borderBottomRightRadius: 6,
+    borderBottomLeftRadius: 28,
+  },
+
+  organicBubbleBot: {
+    backgroundColor: "rgba(99, 102, 241, 0.04)",
+    borderColor: "rgba(129, 140, 248, 0.16)",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 32,
+    borderBottomRightRadius: 28,
+    borderBottomLeftRadius: 8,
+  },
+
+  bubbleTopSpecular: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1.5,
   },
 
   messageAvatar: {
