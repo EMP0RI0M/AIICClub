@@ -375,7 +375,7 @@ export default function DMsScreen() {
                     <Avatar name={item.name} presence={item.presence} size={42} />
                     <View style={styles.dmInfo}>
                       <Text style={styles.dmName}>{item.name}</Text>
-                      <Text style={styles.dmSnippet}>@{item.username}</Text>
+                      <Text style={styles.dmSnippet}>@{((item as any).username || item.name.toLowerCase().replace(/\s+/g, ""))}</Text>
                     </View>
                     <TouchableOpacity
                       style={styles.actionCircleBtn}

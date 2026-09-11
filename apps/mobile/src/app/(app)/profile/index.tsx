@@ -122,7 +122,7 @@ export default function ProfileScreen() {
       <View style={styles.ambientGlowAmber} pointerEvents="none" />
       <View style={styles.ambientGlowTeal} pointerEvents="none" />
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Profile Card */}
         <GlassCard elevated style={styles.profileCard}>
           <View style={styles.profileTop}>
