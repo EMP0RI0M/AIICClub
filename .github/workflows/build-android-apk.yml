@@ -7,6 +7,7 @@ on:
     paths:
       - 'apps/mobile/**'
       - '.github/workflows/build-android-apk.yml'
+      - '.npmrc'
 
 jobs:
   build-apk:
@@ -32,8 +33,9 @@ jobs:
         with:
           run_install: false
 
-      - name: 📂 Install Dependencies
-        run: pnpm install --frozen-lockfile=false
+      - name: 📂 Install Dependencies (Hoisted Node Modules for React Native Monorepo)
+        run: |
+          pnpm install --no-frozen-lockfile
 
       - name: 🛠️ Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -51,7 +53,7 @@ jobs:
         run: |
           cd apps/mobile/android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon --stacktrace
         env:
           EXPO_PUBLIC_API_URL: "https://aiic-bbs.vercel.app/api"
           EXPO_PUBLIC_SUPABASE_URL: "https://tgbjgyhcfhqvwayvvwkl.supabase.co"
