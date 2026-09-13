@@ -134,6 +134,7 @@ export function CreateSpaceModal({
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.ambientGlowAmber} pointerEvents="none" />
+          <View style={styles.sheetHandle} />
 
           {/* Modal Header */}
           <View style={styles.modalHeader}>
@@ -253,13 +254,22 @@ const styles = StyleSheet.create({
     borderRadius: 90,
     backgroundColor: "rgba(212, 160, 23, 0.12)",
   },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignSelf: "center",
+    marginTop: 12,
+    marginBottom: 4,
+  },
   modalSheet: {
     backgroundColor: "rgba(12, 14, 22, 0.95)",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     borderTopWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.16)",
-    maxHeight: "85%",
+    height: "72%",
     paddingBottom: Platform.OS === "ios" ? 36 : 24,
     overflow: "hidden",
     shadowColor: "#000",

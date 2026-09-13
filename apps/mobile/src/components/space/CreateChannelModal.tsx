@@ -189,39 +189,45 @@ export function CreateChannelModal({
   return (
     <Modal
       visible={visible}
+      transparent
       animationType="slide"
-      presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.modalContainer}
-      >
-        <BlurView
-          intensity={Platform.OS === "ios" ? 40 : 25}
-          tint="dark"
-          style={StyleSheet.absoluteFill}
-        />
-        <LinearGradient
-          colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.01)"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+      <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdropPress} onPress={onClose}>
+          <BlurView intensity={Platform.OS === "ios" ? 25 : 15} tint="dark" style={StyleSheet.absoluteFill} />
+        </Pressable>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <View style={styles.headerBadge}>
-              <Sparkles size={11} color={colors.accent} />
-              <Text style={styles.headerBadgeText}>SPACE ARCHITECTURE</Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalContainer}
+        >
+          <BlurView
+            intensity={Platform.OS === "ios" ? 50 : 35}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+          />
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.sheetHandle} />
+
+          {/* Header */}
+          <View style={styles.header}>
+            <View>
+              <View style={styles.headerBadge}>
+                <Sparkles size={11} color={colors.accent} />
+                <Text style={styles.headerBadgeText}>SPACE ARCHITECTURE</Text>
+              </View>
+              <Text style={styles.headerTitle}>Create Channel</Text>
             </View>
-            <Text style={styles.headerTitle}>Create Channel</Text>
+            <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
+              <X size={20} color={colors.textPrimary} />
+            </Pressable>
           </View>
-          <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
-            <X size={20} color={colors.textPrimary} />
-          </Pressable>
-        </View>
 
         <ScrollView
           style={styles.scroll}
@@ -412,14 +418,42 @@ export function CreateChannelModal({
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalContainer: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: "#0B0C10",
+    justifyContent: "flex-end",
+  },
+  modalBackdropPress: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignSelf: "center",
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  modalContainer: {
+    height: "72%",
+    backgroundColor: "rgba(12, 14, 22, 0.95)",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderTopWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 24,
   },
   header: {
     flexDirection: "row",
@@ -484,20 +518,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    backgroundColor: "rgba(255, 255, 255, 0.035)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 20,
+    padding: 14,
   },
   typeCardSelected: {
-    backgroundColor: "rgba(232, 163, 61, 0.1)",
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
     borderColor: colors.accent,
   },
   typeIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -508,8 +542,9 @@ const styles = StyleSheet.create({
   },
   typeDesc: {
     color: colors.textMuted,
-    fontSize: 11,
+    fontSize: 11.5,
     marginTop: 2,
+    lineHeight: 16,
   },
   radioCircle: {
     width: 20,
@@ -535,7 +570,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 12,
+    borderRadius: 18,
     overflow: "hidden",
   },
   inputPrefix: {
@@ -561,24 +596,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 16,
   },
   categoryPillActive: {
     backgroundColor: "rgba(232, 163, 61, 0.18)",
     borderColor: colors.accent,
   },
   categoryPillText: {
-    color: colors.textMuted,
+    color: "rgba(255, 255, 255, 0.6)",
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   categoryPillTextActive: {
     color: colors.accent,
+    fontWeight: "800",
   },
   footer: {
     flexDirection: "row",
@@ -594,6 +630,7 @@ const styles = StyleSheet.create({
   cancelBtn: {
     paddingHorizontal: 16,
     paddingVertical: 10,
+    borderRadius: 14,
   },
   cancelBtnText: {
     color: colors.textSecondary,
@@ -605,12 +642,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     backgroundColor: colors.accent,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 14,
   },
   createBtnText: {
-    color: "#000",
+    color: colors.accentContrast,
     fontSize: 14,
     fontWeight: "800",
   },

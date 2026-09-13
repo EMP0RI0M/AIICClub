@@ -5,69 +5,69 @@
 
 export const colors = {
   // Surfaces
-  background: "#08090E",
-  bgDeep: "#05060A",
-  surface: "#0F1017",
-  surfaceRaised: "#141620",
-  surfaceOverlay: "#1A1C28",
-  surfaceGlass: "rgba(255, 255, 255, 0.035)",
-  surfaceGlassElevated: "rgba(255, 255, 255, 0.06)",
-  surfaceInput: "rgba(255, 255, 255, 0.04)",
+  background: "#080A0F",
+  bgDeep: "#0D1016",
+  surface: "#0D1016",
+  surfaceRaised: "#12161E",
+  surfaceOverlay: "#181C26",
+  surfaceGlass: "rgba(21, 25, 34, 0.72)",
+  surfaceGlassElevated: "rgba(18, 22, 30, 0.82)",
+  surfaceInput: "rgba(21, 25, 34, 0.65)",
 
-  // Brand Accent (Corvus Amber / Ochre)
-  accent: "#E8A33D",
-  accentHover: "#F2B557",
-  accentPressed: "#C9862B",
-  accentSoft: "rgba(232, 163, 61, 0.10)",
-  accentMuted: "rgba(232, 163, 61, 0.45)",
-  accentContrast: "#1A1206",
-  textOnAccent: "#1A1206",
+  // Brand Accent (Corvus Amber)
+  accent: "#F2AA3B",
+  accentHover: "#FFC15A",
+  accentPressed: "#D99128",
+  accentSoft: "rgba(242, 170, 59, 0.12)",
+  accentMuted: "rgba(242, 170, 59, 0.45)",
+  accentContrast: "#150F05",
+  textOnAccent: "#150F05",
 
-  // Accent Secondary & Highlights
-  accentTeal: "#2DD4BF",
-  accentTealDim: "#1E9E8E",
-  accentTealSoft: "rgba(45, 212, 191, 0.10)",
-  accentWarm: "#F5A623",
-  live: "#22E0D6",
-  liveSoft: "rgba(34, 224, 214, 0.10)",
+  // Accent Secondary & System States
+  accentTeal: "#32D6C5",
+  accentTealDim: "#22B5A5",
+  accentTealSoft: "rgba(50, 214, 197, 0.10)",
+  accentWarm: "#F2AA3B",
+  live: "#32D6C5",
+  liveSoft: "rgba(50, 214, 197, 0.10)",
 
   // Presence / Status
   statusOnline: "#3DDC84",
-  statusIdle: "#F5A623",
-  statusDnd: "#E05252",
-  statusOffline: "#656A7E",
+  statusIdle: "#F2AA3B",
+  statusDnd: "#E45B61",
+  statusOffline: "#5F6675",
 
   // Text Hierarchy
-  textPrimary: "#ECEDF5",
-  textSecondary: "#AEB3C8",
-  textMuted: "#656A7E",
-  textFaint: "#3D4057",
+  textPrimary: "#F4F5F8",
+  textSecondary: "#8B92A3",
+  textMuted: "#5F6675",
+  textFaint: "#3D4452",
 
   // Semantic Status
-  success: "#22C55E",
-  successDim: "#16A34A",
-  successSoft: "rgba(34, 197, 94, 0.10)",
-  danger: "#EF4444",
-  dangerDim: "#B91C1C",
-  dangerSoft: "rgba(239, 68, 68, 0.10)",
-  warning: "#F59E0B",
-  warningSoft: "rgba(245, 158, 11, 0.10)",
-  info: "#3B82F6",
-  infoSoft: "rgba(59, 130, 246, 0.10)",
+  success: "#3DDC84",
+  successDim: "#2DBB6E",
+  successSoft: "rgba(61, 220, 132, 0.10)",
+  danger: "#E45B61",
+  dangerDim: "#C54349",
+  dangerSoft: "rgba(228, 91, 97, 0.10)",
+  warning: "#F2AA3B",
+  warningSoft: "rgba(242, 170, 59, 0.10)",
+  info: "#5B9CFF",
+  infoSoft: "rgba(91, 156, 255, 0.10)",
 
   // Borders & Dividers
-  border: "rgba(255, 255, 255, 0.08)",
-  borderSubtle: "rgba(255, 255, 255, 0.05)",
+  border: "#272D38",
+  borderSubtle: "rgba(39, 45, 56, 0.6)",
   borderHighlight: "rgba(255, 255, 255, 0.12)",
-  borderActive: "rgba(232, 163, 61, 0.30)",
-  borderGlass: "rgba(255, 255, 255, 0.07)",
-  borderAccent: "rgba(232, 163, 61, 0.25)",
+  borderActive: "rgba(242, 170, 59, 0.35)",
+  borderGlass: "rgba(39, 45, 56, 0.8)",
+  borderAccent: "rgba(242, 170, 59, 0.28)",
 
   // Row States
   hoverRow: "rgba(255, 255, 255, 0.04)",
-  activeRow: "rgba(232, 163, 61, 0.08)",
-  activeRowTeal: "rgba(45, 212, 191, 0.08)",
-  reactionOwn: "rgba(232, 163, 61, 0.12)",
+  activeRow: "rgba(242, 170, 59, 0.08)",
+  activeRowTeal: "rgba(50, 214, 197, 0.08)",
+  reactionOwn: "rgba(242, 170, 59, 0.12)",
 };
 
 export const spacing = {
@@ -81,13 +81,18 @@ export const spacing = {
 };
 
 export const radius = {
-  xs: 4,
-  sm: 6,
-  md: 10,
-  lg: 14,
-  xl: 18,
-  xxl: 22,
+  xs: 14,
+  sm: 18,
+  md: 22,
+  lg: 26,
+  xl: 32,
+  card: 22,
+  container: 28,
+  sheet: 32,
+  input: 18,
+  button: 16,
   full: 9999,
+  pill: 9999,
 };
 
 export const typography = {
@@ -104,16 +109,16 @@ export const typography = {
 
 export const glassStyles = {
   container: {
-    backgroundColor: colors.surfaceGlass,
-    borderColor: colors.borderGlass,
+    backgroundColor: "rgba(10, 12, 18, 0.94)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
     borderWidth: 1,
-    borderRadius: radius.md,
+    borderRadius: radius.container,
   },
   elevated: {
     backgroundColor: colors.surfaceGlassElevated,
     borderColor: colors.borderHighlight,
     borderWidth: 1,
-    borderRadius: radius.lg,
+    borderRadius: radius.card,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -121,9 +126,18 @@ export const glassStyles = {
     elevation: 2,
   },
   card: {
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    borderColor: colors.borderSubtle,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 1,
-    borderRadius: radius.md,
+    borderRadius: radius.card,
+  },
+  input: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: "rgba(255, 255, 255, 0.10)",
+    borderWidth: 1,
+    borderRadius: radius.input,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: colors.textPrimary,
   },
 };

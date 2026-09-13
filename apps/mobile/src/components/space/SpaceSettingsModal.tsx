@@ -86,34 +86,41 @@ export function SpaceSettingsModal({
   return (
     <Modal
       visible={visible}
+      transparent
       animationType="slide"
-      presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
-        <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={StyleSheet.absoluteFill} />
-        <LinearGradient
-          colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        {/* Ambient Glow Orbs */}
-        <View style={styles.ambientGlowAmber} pointerEvents="none" />
-        <View style={styles.ambientGlowTeal} pointerEvents="none" />
+      <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdropPress} onPress={onClose}>
+          <BlurView intensity={Platform.OS === "ios" ? 25 : 15} tint="dark" style={StyleSheet.absoluteFill} />
+        </Pressable>
 
-        {/* Top Header */}
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerSubtitle}>SPACE GOVERNANCE & SETTINGS</Text>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {spaceName}
-            </Text>
+        <View style={styles.container}>
+          <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={StyleSheet.absoluteFill} />
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.sheetHandle} />
+
+          {/* Ambient Glow Orbs */}
+          <View style={styles.ambientGlowAmber} pointerEvents="none" />
+          <View style={styles.ambientGlowTeal} pointerEvents="none" />
+
+          {/* Top Header */}
+          <View style={styles.header}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerSubtitle}>SPACE GOVERNANCE & SETTINGS</Text>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {spaceName}
+              </Text>
+            </View>
+            <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
+              <X size={20} color={colors.textPrimary} />
+            </Pressable>
           </View>
-          <Pressable onPress={onClose} style={styles.closeBtn}>
-            <X size={20} color={colors.textPrimary} />
-          </Pressable>
-        </View>
 
         {/* Horizontal Navigation Pills */}
         <View style={styles.navBarWrapper}>
@@ -196,6 +203,7 @@ export function SpaceSettingsModal({
             <DangerSection spaceName={spaceName} onDeleteSpace={onDeleteSpace} />
           )}
         </ScrollView>
+      </View>
       </View>
     </Modal>
   );
@@ -687,9 +695,36 @@ function DangerSection({ spaceName, onDeleteSpace }: { spaceName: string; onDele
 }
 
 const styles = StyleSheet.create({
-  container: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(10, 11, 16, 0.94)",
+    justifyContent: "flex-end",
+  },
+  modalBackdropPress: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignSelf: "center",
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  container: {
+    height: "74%",
+    backgroundColor: "rgba(12, 14, 22, 0.95)",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderTopWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 24,
   },
   ambientGlowAmber: {
     position: "absolute",
@@ -698,7 +733,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    backgroundColor: "rgba(242, 170, 59, 0.04)",
   },
   ambientGlowTeal: {
     position: "absolute",
@@ -707,7 +742,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: "rgba(45, 212, 191, 0.08)",
+    backgroundColor: "rgba(50, 214, 197, 0.03)",
   },
   header: {
     flexDirection: "row",
@@ -755,33 +790,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
     backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   navPillActive: {
-    backgroundColor: colors.accent,
+    backgroundColor: "rgba(232, 163, 61, 0.18)",
     borderColor: colors.accent,
   },
   navPillActiveDanger: {
-    backgroundColor: colors.danger,
+    backgroundColor: "rgba(239, 68, 68, 0.20)",
     borderColor: colors.danger,
   },
   navPillText: {
-    color: colors.textMuted,
+    color: "rgba(255, 255, 255, 0.6)",
     fontSize: 12,
     fontWeight: "600",
   },
   navPillTextActive: {
-    color: colors.accentContrast,
-    fontWeight: "700",
+    color: colors.accent,
+    fontWeight: "800",
   },
   navPillTextActiveDanger: {
-    color: "#FFFFFF",
-    fontWeight: "700",
+    color: colors.danger,
+    fontWeight: "800",
   },
   body: {
     flex: 1,
@@ -817,16 +852,16 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 12,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     color: colors.textPrimary,
     fontSize: 14,
   },
   primaryBtn: {
     backgroundColor: colors.accent,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
@@ -838,7 +873,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: colors.accentContrast,
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   divider: {
     height: 1,
@@ -859,9 +894,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(232, 163, 61, 0.3)",
     backgroundColor: "rgba(232, 163, 61, 0.1)",
@@ -882,11 +917,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    padding: 14,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   cardItemTitle: {
     color: colors.textPrimary,
@@ -901,9 +936,9 @@ const styles = StyleSheet.create({
   },
   badgeSuccess: {
     backgroundColor: "rgba(45, 212, 191, 0.15)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "rgba(45, 212, 191, 0.3)",
   },
@@ -914,9 +949,9 @@ const styles = StyleSheet.create({
     fontFamily: "monospace",
   },
   iconCircleBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
@@ -962,9 +997,9 @@ const styles = StyleSheet.create({
     fontFamily: "monospace",
   },
   iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     alignItems: "center",
     justifyContent: "center",
@@ -972,7 +1007,7 @@ const styles = StyleSheet.create({
   dangerBox: {
     borderWidth: 1,
     borderColor: "rgba(239, 68, 68, 0.3)",
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     backgroundColor: "rgba(239, 68, 68, 0.04)",
   },
@@ -982,7 +1017,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     backgroundColor: colors.danger,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 12,
     marginTop: 8,
   },

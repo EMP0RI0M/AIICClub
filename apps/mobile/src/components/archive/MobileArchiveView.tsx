@@ -134,35 +134,56 @@ export function MobileArchiveView({
       <View style={styles.ambientGlowAmber} pointerEvents="none" />
       <View style={styles.ambientGlowTeal} pointerEvents="none" />
 
-      {/* Top Header */}
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <View style={styles.headerBadge}>
-            <Sparkles size={11} color={colors.accent} />
-            <Text style={styles.headerBadgeText}>KNOWLEDGE REPOSITORY</Text>
+      {/* Top Header Capsule */}
+      <View style={styles.headerCapsuleWrap}>
+        <BlurView intensity={30} tint="dark" style={styles.headerCapsule}>
+          <LinearGradient
+            colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+            style={StyleSheet.absoluteFillObject}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          />
+          <View style={styles.headerLeft}>
+            <View style={styles.headerIconOrb}>
+              <Sparkles size={16} color={colors.accent} />
+            </View>
+            <View>
+              <Text style={styles.headerTitle}>AIIC Archive</Text>
+              <Text style={styles.headerSub}>INSTITUTIONAL KNOWLEDGE</Text>
+            </View>
           </View>
-          <Text style={styles.headerTitle}>AIIC Archive</Text>
-        </View>
 
-        <Pressable
-          onPress={() => setShowSubmitModal(true)}
-          style={styles.submitBtn}
-        >
-          <Plus size={15} color={colors.accentContrast} />
-          <Text style={styles.submitBtnText}>Submit Record</Text>
-        </Pressable>
+          <Pressable
+            onPress={() => setShowSubmitModal(true)}
+            style={styles.submitBtn}
+          >
+            <Plus size={15} color={colors.accentContrast} />
+            <Text style={styles.submitBtnText}>Submit</Text>
+          </Pressable>
+        </BlurView>
       </View>
 
       {/* Search Input */}
-      <View style={styles.searchBar}>
-        <Search size={16} color={colors.textMuted} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search releases, builds, repos, transcripts..."
-          placeholderTextColor={colors.textMuted}
-          style={styles.searchInput}
-        />
+      <View style={styles.searchBarWrap}>
+        <BlurView intensity={25} tint="dark" style={styles.searchBar}>
+          <LinearGradient
+            colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <Search size={15} color={colors.accent} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search releases, builds, repos, transcripts..."
+            placeholderTextColor="rgba(255, 255, 255, 0.4)"
+            style={styles.searchInput}
+          />
+          {!!query && (
+            <Pressable onPress={() => setQuery("")} hitSlop={6}>
+              <X size={14} color={colors.textMuted} />
+            </Pressable>
+          )}
+        </BlurView>
       </View>
 
       {/* Category Pills */}
@@ -278,15 +299,22 @@ function ArchiveRecordCard({
           onOpenDocument(record);
         }
       }}
-      style={styles.card}
+      style={styles.cardWrap}
     >
-      {/* Top Meta Bar */}
-      <View style={styles.cardTop}>
-        <View style={styles.idBadge}>
-          <Text style={styles.idText}>{record.archiveId}</Text>
+      <BlurView intensity={25} tint="dark" style={styles.card}>
+        <LinearGradient
+          colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
+          style={StyleSheet.absoluteFillObject}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+        />
+        {/* Top Meta Bar */}
+        <View style={styles.cardTop}>
+          <View style={styles.idBadge}>
+            <Text style={styles.idText}>{record.archiveId}</Text>
+          </View>
+          <Text style={styles.sessionText}>{record.session || "2026–27"}</Text>
         </View>
-        <Text style={styles.sessionText}>{record.session || "2026–27"}</Text>
-      </View>
 
       {/* Title & Description */}
       <Text style={styles.cardTitle}>{record.title}</Text>
@@ -406,6 +434,7 @@ function ArchiveRecordCard({
           ))}
         </View>
       )}
+      </BlurView>
     </Pressable>
   );
 }
@@ -470,13 +499,26 @@ function SubmitArchiveModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdropPress} onPress={onClose}>
+          <BlurView intensity={Platform.OS === "ios" ? 25 : 15} tint="dark" style={StyleSheet.absoluteFill} />
+        </Pressable>
+
         <View style={styles.modalSheet}>
+          <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={StyleSheet.absoluteFill} />
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.sheetHandle} />
+
           <View style={styles.modalHeader}>
             <View>
               <Text style={styles.modalSub}>INSTITUTIONAL RECORD</Text>
               <Text style={styles.modalTitle}>Submit to Archive</Text>
             </View>
-            <Pressable onPress={onClose} style={styles.modalCloseBtn}>
+            <Pressable onPress={onClose} style={styles.modalCloseBtn} hitSlop={8}>
               <X size={18} color={colors.textMuted} />
             </Pressable>
           </View>
@@ -618,7 +660,7 @@ function SubmitArchiveModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(9, 12, 18, 0.94)",
+    backgroundColor: "#080A0F",
   },
   ambientGlowAmber: {
     position: "absolute",
@@ -627,7 +669,7 @@ const styles = StyleSheet.create({
     width: 240,
     height: 240,
     borderRadius: 120,
-    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    backgroundColor: "rgba(242, 170, 59, 0.04)",
   },
   ambientGlowTeal: {
     position: "absolute",
@@ -636,100 +678,117 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: "rgba(45, 212, 191, 0.08)",
+    backgroundColor: "rgba(50, 214, 197, 0.03)",
   },
-  header: {
+  headerCapsuleWrap: {
+    marginHorizontal: 14,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  headerCapsule: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    paddingVertical: 12,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    overflow: "hidden",
   },
-  headerBadge: {
+  headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 10,
   },
-  headerBadgeText: {
+  headerIconOrb: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.25)",
+  },
+  headerTitle: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  headerSub: {
     color: colors.accent,
     fontSize: 9,
     fontWeight: "800",
     fontFamily: "monospace",
-    letterSpacing: 0.8,
-  },
-  headerTitle: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: "800",
-    marginTop: 2,
+    letterSpacing: 0.6,
   },
   submitBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     backgroundColor: colors.accent,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 14,
   },
   submitBtnText: {
     color: colors.accentContrast,
     fontSize: 12,
     fontWeight: "700",
   },
+  searchBarWrap: {
+    marginHorizontal: 14,
+    marginBottom: 4,
+  },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 12,
+    height: 42,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    gap: 8,
+    overflow: "hidden",
   },
   searchInput: {
     flex: 1,
-    color: colors.textPrimary,
-    fontSize: 13,
+    color: "#FFFFFF",
+    fontSize: 13.5,
     padding: 0,
   },
   pillRow: {
     marginVertical: 10,
   },
   filterPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
     backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   filterPillActive: {
-    backgroundColor: "rgba(232, 163, 61, 0.16)",
-    borderColor: "rgba(232, 163, 61, 0.3)",
+    backgroundColor: "rgba(232, 163, 61, 0.18)",
+    borderColor: colors.accent,
   },
   filterPillText: {
-    color: colors.textMuted,
-    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: 11.5,
     fontWeight: "600",
   },
   filterPillTextActive: {
     color: colors.accent,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingBottom: 40,
-    gap: 12,
+    gap: 10,
   },
   emptyState: {
     alignItems: "center",
@@ -749,12 +808,20 @@ const styles = StyleSheet.create({
     maxWidth: 260,
     lineHeight: 18,
   },
+  cardWrap: {
+    borderRadius: 22,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 3,
+  },
   card: {
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    padding: 14,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 18,
-    padding: 16,
+    borderColor: "rgba(255, 255, 255, 0.10)",
     gap: 8,
   },
   cardTop: {
@@ -766,7 +833,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(232, 163, 61, 0.12)",
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "rgba(232, 163, 61, 0.25)",
   },
@@ -792,13 +859,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   detailBox: {
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
-    borderRadius: 10,
-    padding: 10,
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
+    borderRadius: 14,
+    padding: 12,
     marginTop: 4,
     gap: 6,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   detailRow: {
     flexDirection: "row",
@@ -840,17 +907,34 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "flex-end",
   },
+  modalBackdropPress: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignSelf: "center",
+    marginBottom: 14,
+  },
   modalSheet: {
-    height: "85%",
-    backgroundColor: "#11141E",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    height: "72%",
+    backgroundColor: "rgba(12, 14, 22, 0.95)",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     padding: 20,
     borderTopWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.16)",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 24,
   },
   modalHeader: {
     flexDirection: "row",

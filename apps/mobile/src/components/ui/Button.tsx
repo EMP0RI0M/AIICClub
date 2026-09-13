@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.md,
+    borderRadius: radius.button,
   },
   primary: {
     backgroundColor: colors.accent,
@@ -114,18 +114,19 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   size_sm: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: radius.sm,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 14,
   },
   size_md: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
+    borderRadius: 16,
   },
   size_lg: {
-    paddingVertical: 16,
+    paddingVertical: 15,
     paddingHorizontal: 24,
-    borderRadius: radius.lg,
+    borderRadius: 18,
   },
   text: {
     fontWeight: "600",

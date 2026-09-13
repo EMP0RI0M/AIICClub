@@ -67,19 +67,23 @@ export function WallpaperBackground({ children, style }: WallpaperBackgroundProp
         </View>
       )}
 
-      {/* 3. Fluid Ambient Refraction Orbs */}
+      {/* 3. Fluid Atmospheric Refraction Orbs (Subtle Navy, Amber, Cyan) */}
       <View
         style={[
           styles.ambientOrbTop,
-          { backgroundColor: ambientOrb1 || "rgba(232, 163, 61, 0.08)" },
+          { backgroundColor: ambientOrb1 || "rgba(91, 156, 255, 0.04)" },
         ]}
         pointerEvents="none"
       />
       <View
         style={[
-          styles.ambientOrbBottom,
-          { backgroundColor: ambientOrb2 || "rgba(168, 85, 247, 0.05)" },
+          styles.ambientOrbAmber,
+          { backgroundColor: ambientOrb2 || "rgba(242, 170, 59, 0.04)" },
         ]}
+        pointerEvents="none"
+      />
+      <View
+        style={styles.ambientOrbCyan}
         pointerEvents="none"
       />
 
@@ -92,22 +96,31 @@ export function WallpaperBackground({ children, style }: WallpaperBackgroundProp
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07090E",
+    backgroundColor: "#080A0F",
   },
   ambientOrbTop: {
     position: "absolute",
     width: 380,
     height: 380,
     borderRadius: 190,
-    top: -40,
-    left: -100,
+    top: -60,
+    left: -80,
   },
-  ambientOrbBottom: {
+  ambientOrbAmber: {
+    position: "absolute",
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    top: 40,
+    right: -80,
+  },
+  ambientOrbCyan: {
     position: "absolute",
     width: 340,
     height: 340,
     borderRadius: 170,
     bottom: 60,
-    right: -90,
+    left: -70,
+    backgroundColor: "rgba(50, 214, 197, 0.03)",
   },
 });
