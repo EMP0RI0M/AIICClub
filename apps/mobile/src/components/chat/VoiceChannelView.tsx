@@ -25,8 +25,10 @@ import {
   Sparkles,
 } from "lucide-react-native";
 
+import { Audio } from "expo-av";
 import { fetchVoiceParticipants, joinVoiceChannel, leaveVoiceChannel } from "../../lib/api";
 import { useAuthStore } from "../../stores/auth-store";
+import { NativeHaptics } from "../../lib/haptics";
 
 export interface VoiceParticipant {
   id: string;
@@ -80,6 +82,14 @@ export function VoiceChannelView({
 
     setParticipants([meParticipant]);
 
+    // Configure audio mode for live voice communications
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: true,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: true,
+      playThroughEarpieceAndroid: false,
+    }).catch(() => {});
+
     if (channelId) {
       joinVoiceChannel(channelId)
         .then((res) => {
@@ -123,6 +133,11 @@ export function VoiceChannelView({
     return () => {
       if (pollTimer) clearInterval(pollTimer);
       if (channelId && currentUser) void leaveVoiceChannel(channelId).catch(() => {});
+      Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      }).catch(() => {});
     };
   }, [channelId, currentUser?.id, isStage]);
 
@@ -230,7 +245,10 @@ export function VoiceChannelView({
       <View style={styles.controlDock}>
         {isStage ? (
           <Pressable
-            onPress={() => setHandRaised((h) => !h)}
+            onPress={() => {
+              NativeHaptics.selection();
+              setHandRaised((h) => !h);
+            }}
             style={[
               styles.dockBtn,
               handRaised && { backgroundColor: colors.accentSoft, borderColor: colors.accent },
@@ -244,7 +262,14 @@ export function VoiceChannelView({
         ) : (
           <>
             <Pressable
-              onPress={() => setIsMuted((m) => !m)}
+              onPress={async () => {
+                NativeHaptics.selection();
+                if (isMuted) {
+                  const { status } = await Audio.requestPermissionsAsync();
+                  if (status !== "granted") return;
+                }
+                setIsMuted((m) => !m);
+              }}
               style={[
                 styles.iconControlBtn,
                 isMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)" },
@@ -258,7 +283,10 @@ export function VoiceChannelView({
             </Pressable>
 
             <Pressable
-              onPress={() => setIsDeafened((d) => !d)}
+              onPress={() => {
+                NativeHaptics.selection();
+                setIsDeafened((d) => !d);
+              }}
               style={[
                 styles.iconControlBtn,
                 isDeafened && { backgroundColor: "rgba(239, 68, 68, 0.15)" },
@@ -274,7 +302,10 @@ export function VoiceChannelView({
         )}
 
         <Pressable
-          onPress={onBack}
+          onPress={() => {
+            NativeHaptics.heavy();
+            onBack();
+          }}
           style={styles.disconnectBtn}
         >
           <PhoneOff size={18} color="#FFF" />
