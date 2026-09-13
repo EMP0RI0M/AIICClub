@@ -28,6 +28,7 @@ import { NativeHaptics } from "../../../../lib/haptics";
 import { notificationService } from "../../../../lib/notifications";
 import { AttachmentCard, parseMessageAttachments } from "../../../../components/chat/AttachmentCard";
 import { encodeAttachmentContent } from "../../../../lib/attachments";
+import { soundService } from "../../../../lib/sound-service";
 import { RichMarkdown, ReasoningTrace } from "../../../../components/chat/RichMarkdown";
 import { formatAvatarUrl } from "../../../../lib/avatar";
 import { Avatar } from "../../../../components/ui/Avatar";
@@ -2297,10 +2298,12 @@ export default function AIICDiscordApp() {
 
   useEffect(() => {
     if (!selectedChannelId) return;
+    soundService.setActiveScreen("channel", selectedChannelId);
     loadChannelMessages(selectedChannelId);
     subscribeToChannel(selectedChannelId);
 
     return () => {
+      soundService.setActiveScreen("none", null);
       unsubscribeFromChannel();
     };
   }, [selectedChannelId]);

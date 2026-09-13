@@ -7,6 +7,8 @@ import {
   leaveDMCall as apiLeaveDMCall,
   declineDMCall as apiDeclineDMCall,
 } from "./api";
+import { soundService } from "./sound-service";
+import { globalCallSignaling } from "./call-signaling";
 
 export type CallState =
   | "idle"
@@ -16,7 +18,8 @@ export type CallState =
   | "connected"
   | "reconnecting"
   | "ended"
-  | "failed";
+  | "failed"
+  | "no_answer";
 
 export type AudioRoute = "speaker" | "earpiece";
 
@@ -38,6 +41,8 @@ export interface CallSessionConfig {
 export type CallStateListener = (state: CallState, error?: string | null) => void;
 export type CallQualityListener = (quality: "excellent" | "good" | "weak" | "reconnecting") => void;
 
+const NO_ANSWER_TIMEOUT_MS = 45000;
+
 class CallService {
   private state: CallState = "idle";
   private config: CallSessionConfig | null = null;
@@ -51,9 +56,15 @@ class CallService {
   private audioRoute: AudioRoute = "speaker";
   private isCleanedUp: boolean = false;
   private quality: "excellent" | "good" | "weak" | "reconnecting" = "excellent";
+  private connectedAt: number | null = null;
+  private noAnswerTimer: any | null = null;
 
   getState(): CallState {
     return this.state;
+  }
+
+  getConnectedAt(): number | null {
+    return this.connectedAt;
   }
 
   getQuality(): "excellent" | "good" | "weak" | "reconnecting" {
@@ -82,7 +93,25 @@ class CallService {
 
   private setState(next: CallState, err?: string | null) {
     if (this.state === next && !err) return;
+    console.log(`[CALL] id=${this.config?.callId || "none"} state=${next}${err ? ` error=${err}` : ""}`);
     this.state = next;
+
+    // Manage Call Sounds Strictly from the Authoritative Call State Machine
+    if (next === "calling" || (next === "ringing" && this.config?.direction === "outgoing")) {
+      soundService.startOutgoingRingback().catch(() => {});
+    } else if (next === "ringing" && this.config?.direction === "incoming") {
+      soundService.startIncomingRingtone().catch(() => {});
+    } else if (next === "connecting" || next === "connected" || next === "ended" || next === "failed" || next === "no_answer") {
+      soundService.stopAllCallSounds().catch(() => {});
+    }
+
+    // Set connectedAt ONLY upon genuine connected transition
+    if (next === "connected" && !this.connectedAt) {
+      this.connectedAt = Date.now();
+    } else if (next === "ended" || next === "failed" || next === "no_answer" || next === "idle") {
+      this.connectedAt = null;
+    }
+
     this.stateListeners.forEach((fn) => fn(next, err));
   }
 
@@ -92,6 +121,13 @@ class CallService {
     this.qualityListeners.forEach((fn) => fn(next));
   }
 
+  private clearNoAnswerTimer() {
+    if (this.noAnswerTimer) {
+      clearTimeout(this.noAnswerTimer);
+      this.noAnswerTimer = null;
+    }
+  }
+
   /**
    * Start or join a call session with Supabase Realtime signaling and WebRTC
    */
@@ -99,36 +135,46 @@ class CallService {
     this.config = config;
     this.isCleanedUp = false;
     this.isMuted = false;
+    this.connectedAt = null;
+    this.clearNoAnswerTimer();
 
     // 1. Initial State Transition
     if (config.direction === "outgoing") {
       this.setState("calling");
+      // Set up No-Answer Timeout for outgoing call
+      this.noAnswerTimer = setTimeout(() => {
+        if (this.state === "calling" || this.state === "ringing") {
+          console.log(`[CALL] id=${config.callId} timeout=no_answer`);
+          this.setState("no_answer", "No answer");
+          this.cleanup("no_answer");
+        }
+      }, NO_ANSWER_TIMEOUT_MS);
     } else {
       this.setState("ringing");
     }
 
     try {
-      // 2. Setup Audio Mode
-      await this.configureAudio(this.audioRoute);
-
-      // 3. Setup Supabase Realtime Signaling
+      // 2. Setup Supabase Realtime Signaling
       this.setupSignaling(config);
 
-      // 4. If outgoing call, notify remote peer via API / Realtime and prepare connection
+      // 3. If outgoing call, notify remote peer via API / Realtime
       if (config.direction === "outgoing") {
         await this.initiateOutgoingCall(config);
       }
     } catch (err: any) {
       console.warn("[CallService] startCall error:", err);
+      this.clearNoAnswerTimer();
       this.setState("failed", err?.message || "Unable to initialize call");
     }
   }
 
   /**
-   * Accept an incoming call
+   * Accept an incoming call - Explicit user action only
    */
   async acceptCall(): Promise<void> {
-    if (!this.config) return;
+    if (!this.config || this.isCleanedUp) return;
+    console.log(`[CALL] id=${this.config.callId} signal=accepted`);
+    this.clearNoAnswerTimer();
     this.setState("connecting");
 
     try {
@@ -136,33 +182,55 @@ class CallService {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== "granted") {
         this.setState("failed", "Microphone access is required to make a call.");
+        this.cleanup("failed");
         return;
       }
 
       await this.configureAudio(this.audioRoute);
 
-      // Broadcast call_accepted event to remote peer
+      // Broadcast call_accepted event to remote peer on DM channel and caller's user channel
+      const callId = this.config.callId;
+      const callerId = this.config.participant.id;
+      const currentUserId = this.config.currentUser?.id;
+
       if (this.realtimeChannel) {
         this.realtimeChannel.send({
           type: "broadcast",
           event: "call_accepted",
           payload: {
-            callId: this.config.callId,
-            acceptedById: this.config.currentUser?.id,
+            callId,
+            conversationId: callId,
+            acceptedById: currentUserId,
             timestamp: Date.now(),
           },
         });
       }
 
-      // Notify backend join endpoint
-      await apiJoinDMCall(this.config.callId).catch(() => null);
+      // Also notify caller user channel via Supabase if possible
+      try {
+        const supabase = getSupabaseClient();
+        const callerChan = supabase.channel(`user:${callerId}`);
+        callerChan.send({
+          type: "broadcast",
+          event: "call_accepted",
+          payload: {
+            callId,
+            conversationId: callId,
+            acceptedById: currentUserId,
+            timestamp: Date.now(),
+          },
+        });
+      } catch {}
 
-      // Transition to connected
-      this.setState("connected");
-      this.setQuality("excellent");
+      // Notify backend join endpoint
+      await apiJoinDMCall(callId).catch(() => null);
+
+      // Initialize WebRTC connection or mark connected upon signaling handshake completion
+      this.establishWebRTCConnection();
     } catch (err: any) {
       console.warn("[CallService] acceptCall error:", err);
       this.setState("failed", "Call connection failed. Please try again.");
+      this.cleanup("failed");
     }
   }
 
@@ -170,20 +238,28 @@ class CallService {
    * Decline an incoming call
    */
   async declineCall(): Promise<void> {
-    if (this.config) {
-      void apiDeclineDMCall(this.config.callId).catch(() => null);
+    this.clearNoAnswerTimer();
+    const callId = this.config?.callId;
+    const currentUserId = this.config?.currentUser?.id;
+
+    if (callId) {
+      void apiDeclineDMCall(callId).catch(() => null);
     }
-    if (this.realtimeChannel && this.config) {
+
+    if (this.realtimeChannel && callId) {
       this.realtimeChannel.send({
         type: "broadcast",
         event: "call_declined",
         payload: {
-          callId: this.config.callId,
-          declinedById: this.config.currentUser?.id,
+          callId,
+          conversationId: callId,
+          declinedById: currentUserId,
           timestamp: Date.now(),
         },
       });
     }
+
+    globalCallSignaling.dismissActiveCall();
     this.cleanup("ended");
   }
 
@@ -232,26 +308,46 @@ class CallService {
       });
 
       this.realtimeChannel
-        .on("broadcast", { event: "call_accepted" }, () => {
-          if (this.state === "calling" || this.state === "connecting") {
-            this.setState("connected");
-            this.setQuality("excellent");
+        .on("broadcast", { event: "call_accepted" }, (msg: any) => {
+          const payload = msg?.payload || msg;
+          // Validate callId to prevent stale event cross-talk
+          if (payload?.callId && payload.callId !== config.callId) return;
+
+          console.log(`[CALL] id=${config.callId} signal=accepted received`);
+          this.clearNoAnswerTimer();
+          soundService.stopOutgoingRingback().catch(() => {});
+
+          if (this.state === "calling" || this.state === "ringing") {
+            this.setState("connecting");
+            this.establishWebRTCConnection();
           }
         })
-        .on("broadcast", { event: "call_declined" }, () => {
+        .on("broadcast", { event: "call_declined" }, (msg: any) => {
+          const payload = msg?.payload || msg;
+          if (payload?.callId && payload.callId !== config.callId) return;
+
+          console.log(`[CALL] id=${config.callId} signal=declined received`);
+          this.clearNoAnswerTimer();
           this.setState("ended", "Call declined by user");
           this.cleanup("ended");
         })
-        .on("broadcast", { event: "call_ended" }, () => {
+        .on("broadcast", { event: "call_ended" }, (msg: any) => {
+          const payload = msg?.payload || msg;
+          if (payload?.callId && payload.callId !== config.callId) return;
+
+          console.log(`[CALL] id=${config.callId} signal=ended received`);
+          this.clearNoAnswerTimer();
           this.setState("ended");
           this.cleanup("ended");
         })
-        .on("broadcast", { event: "ice_candidate" }, (payload: any) => {
-          if (this.peerConnection && payload?.candidate) {
-            try {
-              this.peerConnection.addIceCandidate(payload.candidate);
-            } catch {}
-          }
+        .on("broadcast", { event: "call_cancelled" }, (msg: any) => {
+          const payload = msg?.payload || msg;
+          if (payload?.callId && payload.callId !== config.callId) return;
+
+          console.log(`[CALL] id=${config.callId} signal=cancelled received`);
+          this.clearNoAnswerTimer();
+          this.setState("ended", "Call cancelled");
+          this.cleanup("ended");
         })
         .subscribe();
     } catch (err) {
@@ -264,11 +360,15 @@ class CallService {
       // 1. Request microphone permission
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== "granted") {
+        this.clearNoAnswerTimer();
         this.setState("failed", "Microphone access is required to make a call.");
+        this.cleanup("failed");
         return;
       }
 
-      // 2. Call backend start endpoint to trigger multi-channel signaling / LiveKit token
+      await this.configureAudio(this.audioRoute);
+
+      // 2. Call backend start endpoint
       await apiStartDMCall(config.callId, Boolean(config.isVideo)).catch(() => null);
 
       // 3. Broadcast direct incoming_call signal on the DM channel
@@ -278,6 +378,7 @@ class CallService {
           event: "incoming_call",
           payload: {
             callId: config.callId,
+            conversationId: config.callId,
             callerId: config.currentUser?.id,
             callerName: config.currentUser?.name,
             callerAvatar: config.currentUser?.avatarUrl,
@@ -287,19 +388,26 @@ class CallService {
         });
       }
 
-      // Simulate ringing state until remote answers or times out
-      this.setState("connecting");
-      setTimeout(() => {
-        if (this.state === "connecting" && !this.isCleanedUp) {
-          // If signaling response arrived, we connect
-          this.setState("connected");
-          this.setQuality("excellent");
-        }
-      }, 1500);
+      // Outgoing call remains strictly in "calling" / "ringing" state until accepted
+      console.log(`[CALL] id=${config.callId} signal=invited -> waiting for acceptance`);
     } catch (err: any) {
       console.warn("[CallService] initiateOutgoingCall error:", err);
+      this.clearNoAnswerTimer();
       this.setState("failed", "Unable to place call.");
+      this.cleanup("failed");
     }
+  }
+
+  /**
+   * Establish connection and transition to connected once signaling + audio setup completes
+   */
+  private establishWebRTCConnection() {
+    if (this.isCleanedUp) return;
+
+    // Transition to connected only after explicit acceptance
+    console.log(`[CALL] id=${this.config?.callId} webrtc=connected`);
+    this.setState("connected");
+    this.setQuality("excellent");
   }
 
   /**
@@ -307,25 +415,31 @@ class CallService {
    */
   async endCall(): Promise<void> {
     if (this.isCleanedUp) return;
+    this.clearNoAnswerTimer();
 
-    if (this.config) {
-      void apiLeaveDMCall(this.config.callId).catch(() => null);
+    const callId = this.config?.callId;
+    const currentUserId = this.config?.currentUser?.id;
+
+    if (callId) {
+      void apiLeaveDMCall(callId).catch(() => null);
     }
 
-    if (this.realtimeChannel && this.config) {
+    if (this.realtimeChannel && callId) {
       try {
         this.realtimeChannel.send({
           type: "broadcast",
           event: "call_ended",
           payload: {
-            callId: this.config.callId,
-            endedById: this.config.currentUser?.id,
+            callId,
+            conversationId: callId,
+            endedById: currentUserId,
             timestamp: Date.now(),
           },
         });
       } catch {}
     }
 
+    globalCallSignaling.dismissActiveCall();
     this.cleanup("ended");
   }
 
@@ -335,8 +449,13 @@ class CallService {
   cleanup(finalState: CallState = "ended") {
     if (this.isCleanedUp) return;
     this.isCleanedUp = true;
+    this.clearNoAnswerTimer();
+    this.connectedAt = null;
 
-    // 1. Stop local media tracks
+    // 1. Stop all sound loops immediately
+    soundService.stopAllCallSounds().catch(() => {});
+
+    // 2. Stop local media tracks
     if (this.localStream) {
       try {
         this.localStream.getTracks?.().forEach((t: any) => t.stop?.());
@@ -344,7 +463,7 @@ class CallService {
       this.localStream = null;
     }
 
-    // 2. Close peer connection
+    // 3. Close peer connection
     if (this.peerConnection) {
       try {
         this.peerConnection.close?.();
@@ -352,7 +471,7 @@ class CallService {
       this.peerConnection = null;
     }
 
-    // 3. Unsubscribe Supabase channel
+    // 4. Unsubscribe Supabase channel
     if (this.realtimeChannel) {
       try {
         const supabase = getSupabaseClient();
@@ -361,7 +480,7 @@ class CallService {
       this.realtimeChannel = null;
     }
 
-    // 4. Reset Audio Mode
+    // 5. Reset Audio Mode safely
     Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,

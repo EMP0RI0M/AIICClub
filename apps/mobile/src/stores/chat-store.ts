@@ -21,6 +21,8 @@ import {
 import { offlineManager } from "../lib/offline-manager";
 import { notificationService } from "../lib/notifications";
 import { NativeHaptics } from "../lib/haptics";
+import { soundService } from "../lib/sound-service";
+import { useAuthStore } from "./auth-store";
 
 interface ChatState {
   messages: Record<string, ChatMessage[]>;
@@ -613,6 +615,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state: ChatState) => {
       const existing = state.messages[channelId] || [];
       if (existing.some((m) => m.id === message.id)) return state;
+      const currentUserId = useAuthStore.getState().user?.id;
+      if (message.author.id && message.author.id !== currentUserId && !message.id.startsWith("optimistic_")) {
+        soundService.playMessagePing(message.id, { type: "channel", id: channelId }).catch(() => {});
+      }
       return {
         messages: {
           ...state.messages,
@@ -625,6 +631,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state: ChatState) => {
       const existing = state.dmMessages[dmId] || [];
       if (existing.some((m) => m.id === message.id)) return state;
+      const currentUserId = useAuthStore.getState().user?.id;
+      if (message.author.id && message.author.id !== currentUserId && !message.id.startsWith("optimistic_")) {
+        soundService.playMessagePing(message.id, { type: "dm", id: dmId }).catch(() => {});
+      }
       return {
         dmMessages: {
           ...state.dmMessages,

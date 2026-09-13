@@ -47,6 +47,7 @@ import {
 } from "lucide-react-native";
 import { AttachmentCard, parseMessageAttachments } from "../../../components/chat/AttachmentCard";
 import { encodeAttachmentContent } from "../../../lib/attachments";
+import { soundService } from "../../../lib/sound-service";
 import { RichMarkdown, ReasoningTrace } from "../../../components/chat/RichMarkdown";
 import { formatAvatarUrl } from "../../../lib/avatar";
 import { UserProfileModal, type UserProfileData } from "../../../components/profile/UserProfileModal";
@@ -333,10 +334,12 @@ export default function DMDetailScreen() {
 
   useEffect(() => {
     if (convoId) {
+      soundService.setActiveScreen("dm", convoId);
       loadDMMessagesAction(convoId);
       subscribeToDM(convoId);
     }
     return () => {
+      soundService.setActiveScreen("none", null);
       unsubscribeFromDM();
     };
   }, [convoId]);

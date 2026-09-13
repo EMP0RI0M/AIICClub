@@ -129,13 +129,20 @@ export const CallScreen: React.FC<CallScreenProps> = ({
     }
   }, [callState, isMuted]);
 
-  // Call timer - starts ONLY when connected
+  // Call timer - starts ONLY when connected and calculates real elapsed time
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
     if (callState === "connected") {
-      timer = setInterval(() => {
-        setCallDuration((prev) => prev + 1);
-      }, 1000);
+      const updateElapsed = () => {
+        const connectedAt = callService.getConnectedAt();
+        if (connectedAt) {
+          setCallDuration(Math.max(0, Math.floor((Date.now() - connectedAt) / 1000)));
+        }
+      };
+      updateElapsed();
+      timer = setInterval(updateElapsed, 1000);
+    } else {
+      setCallDuration(0);
     }
     return () => {
       if (timer) clearInterval(timer);
@@ -147,10 +154,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
     const unsubState = callService.onStateChange((nextState, err) => {
       setCallState(nextState);
       if (err) setErrorMessage(err);
-      if (nextState === "ended") {
+      if (nextState === "ended" || nextState === "no_answer" || nextState === "failed") {
         setTimeout(() => {
           onEnd();
-        }, 600);
+        }, 1200);
       }
     });
 
@@ -195,13 +202,15 @@ export const CallScreen: React.FC<CallScreenProps> = ({
       case "calling":
         return "Calling…";
       case "ringing":
-        return "Incoming call…";
+        return direction === "incoming" ? "Incoming call…" : "Ringing…";
       case "connecting":
         return "Connecting…";
       case "connected":
         return isMuted ? "Muted · HD Audio" : "Connected";
       case "reconnecting":
         return "Reconnecting…";
+      case "no_answer":
+        return "No answer";
       case "ended":
         return "Call ended";
       case "failed":
@@ -209,7 +218,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
       default:
         return "Calling…";
     }
-  }, [callState, isMuted, errorMessage]);
+  }, [callState, isMuted, errorMessage, direction]);
 
   const handleToggleMute = () => {
     NativeHaptics.selection();

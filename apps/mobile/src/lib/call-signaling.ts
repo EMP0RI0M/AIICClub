@@ -1,6 +1,7 @@
 import { getSupabaseClient } from "./supabase";
 import { notificationService } from "./notifications";
 import { NativeHaptics } from "./haptics";
+import { soundService } from "./sound-service";
 
 export interface IncomingCallPayload {
   conversationId?: string;
@@ -20,6 +21,7 @@ class GlobalCallSignaling {
   private listeners: Set<IncomingCallListener> = new Set();
   private userChannel: any = null;
   private currentUserId: string | null = null;
+  private autoDismissTimer: any | null = null;
 
   getActiveCall(): IncomingCallPayload | null {
     return this.activeCall;
@@ -33,6 +35,24 @@ class GlobalCallSignaling {
 
   private notify(call: IncomingCallPayload | null) {
     this.activeCall = call;
+    if (this.autoDismissTimer) {
+      clearTimeout(this.autoDismissTimer);
+      this.autoDismissTimer = null;
+    }
+
+    if (call) {
+      // Start looping ringtone for incoming call
+      soundService.startIncomingRingtone().catch(() => {});
+      // Auto-dismiss after 45s if unanswered
+      this.autoDismissTimer = setTimeout(() => {
+        if (this.activeCall?.callId === call.callId) {
+          this.dismissActiveCall();
+        }
+      }, 45000);
+    } else {
+      soundService.stopIncomingRingtone().catch(() => {});
+    }
+
     this.listeners.forEach((fn) => fn(call));
   }
 
@@ -79,12 +99,13 @@ class GlobalCallSignaling {
           });
         })
         .on("broadcast", { event: "call_declined" }, () => {
-          this.notify(null);
-          notificationService.dismiss();
+          this.dismissActiveCall();
         })
         .on("broadcast", { event: "call_ended" }, () => {
-          this.notify(null);
-          notificationService.dismiss();
+          this.dismissActiveCall();
+        })
+        .on("broadcast", { event: "call_cancelled" }, () => {
+          this.dismissActiveCall();
         })
         .subscribe();
 
@@ -96,14 +117,26 @@ class GlobalCallSignaling {
         authChannel
           .on("broadcast", { event: "incoming_call" }, ({ payload }: { payload: any }) => {
             if (!payload) return;
-            this.notify(payload);
-            notificationService.show({
-              type: "call",
-              title: payload.video ? "Incoming Video Call" : "Incoming Voice Call",
-              body: `${payload.callerName || "AIIC Member"} is calling you...`,
-              dmId: payload.conversationId || payload.callId,
-              durationMs: 45000,
-            });
+            const incoming: IncomingCallPayload = {
+              conversationId: payload.conversationId || payload.callId,
+              callId: payload.callId || payload.conversationId,
+              callerId: payload.callerId,
+              callerName: payload.callerName || "AIIC Member",
+              callerAvatar: payload.callerAvatar || null,
+              video: Boolean(payload.video),
+              roomName: payload.roomName,
+              timestamp: payload.timestamp || Date.now(),
+            };
+            this.notify(incoming);
+          })
+          .on("broadcast", { event: "call_declined" }, () => {
+            this.dismissActiveCall();
+          })
+          .on("broadcast", { event: "call_ended" }, () => {
+            this.dismissActiveCall();
+          })
+          .on("broadcast", { event: "call_cancelled" }, () => {
+            this.dismissActiveCall();
           })
           .subscribe();
       }
@@ -121,12 +154,13 @@ class GlobalCallSignaling {
       this.userChannel = null;
     }
     this.currentUserId = null;
-    this.notify(null);
+    this.dismissActiveCall();
   }
 
   dismissActiveCall() {
     this.notify(null);
     notificationService.dismiss();
+    soundService.stopIncomingRingtone().catch(() => {});
   }
 }
 
