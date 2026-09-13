@@ -900,14 +900,15 @@ function TextChannelScreen({
   const theme = useAppTheme();
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [activeThreadMessage, setActiveThreadMessage] = useState<Message | null>(null);
+  const channelType = (channel.type as string) || "";
   const isSpecialized =
-    channel.type === "github" ||
-    channel.type === "board" ||
-    channel.type === "project" ||
-    channel.type === "docs" ||
-    channel.type === "incident" ||
-    channel.type === "canvas" ||
-    channel.type === "notebook" ||
+    channelType === "github" ||
+    channelType === "board" ||
+    channelType === "project" ||
+    channelType === "docs" ||
+    channelType === "incident" ||
+    channelType === "canvas" ||
+    channelType === "notebook" ||
     channel.name.toLowerCase().includes("notebook") ||
     channel.name.toLowerCase().includes("jupyter");
 
@@ -1297,7 +1298,7 @@ function TextChannelScreen({
             channelName={channel.name}
             onBack={() => setActiveTab("chat")}
           />
-        ) : channel.type === "notebook" || channel.name.toLowerCase().includes("notebook") || channel.name.toLowerCase().includes("jupyter") ? (
+        ) : channelType === "notebook" || channel.name.toLowerCase().includes("notebook") || channel.name.toLowerCase().includes("jupyter") ? (
           <NotebookChannelView
             channelId={channel.id}
             channelName={channel.name}
