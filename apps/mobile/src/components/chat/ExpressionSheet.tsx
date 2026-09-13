@@ -1590,6 +1590,7 @@ export function ExpressionSheet({
             ) : activeTab === "stickers" ? (
               /* 3-COLUMN STICKERS GRID */
               <FlatList
+                key="stickers-grid-3"
                 data={items}
                 keyExtractor={(it, idx) => `sticker-${it.id || idx}`}
                 numColumns={3}
@@ -1615,6 +1616,7 @@ export function ExpressionSheet({
             ) : (
               /* 2-COLUMN RESPONSIVE GIF / MEME GRID */
               <FlatList
+                key={`media-grid-2-${activeTab}`}
                 data={items}
                 keyExtractor={(it, idx) => `media-${activeTab}-${it.id || idx}`}
                 numColumns={2}
