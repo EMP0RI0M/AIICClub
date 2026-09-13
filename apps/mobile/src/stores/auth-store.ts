@@ -289,17 +289,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         WebBrowser.dismissAuthSession();
       } catch {}
 
-      const isStandalone = !Constants.appOwnership || (Constants.appOwnership as any) !== "expo";
+      const isExpoGo = Constants.appOwnership === "expo" || Constants.executionEnvironment === "storeClient";
       const redirectTo =
         Platform.OS === "web"
           ? typeof window !== "undefined"
             ? `${window.location.origin}/auth/callback`
             : Linking.createURL("auth/callback")
-          : isStandalone
-          ? "aiic://auth/callback"
-          : Linking.createURL("auth/callback");
+          : isExpoGo
+          ? Linking.createURL("auth/callback")
+          : "aiic://auth/callback";
 
-      console.log("[AIIC OAuth] redirect URI:", redirectTo);
+      console.log("[AIIC OAuth] detected isExpoGo:", isExpoGo, "redirect URI:", redirectTo);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
