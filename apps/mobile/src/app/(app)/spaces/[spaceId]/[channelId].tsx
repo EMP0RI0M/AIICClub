@@ -58,6 +58,8 @@ import {
 import { ExpressionSheet, type ExpressionTab } from "@/components/chat/ExpressionSheet";
 import { WallpaperBackground } from "@/components/theme/WallpaperBackground";
 import { ThemeCustomizerModal } from "@/components/theme/ThemeCustomizerModal";
+import { LiquidUserDock } from "@/components/workspace/LiquidUserDock";
+import { SpaceMembersSheet, type SpaceMemberItem } from "@/components/workspace/SpaceMembersSheet";
 import { useThemeStore } from "@/stores/theme-store";
 import { useVoiceRecorder } from "../../../../lib/voice-recorder";
 import { colors, radius } from "../../../../theme/tokens";
@@ -408,9 +410,9 @@ function SelectedSpaceView({
   onOpenProfile?: () => void;
 }) {
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
-  const [isMuted, setIsMuted] = useState(false);
-  const [isDeafened, setIsDeafened] = useState(false);
   const [memberCount, setMemberCount] = useState<number>(16);
+  const [showMembers, setShowMembers] = useState(false);
+  const [spaceMembers, setSpaceMembers] = useState<SpaceMemberItem[]>([]);
 
   useEffect(() => {
     if (server?.id) {
@@ -418,6 +420,16 @@ function SelectedSpaceView({
         .then((res) => {
           if (res?.members && res.members.length > 0) {
             setMemberCount(res.members.length);
+            const mapped: SpaceMemberItem[] = res.members.map((m: any) => ({
+              id: m.id || m.userId,
+              name: m.displayName || m.name || m.user?.displayName || "Member",
+              avatar: m.avatar || m.avatarUrl || m.user?.avatar,
+              role: m.role || m.roleName,
+              roleColor: m.roleColor,
+              presence: m.status || (m.online ? "online" : "offline"),
+              statusText: m.statusText,
+            }));
+            setSpaceMembers(mapped);
           }
         })
         .catch(() => {});
@@ -505,13 +517,17 @@ function SelectedSpaceView({
         </Pressable>
 
         <View style={styles.headerActions}>
+          <Pressable onPress={() => setShowMembers(true)} style={styles.squareButton} hitSlop={6}>
+            <Users size={16} color={colors.accent} />
+          </Pressable>
+
           <Pressable onPress={onSearch} style={styles.squareButton} hitSlop={6}>
             <Search size={16} color={colors.textPrimary} />
           </Pressable>
 
           {onOpenSettings && (
             <Pressable onPress={onOpenSettings} style={styles.squareButton} hitSlop={6}>
-              <Settings size={16} color={colors.accent} />
+              <Settings size={16} color={colors.textSecondary} />
             </Pressable>
           )}
         </View>
@@ -544,12 +560,17 @@ function SelectedSpaceView({
                 <ChevronDown
                   size={12}
                   color={colors.textMuted}
-                  style={[styles.categoryChevron, isCollapsed && { transform: [{ rotate: "-90deg" }] }]}
+                  style={[
+                    styles.categoryChevron,
+                    isCollapsed && styles.categoryChevronCollapsed,
+                  ]}
                 />
                 <Text style={styles.categoryTitle}>{category.toUpperCase()}</Text>
-                <Text style={styles.categoryCount}>{items.length}</Text>
+
                 {categoryUnreads > 0 && isCollapsed && (
-                  <View style={styles.categoryUnreadDot} />
+                  <View style={styles.categoryUnreadBadge}>
+                    <Text style={styles.categoryUnreadText}>{categoryUnreads}</Text>
+                  </View>
                 )}
               </Pressable>
 
@@ -563,20 +584,17 @@ function SelectedSpaceView({
                       onPress={() => onSelectChannel(channel.id)}
                       style={({ pressed }) => [
                         styles.channelRow,
-                        channel.type === "incident" && styles.incidentChannelRow,
-                        channel.type === "github" && styles.githubChannelRow,
                         pressed && styles.channelRowPressed,
                       ]}
                     >
-                      {/* Left unread white bar indicator */}
-                      {hasUnreads && <View style={styles.channelUnreadBar} />}
-
-                      {renderChannelIcon(channel.type)}
-
+                      <View style={styles.channelIconWrap}>
+                        {renderChannelIcon(channel.type)}
+                      </View>
                       <Text
                         style={[
                           styles.channelName,
                           hasUnreads && styles.channelNameUnread,
+                          channel.type === "voice" && { color: colors.accentTeal },
                           channel.type === "incident" && { color: colors.danger },
                           channel.type === "github" && { color: colors.accentTeal },
                         ]}
@@ -604,107 +622,20 @@ function SelectedSpaceView({
         })}
       </ScrollView>
 
-      {/* DISCORD PERSISTENT BOTTOM USER PROFILE DOCK */}
-      <View style={styles.discordUserDock}>
-        <BlurView intensity={Platform.OS === "ios" ? 35 : 20} tint="dark" style={StyleSheet.absoluteFill} />
-        <LinearGradient
-          colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+      {/* LIQUID GLASS USER PROFILE DOCK & STATUS CONTROLS */}
+      <LiquidUserDock onOpenSettings={onOpenProfile || onOpenSettings || (() => {})} />
 
-        <Pressable
-          onPress={onOpenProfile}
-          style={styles.discordDockUserInfo}
-          hitSlop={4}
-        >
-          <View style={styles.discordDockAvatarWrap}>
-            {formatAvatarUrl(currentUser?.avatar) ? (
-              <Image source={{ uri: formatAvatarUrl(currentUser?.avatar)! }} style={styles.discordDockAvatarImg} />
-            ) : (
-              <View style={styles.discordDockAvatarFallback}>
-                <Text style={styles.discordDockAvatarLetter}>
-                  {(currentUser?.displayName || currentUser?.username || "R")
-                    .charAt(0)
-                    .toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <View
-              style={[
-                styles.discordDockPresenceDot,
-                currentUser?.status === "idle" && { backgroundColor: colors.statusIdle },
-                currentUser?.status === "dnd" && { backgroundColor: colors.statusDnd },
-                currentUser?.status === "invisible" && { backgroundColor: colors.statusOffline },
-              ]}
-            />
-          </View>
-
-          <View style={styles.discordDockNames}>
-            <Text style={styles.discordDockDisplayName} numberOfLines={1}>
-              {currentUser?.displayName || "Member"}
-            </Text>
-            <Text
-              style={[
-                styles.discordDockStatusText,
-                currentUser?.status === "idle" && { color: colors.statusIdle },
-                currentUser?.status === "dnd" && { color: colors.statusDnd },
-                currentUser?.status === "invisible" && { color: colors.statusOffline },
-              ]}
-              numberOfLines={1}
-            >
-              {currentUser?.status === "invisible"
-                ? "Invisible"
-                : currentUser?.status === "dnd"
-                ? "Do not disturb"
-                : currentUser?.status === "idle"
-                ? "Idle"
-                : "Online"}
-            </Text>
-          </View>
-        </Pressable>
-
-        {/* Discord Quick Media Controls */}
-        <View style={styles.discordDockControls}>
-          <Pressable
-            onPress={() => {
-              NativeHaptics.light();
-              setIsMuted(!isMuted);
-            }}
-            style={[styles.discordDockIconBtn, isMuted && styles.discordDockIconBtnActive]}
-            hitSlop={6}
-          >
-            {isMuted ? (
-              <MicOff size={16} color={colors.danger} />
-            ) : (
-              <Mic size={16} color={colors.textSecondary} />
-            )}
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              NativeHaptics.light();
-              setIsDeafened(!isDeafened);
-            }}
-            style={[styles.discordDockIconBtn, isDeafened && styles.discordDockIconBtnActive]}
-            hitSlop={6}
-          >
-            <Headphones
-              size={16}
-              color={isDeafened ? colors.danger : colors.textSecondary}
-            />
-          </Pressable>
-
-          <Pressable
-            onPress={onOpenProfile}
-            style={styles.discordDockIconBtn}
-            hitSlop={6}
-          >
-            <Settings size={16} color={colors.textSecondary} />
-          </Pressable>
-        </View>
-      </View>
+      {/* SPACE MEMBERS SHEET */}
+      <SpaceMembersSheet
+        visible={showMembers}
+        onClose={() => setShowMembers(false)}
+        spaceName={server.name}
+        members={spaceMembers}
+        onSelectMember={(m) => {
+          setShowMembers(false);
+          if (onOpenProfile) onOpenProfile();
+        }}
+      />
     </View>
   );
 }

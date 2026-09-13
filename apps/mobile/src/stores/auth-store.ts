@@ -56,6 +56,7 @@ export interface User {
   avatar: string | null;
   bio: string | null;
   status: "online" | "idle" | "dnd" | "invisible" | "offline";
+  statusText?: string | null;
   onboardingCompleted: boolean;
   role?: string | null;
   classYear?: string | null;
@@ -87,7 +88,7 @@ interface AuthState {
   logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
   completeOnboarding: () => Promise<void>;
-  setStatus: (status: User["status"]) => void;
+  setStatus: (status: User["status"], statusText?: string | null) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -523,16 +524,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  setStatus: (status) => {
+  setStatus: (status, statusText) => {
     set((state) => {
       if (!state.user) return state;
-      const updated = { ...state.user, status };
+      const updated = {
+        ...state.user,
+        status,
+        ...(statusText !== undefined ? { statusText } : {}),
+      };
       NativeStorage.setItem("aiic_user_session", JSON.stringify(updated));
       return { user: updated };
     });
     api("/auth/profile", {
       method: "PATCH",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({
+        status,
+        ...(statusText !== undefined ? { statusText } : {}),
+      }),
     }).catch(() => {});
   },
 }));
