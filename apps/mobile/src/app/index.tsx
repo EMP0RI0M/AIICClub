@@ -346,6 +346,16 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(45, 212, 191, 0.09)",
   },
 
+  purpleAmbient: {
+    position: "absolute",
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    top: "35%",
+    right: -80,
+    backgroundColor: "rgba(139, 92, 246, 0.08)",
+  },
+
   logoWrap: {
     position: "absolute",
     top: "14%",
