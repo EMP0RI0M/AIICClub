@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,20 +6,18 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Animated,
-  Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius } from "../../../theme/tokens";
 import { GlassCard } from "../../../components/ui/GlassCard";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
-import { api } from "../../../lib/api";
+import { api, fetchUserProfile } from "../../../lib/api";
 import { useAuthStore } from "../../../stores/auth-store";
-import { NativeHaptics } from "../../../lib/haptics";
+import { useWorkspaceStore } from "../../../stores/workspace-store";
+import { resolveUserAvatar } from "../../../lib/avatar";
+import { CallScreen } from "../../../components/call/CallScreen";
 import {
   Mic,
   MicOff,
@@ -27,112 +25,157 @@ import {
   VolumeX,
   PhoneOff,
   Radio,
-  Users,
   Hand,
   ArrowLeft,
-  Wifi,
-  Video,
-  VideoOff,
-  ShieldCheck,
-  Sparkles,
 } from "lucide-react-native";
 
 export default function VoiceStageScreen() {
   const router = useRouter();
-  const { id, type, title } = useLocalSearchParams<{ id: string; type?: string; title?: string }>();
-  const { user } = useAuthStore();
+  const { id, type, title, username, avatarUrl, direction } = useLocalSearchParams<{
+    id: string;
+    type?: string;
+    title?: string;
+    username?: string;
+    avatarUrl?: string;
+    direction?: "incoming" | "outgoing";
+  }>();
 
-  const isDirectCall = type === "video" || type === "voice" || Boolean(title);
-  const [isVideoEnabled, setIsVideoEnabled] = useState(type === "video");
+  const { user } = useAuthStore();
+  const { dms } = useWorkspaceStore();
+
+  // Determine if this is a 1-on-1 Direct Call or a Space Voice Channel
+  const dmConvo = dms.find((d) => d.id === id);
+  const isDirectCall =
+    type === "video" ||
+    type === "voice" ||
+    Boolean(title) ||
+    Boolean(dmConvo) ||
+    direction === "incoming";
+
+  const [remoteParticipant, setRemoteParticipant] = useState<{
+    id: string;
+    name: string;
+    username?: string;
+    avatarUrl?: string | null;
+  } | null>(null);
+
+  // For Space Voice / Stage Channels
   const [isMuted, setIsMuted] = useState(false);
-  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isDeafened, setIsDeafened] = useState(false);
   const [handRaised, setHandRaised] = useState(false);
   const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [callDuration, setCallDuration] = useState(0);
+  const [loadingStage, setLoadingStage] = useState(!isDirectCall);
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  // Pulse animation for speaking glow
+  // 1. Resolve Remote Participant for Direct Calls
   useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.15,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
+    if (!isDirectCall) return;
 
-  // Call duration counter
+    if (dmConvo) {
+      setRemoteParticipant({
+        id: (dmConvo as any).user_id || dmConvo.id,
+        name: dmConvo.name,
+        username: (dmConvo as any).username,
+        avatarUrl: resolveUserAvatar(dmConvo),
+      });
+    } else if (title) {
+      setRemoteParticipant({
+        id: id || "remote_peer",
+        name: title,
+        username: username,
+        avatarUrl: avatarUrl || null,
+      });
+    } else if (id) {
+      // Fetch user profile from API as fallback
+      fetchUserProfile(id)
+        .then((res) => {
+          if (res?.user) {
+            setRemoteParticipant({
+              id: res.user.id,
+              name: res.user.displayName || res.user.username || "Member",
+              username: res.user.username,
+              avatarUrl: resolveUserAvatar(res.user),
+            });
+          }
+        })
+        .catch(() => {
+          setRemoteParticipant({
+            id: id || "remote_peer",
+            name: title || "Direct Call",
+            username: username,
+            avatarUrl: avatarUrl || null,
+          });
+        });
+    }
+  }, [id, isDirectCall, dmConvo, title, username, avatarUrl]);
+
+  // 2. Load Space Voice / Stage Session if not a direct call
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCallDuration((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    if (isDirectCall) return;
 
-  const formatTime = (secs: number) => {
-    const mins = Math.floor(secs / 60);
-    const remainingSecs = secs % 60;
-    return `${mins.toString().padStart(2, "0")}:${remainingSecs.toString().padStart(2, "0")}`;
-  };
-
-  useEffect(() => {
     if (id) {
+      setLoadingStage(true);
       api<{ token: string; url: string; roomName: string; channelName: string }>(
         `/channels/${id}/voice/join`,
         { method: "POST" }
       )
         .then((res) => {
           setSession(res);
-          setLoading(false);
+          setLoadingStage(false);
         })
         .catch((err) => {
-          console.warn("Voice join token generation:", err);
-          setLoading(false);
+          console.warn("Voice stage join error:", err);
+          setLoadingStage(false);
         });
     }
-  }, [id]);
+  }, [id, isDirectCall]);
 
+  // ─────────────────────────────────────────────────────────────
+  // A. DIRECT 1-ON-1 WEBRTC CALL SCREEN
+  // ─────────────────────────────────────────────────────────────
+  if (isDirectCall) {
+    const participant = remoteParticipant || {
+      id: id || "peer",
+      name: title || dmConvo?.name || "Direct Call",
+      username: username || (dmConvo as any)?.username,
+      avatarUrl: avatarUrl || resolveUserAvatar(dmConvo),
+    };
+
+    return (
+      <CallScreen
+        participant={participant}
+        callId={id}
+        direction={direction === "incoming" ? "incoming" : "outgoing"}
+        isVideo={type === "video"}
+        currentUser={
+          user
+            ? {
+                id: user.id,
+                name: user.displayName || user.username || "You",
+                avatarUrl: resolveUserAvatar(user),
+              }
+            : null
+        }
+        onEnd={() => router.back()}
+      />
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // B. SPACE VOICE / LIVE STAGE ROOM
+  // ─────────────────────────────────────────────────────────────
   const participants = (session?.participants || []).map((p: any) => ({
     id: p.userId,
     name: p.displayName || p.username || "Member",
     role: "speaker",
     speaking: p.userId === user?.id && !isMuted,
-    roleColor: colors.accent,
+    avatarUrl: p.avatarUrl || null,
   }));
 
   const speakers = participants.filter((p: any) => p.role === "speaker");
   const listeners = participants.filter((p: any) => p.role === "listener");
 
-  const channelHeading = title || session?.channelName || (isDirectCall ? "Direct Call" : "Live Audio Stage");
-
-  const handleEndCall = () => {
-    NativeHaptics.heavy();
-    router.back();
-  };
-
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
-      {/* Dynamic Ambient Glow */}
-      <LinearGradient
-        colors={["rgba(232, 163, 61, 0.08)", "rgba(10, 10, 14, 0.98)"]}
-        style={StyleSheet.absoluteFillObject}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.6 }}
-      />
-
       {/* Header Bar */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} hitSlop={10}>
@@ -140,77 +183,36 @@ export default function VoiceStageScreen() {
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <View style={styles.liveIndicator}>
-            {isDirectCall ? (
-              <ShieldCheck size={13} color={colors.live} />
-            ) : (
-              <Radio size={13} color={colors.live} />
-            )}
-            <Text style={styles.liveText}>
-              {isDirectCall ? "E2E ENCRYPTED · LIVE" : "STAGE LIVE"}
-            </Text>
+            <Radio size={14} color={colors.live} />
+            <Text style={styles.liveText}>STAGE LIVE</Text>
           </View>
           <Text style={styles.channelTitle} numberOfLines={1}>
-            {channelHeading}
+            {session?.channelName || "Live Audio Stage"}
           </Text>
         </View>
-        <Badge label={formatTime(callDuration)} variant="teal" />
+        <Badge label="Connected" variant="teal" />
       </View>
 
-      {loading ? (
+      {loadingStage ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="small" color={colors.accent} />
-          <Text style={styles.loadingText}>Establishing WebRTC Audio & Video Link...</Text>
-        </View>
-      ) : isDirectCall ? (
-        /* 1-on-1 Direct Call Screen */
-        <View style={styles.directCallContainer}>
-          <View style={styles.directCallCenter}>
-            <Animated.View
-              style={[
-                styles.pulseCircle,
-                {
-                  transform: [{ scale: !isMuted ? pulseAnim : 1 }],
-                  borderColor: !isMuted ? colors.live : "rgba(255, 255, 255, 0.15)",
-                },
-              ]}
-            >
-              <Avatar
-                name={title || user?.displayName || "Member"}
-                size={110}
-                url={null}
-              />
-            </Animated.View>
-            <Text style={styles.directCallName}>{channelHeading}</Text>
-            <Text style={styles.directCallStatus}>
-              {isMuted ? "Microphone Muted" : "Speaking · HD Voice"}
-            </Text>
-          </View>
-
-          {/* Video Placeholder if Video Mode */}
-          {isVideoEnabled && (
-            <View style={styles.videoPlaceholderCard}>
-              <LinearGradient
-                colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <Video size={28} color={colors.accent} />
-              <Text style={styles.videoPlaceholderText}>Camera Feed Active (720p HD)</Text>
-            </View>
-          )}
+          <Text style={styles.loadingText}>Connecting to Voice Channel...</Text>
         </View>
       ) : (
-        /* Stage Audio Room */
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Stage Speakers */}
           <Text style={styles.sectionTitle}>STAGE SPEAKERS ({speakers.length || 1})</Text>
           <View style={styles.grid}>
-            {(speakers.length ? speakers : [{ id: user?.id || "me", name: user?.displayName || "You", speaking: !isMuted }]).map((s: any) => (
+            {(speakers.length
+              ? speakers
+              : [{ id: user?.id || "me", name: user?.displayName || "You", speaking: !isMuted }]
+            ).map((s: any) => (
               <GlassCard
                 key={s.id}
                 elevated
                 style={[styles.speakerCard, s.speaking && styles.speakingBorder]}
               >
-                <Avatar name={s.name} size={54} url={s.avatar || s.avatarUrl || s.avatar_url} />
+                <Avatar name={s.name} size={54} url={s.avatarUrl} />
                 <Text style={styles.speakerName} numberOfLines={1}>
                   {s.name}
                 </Text>
@@ -230,7 +232,7 @@ export default function VoiceStageScreen() {
           <View style={styles.audienceList}>
             {listeners.map((l: any) => (
               <View key={l.id} style={styles.audienceRow}>
-                <Avatar name={l.name} size={36} url={l.avatar || l.avatarUrl || l.avatar_url} />
+                <Avatar name={l.name} size={36} url={l.avatarUrl} />
                 <Text style={styles.audienceName}>{l.name}</Text>
                 {l.handRaised && (
                   <View style={styles.handBadge}>
@@ -244,73 +246,50 @@ export default function VoiceStageScreen() {
         </ScrollView>
       )}
 
-      {/* Voice Bar Floating Glass Controls */}
-      <View style={styles.floatingControlWrap}>
-        <BlurView intensity={35} tint="dark" style={styles.floatingControlBar}>
-          <TouchableOpacity
-            style={[styles.ctrlCircleBtn, isMuted && styles.ctrlCircleBtnActive]}
-            onPress={() => {
-              NativeHaptics.selection();
-              setIsMuted(!isMuted);
-            }}
-          >
-            {isMuted ? (
-              <MicOff size={22} color={colors.danger} />
-            ) : (
-              <Mic size={22} color={colors.textPrimary} />
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.ctrlCircleBtn, isVideoEnabled && styles.ctrlCircleBtnActive]}
-            onPress={() => {
-              NativeHaptics.selection();
-              setIsVideoEnabled(!isVideoEnabled);
-            }}
-          >
-            {isVideoEnabled ? (
-              <Video size={22} color={colors.accent} />
-            ) : (
-              <VideoOff size={22} color={colors.textMuted} />
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.ctrlCircleBtn, isSpeakerOn && styles.ctrlCircleBtnActive]}
-            onPress={() => {
-              NativeHaptics.selection();
-              setIsSpeakerOn(!isSpeakerOn);
-            }}
-          >
-            {isSpeakerOn ? (
-              <Volume2 size={22} color={colors.textPrimary} />
-            ) : (
-              <VolumeX size={22} color={colors.textMuted} />
-            )}
-          </TouchableOpacity>
-
-          {!isDirectCall && (
-            <TouchableOpacity
-              style={[styles.ctrlCircleBtn, handRaised && styles.ctrlCircleBtnActive]}
-              onPress={() => {
-                NativeHaptics.selection();
-                setHandRaised(!handRaised);
-              }}
-            >
-              <Hand
-                size={22}
-                color={handRaised ? colors.warning : colors.textPrimary}
-              />
-            </TouchableOpacity>
+      {/* Control Bar */}
+      <View style={styles.controlBar}>
+        <TouchableOpacity
+          style={[styles.ctrlBtn, isMuted && styles.ctrlBtnActive]}
+          onPress={() => setIsMuted(!isMuted)}
+        >
+          {isMuted ? (
+            <MicOff size={20} color={colors.danger} />
+          ) : (
+            <Mic size={20} color={colors.textPrimary} />
           )}
+          <Text style={styles.ctrlLabel}>{isMuted ? "Unmute" : "Mute"}</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.ctrlCircleBtn, styles.endCallBtn]}
-            onPress={handleEndCall}
-          >
-            <PhoneOff size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-        </BlurView>
+        <TouchableOpacity
+          style={[styles.ctrlBtn, isDeafened && styles.ctrlBtnActive]}
+          onPress={() => setIsDeafened(!isDeafened)}
+        >
+          {isDeafened ? (
+            <VolumeX size={20} color={colors.danger} />
+          ) : (
+            <Volume2 size={20} color={colors.textPrimary} />
+          )}
+          <Text style={styles.ctrlLabel}>{isDeafened ? "Deafened" : "Deafen"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.ctrlBtn, handRaised && styles.ctrlBtnActive]}
+          onPress={() => setHandRaised(!handRaised)}
+        >
+          <Hand
+            size={20}
+            color={handRaised ? colors.warning : colors.textPrimary}
+          />
+          <Text style={styles.ctrlLabel}>{handRaised ? "Lower Hand" : "Raise Hand"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.ctrlBtn, styles.disconnectBtn]}
+          onPress={() => router.back()}
+        >
+          <PhoneOff size={20} color="#FFFFFF" />
+          <Text style={[styles.ctrlLabel, { color: "#FFFFFF" }]}>Leave</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -471,96 +450,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: radius.md,
-  },
-  directCallContainer: {
-    flex: 1,
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-  },
-  directCallCenter: {
-    alignItems: "center",
-    marginTop: 40,
-  },
-  pulseCircle: {
-    padding: 6,
-    borderRadius: 80,
-    borderWidth: 3,
-    marginBottom: 20,
-    shadowColor: colors.live,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  directCallName: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    marginBottom: 6,
-    textAlign: "center",
-  },
-  directCallStatus: {
-    fontSize: 14,
-    color: colors.live,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-  },
-  videoPlaceholderCard: {
-    width: "100%",
-    height: 180,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.25)",
-    backgroundColor: "rgba(20, 16, 12, 0.60)",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    overflow: "hidden",
-    marginBottom: 80,
-  },
-  videoPlaceholderText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: "600",
-  },
-  floatingControlWrap: {
-    position: "absolute",
-    bottom: Platform.OS === "ios" ? 34 : 20,
-    left: 20,
-    right: 20,
-    alignItems: "center",
-  },
-  floatingControlBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    backgroundColor: "rgba(20, 18, 24, 0.75)",
-    borderRadius: 36,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    width: "100%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  ctrlCircleBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ctrlCircleBtnActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.20)",
-  },
-  endCallBtn: {
-    backgroundColor: "#FF3B30",
   },
 });
