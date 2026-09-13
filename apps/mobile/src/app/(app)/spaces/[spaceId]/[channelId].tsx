@@ -560,17 +560,12 @@ function SelectedSpaceView({
                 <ChevronDown
                   size={12}
                   color={colors.textMuted}
-                  style={[
-                    styles.categoryChevron,
-                    isCollapsed && styles.categoryChevronCollapsed,
-                  ]}
+                  style={[styles.categoryChevron, isCollapsed && { transform: [{ rotate: "-90deg" }] }]}
                 />
                 <Text style={styles.categoryTitle}>{category.toUpperCase()}</Text>
-
+                <Text style={styles.categoryCount}>{items.length}</Text>
                 {categoryUnreads > 0 && isCollapsed && (
-                  <View style={styles.categoryUnreadBadge}>
-                    <Text style={styles.categoryUnreadText}>{categoryUnreads}</Text>
-                  </View>
+                  <View style={styles.categoryUnreadDot} />
                 )}
               </Pressable>
 
@@ -587,9 +582,8 @@ function SelectedSpaceView({
                         pressed && styles.channelRowPressed,
                       ]}
                     >
-                      <View style={styles.channelIconWrap}>
-                        {renderChannelIcon(channel.type)}
-                      </View>
+                      {hasUnreads && <View style={styles.channelUnreadBar} />}
+                      {renderChannelIcon(channel.type)}
                       <Text
                         style={[
                           styles.channelName,
