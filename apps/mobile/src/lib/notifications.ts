@@ -1,7 +1,10 @@
 import * as Notifications from "expo-notifications";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import { Platform } from "react-native";
 import { NativeHaptics } from "./haptics";
 import { soundService } from "./sound-service";
+
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 // Configure notification behavior for foreground notifications
 Notifications.setNotificationHandler({
@@ -34,9 +37,18 @@ class NotificationService {
   private dismissTimer: any = null;
   private pushToken: string | null = null;
 
+  /** Check if running in Expo Go where remote push notifications are removed starting in SDK 53 */
+  isExpoGoEnvironment(): boolean {
+    return isExpoGo;
+  }
+
   /** Request native system notification permissions and retrieve Expo Push Token */
-  async requestPermissions(): Promise<boolean> {
+  async requestPermissions(): Promise<{ granted: boolean; isExpoGo: boolean }> {
     try {
+      if (isExpoGo) {
+        console.info("[NotificationService] Running in Expo Go: Remote push notifications require an EAS / APK Development Build starting in Expo SDK 53.");
+      }
+
       const existing: any = await Notifications.getPermissionsAsync();
       let granted = Boolean(existing?.granted || existing?.status === "granted" || existing?.allowsAlert);
       if (!granted) {
@@ -44,7 +56,7 @@ class NotificationService {
         granted = Boolean(requested?.granted || requested?.status === "granted" || requested?.allowsAlert);
       }
       if (!granted) {
-        return false;
+        return { granted: false, isExpoGo };
       }
 
       if (Platform.OS === "android") {
@@ -56,16 +68,18 @@ class NotificationService {
         });
       }
 
-      try {
-        const tokenData = await Notifications.getExpoPushTokenAsync();
-        this.pushToken = tokenData.data;
-      } catch (e) {
-        // May fail in bare simulator or without Project ID
+      if (!isExpoGo) {
+        try {
+          const tokenData = await Notifications.getExpoPushTokenAsync();
+          this.pushToken = tokenData.data;
+        } catch (e) {
+          // Handled gracefully in dev / unlinked environments
+        }
       }
-      return true;
+      return { granted: true, isExpoGo };
     } catch (err) {
       console.warn("[NotificationService] Permission request failed:", err);
-      return false;
+      return { granted: false, isExpoGo };
     }
   }
 

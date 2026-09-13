@@ -390,9 +390,14 @@ export default function UserSettingsScreen() {
                   onValueChange={async (val) => {
                     setPushNotifs(val);
                     if (val) {
-                      const granted = await notificationService.requestPermissions();
+                      const { granted, isExpoGo } = await notificationService.requestPermissions();
                       if (!granted) {
-                        Alert.alert("Permission Required", "Please enable notification permissions in your device settings to receive real-time push alerts.");
+                        Alert.alert("Permission Required", "Please enable notification permissions in your device settings to receive real-time alerts.");
+                      } else if (isExpoGo) {
+                        Alert.alert(
+                          "Expo Go Notice",
+                          "In-app banners and local alerts are active! Note that remote push notifications on Android require a Development Build starting with Expo SDK 53."
+                        );
                       }
                     }
                   }}
