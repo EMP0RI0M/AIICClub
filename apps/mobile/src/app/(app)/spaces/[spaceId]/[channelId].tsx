@@ -56,6 +56,9 @@ import {
   MobileEmojiModal,
 } from "@/components/chat/MobileMediaPickers";
 import { ExpressionSheet, type ExpressionTab } from "@/components/chat/ExpressionSheet";
+import { WallpaperBackground } from "@/components/theme/WallpaperBackground";
+import { ThemeCustomizerModal } from "@/components/theme/ThemeCustomizerModal";
+import { useThemeStore } from "@/stores/theme-store";
 import { useVoiceRecorder } from "../../../../lib/voice-recorder";
 import { colors, radius } from "../../../../theme/tokens";
 import {
@@ -73,6 +76,7 @@ import {
   Kanban,
   FileText,
   Github,
+  Palette,
   AlertTriangle,
   Radio,
   ChevronRight,
@@ -1632,7 +1636,9 @@ function MessageComposer({
     url: string;
     name: string;
     type?: string;
-    size?: number;
+    kind?: "image" | "video" | "file" | "gif" | "audio";
+    size?: number | string;
+    duration?: string;
   } | null>(null);
 
   const {
@@ -1667,47 +1673,34 @@ function MessageComposer({
     }
   }
 
-  const handleSelectGif = async (gifUrl: string) => {
-    try {
-      const attPayload = `attachment:${JSON.stringify({ url: gifUrl, name: "GIF", type: "image/gif" })}`;
-      await onSend(text.trim() ? `${text.trim()}\n${attPayload}` : attPayload, replyingTo?.id);
-      setText("");
-      onCancelReply?.();
-    } catch (e) {
-      console.warn("Failed to send GIF:", e);
-    }
+  const handleSelectGif = (gifUrl: string) => {
+    setStagedAttachment({
+      url: gifUrl,
+      name: "GIF",
+      type: "image/gif",
+      kind: "gif",
+    });
+    setExpressionSheetOpen(false);
   };
 
-  const handleSelectSticker = async (stickerUrl: string, title?: string) => {
-    try {
-      const attPayload = `attachment:${JSON.stringify({
-        url: stickerUrl,
-        name: title || "Sticker",
-        type: "image/webp",
-        kind: "image",
-      })}`;
-      await onSend(text.trim() ? `${text.trim()}\n${attPayload}` : attPayload, replyingTo?.id);
-      setText("");
-      onCancelReply?.();
-    } catch (e) {
-      console.warn("Failed to send Sticker:", e);
-    }
+  const handleSelectSticker = (stickerUrl: string, title?: string) => {
+    setStagedAttachment({
+      url: stickerUrl,
+      name: title || "Sticker",
+      type: "image/webp",
+      kind: "image",
+    });
+    setExpressionSheetOpen(false);
   };
 
-  const handleSelectMeme = async (memeUrl: string, title?: string) => {
-    try {
-      const attPayload = `attachment:${JSON.stringify({
-        url: memeUrl,
-        name: title || "Meme",
-        type: "image/jpeg",
-        kind: "image",
-      })}`;
-      await onSend(text.trim() ? `${text.trim()}\n${attPayload}` : attPayload, replyingTo?.id);
-      setText("");
-      onCancelReply?.();
-    } catch (e) {
-      console.warn("Failed to send Meme:", e);
-    }
+  const handleSelectMeme = (memeUrl: string, title?: string) => {
+    setStagedAttachment({
+      url: memeUrl,
+      name: title || "Meme",
+      type: "image/jpeg",
+      kind: "image",
+    });
+    setExpressionSheetOpen(false);
   };
 
   const handlePressInAction = () => {
@@ -1754,7 +1747,15 @@ function MessageComposer({
       {stagedAttachment && (
         <View style={styles.stagedAttachmentBanner}>
           <View style={styles.stagedAttachmentInner}>
-            <Paperclip size={13} color={colors.accent} />
+            {stagedAttachment.url && (stagedAttachment.kind === "image" || stagedAttachment.kind === "gif" || stagedAttachment.type?.startsWith("image/")) ? (
+              <Image
+                source={{ uri: stagedAttachment.url }}
+                style={{ width: 24, height: 24, borderRadius: 5, marginRight: 6 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Paperclip size={13} color={colors.accent} />
+            )}
             <Text style={styles.stagedAttachmentName} numberOfLines={1}>
               {stagedAttachment.name}
             </Text>
@@ -2287,7 +2288,9 @@ export default function AIICDiscordApp() {
   const [createNoticeOpen, setCreateNoticeOpen] = useState(false);
   const [createSpaceModalOpen, setCreateSpaceModalOpen] = useState(false);
   const [spaceSettingsOpen, setSpaceSettingsOpen] = useState(false);
+  const [themeStudioOpen, setThemeStudioOpen] = useState(false);
   const [selectedMemberProfile, setSelectedMemberProfile] = useState<UserProfileData | null>(null);
+  const { accentColor: themeAccent } = useThemeStore();
 
   // Authority & Role calculation from Supabase profile data
   const userRole = (user?.role || "member").toLowerCase().trim();
@@ -2431,14 +2434,9 @@ export default function AIICDiscordApp() {
   const notice = notices[0];
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <View style={styles.root}>
-        {/* Ambient background light gradients / orbs for translucent Liquid Glass depth */}
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-          <View style={styles.ambientGlowAmber} />
-          <View style={styles.ambientGlowTeal} />
-          <View style={styles.ambientGlowPurple} />
-        </View>
+    <WallpaperBackground>
+      <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+        <View style={styles.root}>
 
         {/* =================================================
             LEVEL 1: DISCORD LEFT SPACE / SERVER RAIL
@@ -2683,7 +2681,14 @@ export default function AIICDiscordApp() {
           }
         }}
       />
+
+      {/* Theme & Wallpaper Customization Studio Modal */}
+      <ThemeCustomizerModal
+        visible={themeStudioOpen}
+        onClose={() => setThemeStudioOpen(false)}
+      />
     </SafeAreaView>
+  </WallpaperBackground>
   );
 }
 

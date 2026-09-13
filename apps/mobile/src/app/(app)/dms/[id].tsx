@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   Pressable,
+  Image,
   Modal,
   Alert,
   StyleSheet,
@@ -42,6 +43,7 @@ import {
   CheckCheck,
   Plus,
   CornerUpLeft,
+  Palette,
 } from "lucide-react-native";
 import { AttachmentCard, parseMessageAttachments } from "../../../components/chat/AttachmentCard";
 import { RichMarkdown, ReasoningTrace } from "../../../components/chat/RichMarkdown";
@@ -54,6 +56,9 @@ import {
   MobileGiftPickerModal,
 } from "../../../components/chat/MobileMediaPickers";
 import { ExpressionSheet, type ExpressionTab } from "../../../components/chat/ExpressionSheet";
+import { WallpaperBackground } from "../../../components/theme/WallpaperBackground";
+import { ThemeCustomizerModal } from "../../../components/theme/ThemeCustomizerModal";
+import { useThemeStore } from "../../../stores/theme-store";
 import { useVoiceRecorder } from "../../../lib/voice-recorder";
 import { NativeHaptics } from "../../../lib/haptics";
 import { fetchUserProfile } from "../../../lib/api";
@@ -233,6 +238,8 @@ export default function DMDetailScreen() {
   const [reactModalOpen, setReactModalOpen] = useState(false);
   const [messageToReact, setMessageToReact] = useState<any | null>(null);
   const [giftModalOpen, setGiftModalOpen] = useState(false);
+  const [themeStudioOpen, setThemeStudioOpen] = useState(false);
+  const { accentColor: themeAccent } = useThemeStore();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editText, setEditText] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -286,7 +293,9 @@ export default function DMDetailScreen() {
     url: string;
     name: string;
     type?: string;
-    size?: number;
+    kind?: "image" | "video" | "file" | "gif" | "audio";
+    size?: number | string;
+    duration?: string;
   } | null>(null);
   const convoId = id as string;
 
@@ -327,44 +336,34 @@ export default function DMDetailScreen() {
     }
   };
 
-  const handleSelectGif = async (gifUrl: string) => {
-    try {
-      const attPayload = `attachment:${JSON.stringify({ url: gifUrl, name: "GIF", type: "image/gif" })}`;
-      await sendDMMessageAction(convoId, inputText.trim() ? `${inputText.trim()}\n${attPayload}` : attPayload);
-      setInputText("");
-    } catch (err) {
-      console.error("Failed to send GIF DM:", err);
-    }
+  const handleSelectGif = (gifUrl: string) => {
+    setStagedAttachment({
+      url: gifUrl,
+      name: "GIF",
+      type: "image/gif",
+      kind: "gif",
+    });
+    setExpressionSheetOpen(false);
   };
 
-  const handleSelectSticker = async (stickerUrl: string, title?: string) => {
-    try {
-      const attPayload = `attachment:${JSON.stringify({
-        url: stickerUrl,
-        name: title || "Sticker",
-        type: "image/webp",
-        kind: "image",
-      })}`;
-      await sendDMMessageAction(convoId, inputText.trim() ? `${inputText.trim()}\n${attPayload}` : attPayload);
-      setInputText("");
-    } catch (err) {
-      console.error("Failed to send Sticker DM:", err);
-    }
+  const handleSelectSticker = (stickerUrl: string, title?: string) => {
+    setStagedAttachment({
+      url: stickerUrl,
+      name: title || "Sticker",
+      type: "image/webp",
+      kind: "image",
+    });
+    setExpressionSheetOpen(false);
   };
 
-  const handleSelectMeme = async (memeUrl: string, title?: string) => {
-    try {
-      const attPayload = `attachment:${JSON.stringify({
-        url: memeUrl,
-        name: title || "Meme",
-        type: "image/jpeg",
-        kind: "image",
-      })}`;
-      await sendDMMessageAction(convoId, inputText.trim() ? `${inputText.trim()}\n${attPayload}` : attPayload);
-      setInputText("");
-    } catch (err) {
-      console.error("Failed to send Meme DM:", err);
-    }
+  const handleSelectMeme = (memeUrl: string, title?: string) => {
+    setStagedAttachment({
+      url: memeUrl,
+      name: title || "Meme",
+      type: "image/jpeg",
+      kind: "image",
+    });
+    setExpressionSheetOpen(false);
   };
 
   const handleCopyMessage = async (msg: any) => {
@@ -434,89 +433,92 @@ export default function DMDetailScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
-      {/* Ambient Liquid Glass Backdrop Glows */}
-      <View style={styles.ambientGlowAmber} pointerEvents="none" />
-      <View style={styles.ambientGlowTeal} pointerEvents="none" />
-
-      {/* Floating Copy Feedback Toast */}
-      {copyToast && (
-        <View style={styles.toastBanner}>
-          <Check size={14} color="#000" />
-          <Text style={styles.toastText}>Message copied to clipboard!</Text>
-        </View>
-      )}
-
-      {/* Floating Liquid Glass Header Capsule */}
-      <View style={styles.headerCapsuleWrap}>
-        <BlurView intensity={28} tint="dark" style={styles.headerCapsule}>
-          <LinearGradient
-            colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
-            style={StyleSheet.absoluteFillObject}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-          />
-
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.back()}
-          >
-            <ArrowLeft size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.headerCenter}
-            onPress={async () => {
-              const profile = await fetchUserProfile((conversation as any).user_id || conversation.id).catch(() => null);
-              setSelectedUser(profile?.user || {
-                id: (conversation as any).user_id || conversation.id,
-                displayName: conversation.name,
-                username: (conversation as any).username || conversation.name.toLowerCase().replace(/\s+/g, ""),
-                avatarUrl: (conversation as any).avatarUrl || null,
-                status: conversation.presence,
-                role: (conversation as any).role || "member",
-                roleName: (conversation as any).roleName,
-                bio: (conversation as any).bio,
-                classYear: (conversation as any).classYear,
-                section: (conversation as any).section,
-                githubUrl: (conversation as any).githubUrl,
-                linkedinUrl: (conversation as any).linkedinUrl,
-                websiteUrl: (conversation as any).websiteUrl,
-                skills: (conversation as any).skills,
-                interests: (conversation as any).interests,
-              });
-            }}
-          >
-            <Avatar
-              name={conversation.name}
-              presence={conversation.presence}
-              size={32}
-              url={(conversation as any)?.avatar || (conversation as any)?.avatarUrl}
-            />
-            <View style={{ minWidth: 0, flex: 1 }}>
-              <Text style={styles.headerName} numberOfLines={1}>
-                {conversation.name}
-              </Text>
-              <Text style={styles.headerSub}>AIIC · DIRECT MESSAGE</Text>
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => router.push(`/(app)/voice/${convoId}`)}
-            >
-              <Phone size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => router.push(`/(app)/voice/${convoId}`)}
-            >
-              <Video size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
+    <WallpaperBackground>
+      <SafeAreaView edges={["top"]} style={styles.container}>
+        {/* Floating Copy Feedback Toast */}
+        {copyToast && (
+          <View style={styles.toastBanner}>
+            <Check size={14} color="#000" />
+            <Text style={styles.toastText}>Message copied to clipboard!</Text>
           </View>
-        </BlurView>
-      </View>
+        )}
+
+        {/* Top Header Capsule */}
+        <View style={styles.headerCapsuleWrap}>
+          <BlurView intensity={28} tint="dark" style={styles.headerCapsule}>
+            <LinearGradient
+              colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+              style={StyleSheet.absoluteFillObject}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+            />
+
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => router.back()}
+            >
+              <ArrowLeft size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.headerCenter}
+              onPress={async () => {
+                const profile = await fetchUserProfile((conversation as any).user_id || conversation.id).catch(() => null);
+                setSelectedUser(profile?.user || {
+                  id: (conversation as any).user_id || conversation.id,
+                  displayName: conversation.name,
+                  username: (conversation as any).username || conversation.name.toLowerCase().replace(/\s+/g, ""),
+                  avatarUrl: (conversation as any).avatarUrl || null,
+                  status: conversation.presence,
+                  role: (conversation as any).role || "member",
+                  roleName: (conversation as any).roleName,
+                  bio: (conversation as any).bio,
+                  classYear: (conversation as any).classYear,
+                  section: (conversation as any).section,
+                  githubUrl: (conversation as any).githubUrl,
+                  linkedinUrl: (conversation as any).linkedinUrl,
+                  websiteUrl: (conversation as any).websiteUrl,
+                  skills: (conversation as any).skills,
+                  interests: (conversation as any).interests,
+                });
+              }}
+            >
+              <Avatar
+                name={conversation.name}
+                presence={conversation.presence}
+                size={32}
+                url={(conversation as any)?.avatar || (conversation as any)?.avatarUrl}
+              />
+              <View style={{ minWidth: 0, flex: 1 }}>
+                <Text style={styles.headerName} numberOfLines={1}>
+                  {conversation.name}
+                </Text>
+                <Text style={[styles.headerSub, { color: themeAccent }]}>AIIC · DIRECT MESSAGE</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={[styles.iconBtn, { backgroundColor: `${themeAccent}18`, borderColor: `${themeAccent}35` }]}
+                onPress={() => setThemeStudioOpen(true)}
+              >
+                <Palette size={15} color={themeAccent} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.iconBtn}
+                onPress={() => router.push(`/(app)/voice/${convoId}`)}
+              >
+                <Phone size={16} color={themeAccent} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.iconBtn}
+                onPress={() => router.push(`/(app)/voice/${convoId}`)}
+              >
+                <Video size={16} color={themeAccent} />
+              </TouchableOpacity>
+            </View>
+          </BlurView>
+        </View>
 
       {/* Message Feed */}
       <KeyboardAvoidingView
@@ -748,7 +750,15 @@ export default function DMDetailScreen() {
         {stagedAttachment && (
           <View style={styles.stagedAttachmentBanner}>
             <View style={styles.stagedAttachmentInner}>
-              <Paperclip size={13} color={colors.accent} />
+              {stagedAttachment.url && (stagedAttachment.kind === "image" || stagedAttachment.kind === "gif" || stagedAttachment.type?.startsWith("image/")) ? (
+                <Image
+                  source={{ uri: stagedAttachment.url }}
+                  style={{ width: 24, height: 24, borderRadius: 5, marginRight: 6 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Paperclip size={13} color={colors.accent} />
+              )}
               <Text style={styles.stagedAttachmentName} numberOfLines={1}>
                 {stagedAttachment.name}
               </Text>
@@ -1163,7 +1173,14 @@ export default function DMDetailScreen() {
           router.push(`/(app)/voice/${convoId}`);
         }}
       />
+
+      {/* Theme & Wallpaper Customization Studio Modal */}
+      <ThemeCustomizerModal
+        visible={themeStudioOpen}
+        onClose={() => setThemeStudioOpen(false)}
+      />
     </SafeAreaView>
+  </WallpaperBackground>
   );
 }
 

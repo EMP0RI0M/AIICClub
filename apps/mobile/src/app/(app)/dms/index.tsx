@@ -19,6 +19,9 @@ import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui/Button";
 import { useWorkspaceStore } from "../../../stores/workspace-store";
 import { useAuthStore } from "../../../stores/auth-store";
+import { useThemeStore } from "../../../stores/theme-store";
+import { WallpaperBackground } from "../../../components/theme/WallpaperBackground";
+import { ThemeCustomizerModal } from "../../../components/theme/ThemeCustomizerModal";
 import { DMSummary, FriendEntry, Presence } from "../../../lib/types";
 import {
   sendFriendRequest,
@@ -42,11 +45,14 @@ import {
   Clock,
   Sparkles,
   ShieldAlert,
+  Palette,
 } from "lucide-react-native";
 
 export default function DMsScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const { accentColor: themeAccent } = useThemeStore();
+  const [themeStudioOpen, setThemeStudioOpen] = useState(false);
   const {
     dms,
     friends,
@@ -242,40 +248,49 @@ export default function DMsScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
-      {/* Ambient Color Glows */}
-      <View style={styles.ambientGlowAmber} pointerEvents="none" />
-      <View style={styles.ambientGlowPurple} pointerEvents="none" />
+    <WallpaperBackground>
+      <SafeAreaView edges={["top"]} style={styles.container}>
+        {/* Top Header Capsule */}
+        <View style={styles.headerCapsuleWrap}>
+          <BlurView intensity={30} tint="dark" style={styles.headerCapsule}>
+            <LinearGradient
+              colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+              style={StyleSheet.absoluteFillObject}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+            />
+            <View style={styles.headerLeft}>
+              <View style={[styles.headerIconOrb, { backgroundColor: `${themeAccent}18`, borderColor: `${themeAccent}35` }]}>
+                <MessageSquare size={16} color={themeAccent} />
+              </View>
+              <View>
+                <Text style={styles.title}>Direct Messages</Text>
+                <Text style={[styles.subtitle, { color: themeAccent }]}>AIIC ENCRYPTED COMM</Text>
+              </View>
+            </View>
 
-      {/* Top Header Capsule */}
-      <View style={styles.headerCapsuleWrap}>
-        <BlurView intensity={30} tint="dark" style={styles.headerCapsule}>
-          <LinearGradient
-            colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
-            style={StyleSheet.absoluteFillObject}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-          />
-          <View style={styles.headerLeft}>
-            <View style={styles.headerIconOrb}>
-              <MessageSquare size={16} color={colors.accent} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {/* Wallpaper & Theme Studio Button */}
+              <TouchableOpacity
+                style={[styles.newBtn, { backgroundColor: `${themeAccent}15`, borderColor: `${themeAccent}30` }]}
+                onPress={() => setThemeStudioOpen(true)}
+              >
+                <Palette size={15} color={themeAccent} />
+              </TouchableOpacity>
+
+              {/* Add Friend Button */}
+              <TouchableOpacity
+                style={[styles.newBtn, { backgroundColor: `${themeAccent}15`, borderColor: `${themeAccent}30` }]}
+                onPress={() => {
+                  setTopTab("friends");
+                  setFriendSubTab("add");
+                }}
+              >
+                <UserPlus size={15} color={themeAccent} />
+              </TouchableOpacity>
             </View>
-            <View>
-              <Text style={styles.title}>Direct Messages</Text>
-              <Text style={styles.subtitle}>AIIC ENCRYPTED COMM</Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.newBtn}
-            onPress={() => {
-              setTopTab("friends");
-              setFriendSubTab("add");
-            }}
-          >
-            <UserPlus size={16} color={colors.accent} />
-          </TouchableOpacity>
-        </BlurView>
-      </View>
+          </BlurView>
+        </View>
 
       {/* Main Mode Switcher: Messages vs Squad & Friends */}
       <View style={styles.mainTabRowWrap}>
@@ -836,7 +851,14 @@ export default function DMsScreen() {
           )}
         </View>
       )}
-    </SafeAreaView>
+      </SafeAreaView>
+
+      {/* Theme & Wallpaper Customizer Studio */}
+      <ThemeCustomizerModal
+        visible={themeStudioOpen}
+        onClose={() => setThemeStudioOpen(false)}
+      />
+    </WallpaperBackground>
   );
 }
 

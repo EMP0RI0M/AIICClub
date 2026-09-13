@@ -29,6 +29,8 @@ import {
 } from "lucide-react-native";
 import { colors } from "@/theme/tokens";
 import { useAuthStore } from "@/stores/auth-store";
+import { useThemeStore, THEME_PRESETS } from "@/stores/theme-store";
+import { ThemeCustomizerModal } from "@/components/theme/ThemeCustomizerModal";
 import { fetchCurrentProfile, updateProfile } from "@/lib/api";
 
 export type SettingsTab =
@@ -43,6 +45,17 @@ export default function UserSettingsScreen() {
   const router = useRouter();
   const { user, logout, updateUser } = useAuthStore();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const [themeStudioOpen, setThemeStudioOpen] = useState(false);
+
+  const {
+    presetId,
+    wallpaperMode,
+    gradientColors,
+    gradientDirection,
+    accentColor: themeAccent,
+  } = useThemeStore();
+
+  const activePreset = THEME_PRESETS.find((p) => p.id === presetId);
 
   // Profile Form States
   const [displayName, setDisplayName] = useState(user?.displayName || "");
@@ -428,14 +441,58 @@ export default function UserSettingsScreen() {
 
           {activeTab === "appearance" && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Appearance & Theme</Text>
+              <Text style={styles.sectionTitle}>Appearance & Wallpaper Studio</Text>
               <Text style={styles.sectionSubtitle}>
-                AIIC Dark Glassmorphism is enabled across all platforms for optimal contrast.
+                Customize background gradients, wallpaper images, and vibrant icon colors across Corvus Mobile.
               </Text>
 
+              {/* Theme Studio Launcher Card */}
+              <Pressable
+                onPress={() => setThemeStudioOpen(true)}
+                style={[
+                  styles.cardBox,
+                  {
+                    borderColor: `${themeAccent}40`,
+                    backgroundColor: `${themeAccent}12`,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  },
+                ]}
+              >
+                <View style={{ gap: 4 }}>
+                  <Text style={[styles.cardBoxLabel, { color: themeAccent }]}>ACTIVE THEME</Text>
+                  <Text style={[styles.cardBoxValue, { color: "#FFFFFF", fontWeight: "800" }]}>
+                    {activePreset?.name || "Custom Wallpaper Theme"}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
+                    Icon Color: {themeAccent}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    backgroundColor: themeAccent,
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 12,
+                  }}
+                >
+                  <Text style={{ color: "#000", fontWeight: "800", fontSize: 12 }}>Customize</Text>
+                </View>
+              </Pressable>
+
               <View style={styles.cardBox}>
-                <Text style={styles.cardBoxLabel}>CURRENT THEME</Text>
-                <Text style={styles.cardBoxValue}>AIIC Obsidian Gold (Dark OLED)</Text>
+                <Text style={styles.cardBoxLabel}>GRADIENT STOPS</Text>
+                <Text style={styles.cardBoxValue}>
+                  {gradientColors.join("  →  ")}
+                </Text>
+              </View>
+
+              <View style={styles.cardBox}>
+                <Text style={styles.cardBoxLabel}>WALLPAPER MODE</Text>
+                <Text style={styles.cardBoxValue}>
+                  {wallpaperMode.toUpperCase()} ({gradientDirection.toUpperCase()})
+                </Text>
               </View>
             </View>
           )}
@@ -460,6 +517,12 @@ export default function UserSettingsScreen() {
           )}
         </ScrollView>
       </View>
+
+      {/* Theme & Wallpaper Customization Studio Modal */}
+      <ThemeCustomizerModal
+        visible={themeStudioOpen}
+        onClose={() => setThemeStudioOpen(false)}
+      />
     </SafeAreaView>
   );
 }
