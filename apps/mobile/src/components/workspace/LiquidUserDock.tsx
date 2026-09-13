@@ -23,7 +23,7 @@ import {
   VolumeX,
 } from "lucide-react-native";
 import { useAuthStore, User } from "../../stores/auth-store";
-import { colors } from "../../theme/tokens";
+import { colors, useAppTheme } from "../../theme/tokens";
 
 const PRESENCE_CONFIG = [
   {
@@ -74,6 +74,7 @@ export function LiquidUserDock({
 }: {
   onOpenSettings: () => void;
 }) {
+  const theme = useAppTheme();
   const { user, setStatus } = useAuthStore();
   const [modalVisible, setModalVisible] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -283,7 +284,7 @@ export function LiquidUserDock({
             {/* Custom Status Input */}
             <Text style={styles.sectionTitle}>CUSTOM STATUS</Text>
             <View style={styles.statusInputContainer}>
-              <Sparkles size={15} color={colors.accent} style={{ marginRight: 8 }} />
+              <Sparkles size={15} color={theme.colors.accent} style={{ marginRight: 8 }} />
               <TextInput
                 value={statusDraft}
                 onChangeText={setStatusDraft}
@@ -333,7 +334,7 @@ export function LiquidUserDock({
                       <Text style={styles.presenceRowHint}>{item.hint}</Text>
                     </View>
                     {isSelected && (
-                      <Check size={16} color={colors.accent} strokeWidth={2.5} />
+                      <Check size={16} color={theme.colors.accent} strokeWidth={2.5} />
                     )}
                   </Pressable>
                 );
@@ -354,13 +355,13 @@ export function LiquidUserDock({
                     }}
                     style={[
                       styles.noiseBtn,
-                      isActive && styles.noiseBtnActive,
+                      isActive && [styles.noiseBtnActive, { borderColor: theme.colors.accentBorder, backgroundColor: theme.colors.accentSoft }],
                     ]}
                   >
                     <Text
                       style={[
                         styles.noiseBtnText,
-                        isActive && styles.noiseBtnTextActive,
+                        isActive && [styles.noiseBtnTextActive, { color: theme.colors.accent }],
                       ]}
                     >
                       {level.label}

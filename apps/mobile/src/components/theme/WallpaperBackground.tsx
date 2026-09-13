@@ -67,25 +67,32 @@ export function WallpaperBackground({ children, style }: WallpaperBackgroundProp
         </View>
       )}
 
-      {/* 3. Fluid Atmospheric Refraction Orbs (Subtle Navy, Amber, Cyan) */}
-      <View
-        style={[
-          styles.ambientOrbTop,
-          { backgroundColor: ambientOrb1 || "rgba(91, 156, 255, 0.04)" },
-        ]}
-        pointerEvents="none"
-      />
-      <View
-        style={[
-          styles.ambientOrbAmber,
-          { backgroundColor: ambientOrb2 || "rgba(242, 170, 59, 0.04)" },
-        ]}
-        pointerEvents="none"
-      />
-      <View
-        style={styles.ambientOrbCyan}
-        pointerEvents="none"
-      />
+      {/* 3. Fluid Atmospheric Refraction Fields (Subtle Violet/Blue, Amber, Cyan) */}
+      <View style={styles.fogContainer} pointerEvents="none">
+        {/* Upper-left/center subtle violet/blue fog */}
+        <LinearGradient
+          colors={[ambientOrb1 || "rgba(99, 102, 241, 0.05)", "rgba(99, 102, 241, 0.015)", "transparent"]}
+          start={{ x: 0.2, y: 0 }}
+          end={{ x: 0.9, y: 0.9 }}
+          style={styles.ambientFogViolet}
+        />
+
+        {/* Upper-right subtle amber/theme accent fog */}
+        <LinearGradient
+          colors={[ambientOrb2 || "rgba(242, 170, 59, 0.045)", "rgba(242, 170, 59, 0.01)", "transparent"]}
+          start={{ x: 0.8, y: 0.1 }}
+          end={{ x: 0.1, y: 0.9 }}
+          style={styles.ambientFogAmber}
+        />
+
+        {/* Lower-left/center subtle cyan fog */}
+        <LinearGradient
+          colors={["rgba(50, 214, 197, 0.038)", "rgba(50, 214, 197, 0.01)", "transparent"]}
+          start={{ x: 0.1, y: 0.8 }}
+          end={{ x: 0.9, y: 0.1 }}
+          style={styles.ambientFogCyan}
+        />
+      </View>
 
       {/* 4. Screen Content */}
       {children}
@@ -98,29 +105,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#080A0F",
   },
-  ambientOrbTop: {
+  fogContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: "hidden",
+  },
+  ambientFogViolet: {
+    position: "absolute",
+    width: 440,
+    height: 440,
+    borderRadius: 220,
+    top: -100,
+    left: -100,
+  },
+  ambientFogAmber: {
     position: "absolute",
     width: 380,
     height: 380,
     borderRadius: 190,
-    top: -60,
+    top: 20,
+    right: -100,
+  },
+  ambientFogCyan: {
+    position: "absolute",
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    bottom: -40,
     left: -80,
-  },
-  ambientOrbAmber: {
-    position: "absolute",
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    top: 40,
-    right: -80,
-  },
-  ambientOrbCyan: {
-    position: "absolute",
-    width: 340,
-    height: 340,
-    borderRadius: 170,
-    bottom: 60,
-    left: -70,
-    backgroundColor: "rgba(50, 214, 197, 0.03)",
   },
 });

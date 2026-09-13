@@ -27,7 +27,7 @@ import {
   Settings,
   Plus,
 } from "lucide-react-native";
-import { colors } from "@/theme/tokens";
+import { colors, useAppTheme } from "@/theme/tokens";
 
 export interface ServerItem {
   id: string;
@@ -67,6 +67,7 @@ export function SpaceDrawerModal({
   onOpenSpaceSettings: () => void;
   onCreateSpace?: () => void;
 }) {
+  const theme = useAppTheme();
   const currentServer =
     servers.find((s) => s.id === selectedServerId) || servers[0] || null;
 
@@ -89,16 +90,16 @@ export function SpaceDrawerModal({
   });
 
   const renderGlyph = (type: string, isSelected: boolean) => {
-    const iconColor = isSelected ? colors.accent : "rgba(255, 255, 255, 0.6)";
+    const iconColor = isSelected ? theme.colors.accent : "rgba(255, 255, 255, 0.6)";
     switch (type) {
-      case "voice": return <Volume2 size={16} color={isSelected ? colors.accent : colors.accentTeal} />;
-      case "board": return <Kanban size={16} color={isSelected ? colors.accent : colors.accentWarm} />;
-      case "docs": return <FileText size={16} color={isSelected ? colors.accent : colors.info} />;
-      case "github": return <Github size={16} color={isSelected ? colors.accent : colors.accentTeal} />;
-      case "incident": return <AlertTriangle size={16} color={isSelected ? colors.accent : colors.danger} />;
-      case "canvas": return <Layers size={16} color={colors.accent} />;
-      case "stage": return <Radio size={16} color={colors.live} />;
-      case "announcement": return <Bell size={16} color={colors.accent} />;
+      case "voice": return <Volume2 size={16} color={isSelected ? theme.colors.accent : theme.colors.accentTeal} />;
+      case "board": return <Kanban size={16} color={isSelected ? theme.colors.accent : theme.colors.accentWarm} />;
+      case "docs": return <FileText size={16} color={isSelected ? theme.colors.accent : theme.colors.info} />;
+      case "github": return <Github size={16} color={isSelected ? theme.colors.accent : theme.colors.accentTeal} />;
+      case "incident": return <AlertTriangle size={16} color={isSelected ? theme.colors.accent : theme.colors.danger} />;
+      case "canvas": return <Layers size={16} color={theme.colors.accent} />;
+      case "stage": return <Radio size={16} color={theme.colors.live} />;
+      case "announcement": return <Bell size={16} color={theme.colors.accent} />;
       default: return <Hash size={16} color={iconColor} />;
     }
   };
@@ -297,19 +298,19 @@ const styles = StyleSheet.create({
   spaceOrb: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: 16,
+    backgroundColor: "rgba(21, 25, 34, 0.70)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(39, 45, 56, 0.80)",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
     position: "relative",
   },
   spaceOrbActive: {
-    borderColor: "rgba(232, 163, 61, 0.35)",
-    borderRadius: 12,
-    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    borderColor: "rgba(242, 170, 59, 0.40)",
+    borderRadius: 16,
+    backgroundColor: "rgba(242, 170, 59, 0.14)",
     shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -327,8 +328,8 @@ const styles = StyleSheet.create({
   },
   addSpaceOrb: {
     borderStyle: "dashed",
-    borderColor: "rgba(232, 163, 61, 0.35)",
-    backgroundColor: "rgba(232, 163, 61, 0.06)",
+    borderColor: "rgba(242, 170, 59, 0.35)",
+    backgroundColor: "rgba(242, 170, 59, 0.06)",
   },
   spaceImg: {
     width: "100%",
@@ -350,7 +351,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "ios" ? 20 : 16,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomColor: "rgba(39, 45, 56, 0.60)",
     gap: 8,
   },
   spaceName: {
@@ -367,22 +368,22 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   settingsBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    backgroundColor: "rgba(232, 163, 61, 0.08)",
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    backgroundColor: "rgba(21, 25, 34, 0.70)",
     borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.20)",
+    borderColor: "rgba(39, 45, 56, 0.80)",
     alignItems: "center",
     justifyContent: "center",
   },
   closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    backgroundColor: "rgba(21, 25, 34, 0.70)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(39, 45, 56, 0.80)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -390,30 +391,30 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   categoryTitle: {
-    color: "rgba(255, 255, 255, 0.40)",
+    color: "rgba(255, 255, 255, 0.45)",
     fontSize: 10,
     fontWeight: "800",
     fontFamily: "monospace",
     letterSpacing: 0.8,
-    marginBottom: 5,
+    marginBottom: 6,
     paddingHorizontal: 6,
   },
   channelRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.025)",
-    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: "rgba(21, 25, 34, 0.60)",
+    marginBottom: 5,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: "rgba(39, 45, 56, 0.70)",
   },
   channelRowSelected: {
-    backgroundColor: "rgba(232, 163, 61, 0.08)",
-    borderColor: "rgba(232, 163, 61, 0.22)",
+    backgroundColor: "rgba(242, 170, 59, 0.12)",
+    borderColor: "rgba(242, 170, 59, 0.35)",
   },
   channelName: {
     flex: 1,
@@ -426,16 +427,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   typeBadge: {
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   typeBadgeSelected: {
-    backgroundColor: "rgba(232, 163, 61, 0.10)",
-    borderColor: "rgba(232, 163, 61, 0.20)",
+    backgroundColor: "rgba(242, 170, 59, 0.12)",
+    borderColor: "rgba(242, 170, 59, 0.28)",
   },
   typeBadgeText: {
     color: "rgba(255, 255, 255, 0.6)",

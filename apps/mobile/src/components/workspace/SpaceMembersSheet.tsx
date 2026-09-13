@@ -13,7 +13,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { X, Users, Shield, MessageSquare } from "lucide-react-native";
-import { colors } from "../../theme/tokens";
+import { colors, useAppTheme } from "../../theme/tokens";
 
 export interface SpaceMemberItem {
   id: string;
@@ -52,6 +52,7 @@ export function SpaceMembersSheet({
   members: SpaceMemberItem[];
   onSelectMember?: (member: SpaceMemberItem) => void;
 }) {
+  const theme = useAppTheme();
   const onlineMembers = members.filter(
     (m) => m.presence && m.presence !== "offline" && m.presence !== "invisible"
   );
@@ -90,7 +91,7 @@ export function SpaceMembersSheet({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleWrap}>
-              <Users size={18} color={colors.accent} style={{ marginRight: 8 }} />
+              <Users size={18} color={theme.colors.accent} style={{ marginRight: 8 }} />
               <Text style={styles.headerTitle}>{spaceName} Members</Text>
             </View>
             <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    height: "75%",
+    height: "72%",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     borderTopWidth: 1,

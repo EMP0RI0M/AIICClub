@@ -141,3 +141,45 @@ export const glassStyles = {
     color: colors.textPrimary,
   },
 };
+
+import { useThemeStore } from "../stores/theme-store";
+
+export function getAppTheme(accentHex: string = colors.accent) {
+  const hex = accentHex || colors.accent;
+  const isHex = hex.startsWith("#");
+  return {
+    colors: {
+      ...colors,
+      accent: hex,
+      accentHover: hex,
+      accentPressed: hex,
+      accentSoft: isHex ? `${hex}1F` : "rgba(242, 170, 59, 0.12)",
+      accentMuted: isHex ? `${hex}66` : "rgba(242, 170, 59, 0.45)",
+      accentBorder: isHex ? `${hex}4D` : "rgba(242, 170, 59, 0.30)",
+      accentGlow: isHex ? `${hex}33` : "rgba(242, 170, 59, 0.20)",
+      accentText: colors.accentContrast,
+      bg: colors.background,
+      surface: colors.surface,
+      glass: colors.surfaceGlass,
+      glassElevated: colors.surfaceGlassElevated,
+      border: colors.border,
+      textPrimary: colors.textPrimary,
+      textSecondary: colors.textSecondary,
+      textMuted: colors.textMuted,
+      danger: colors.danger,
+      secondary: colors.accentTeal,
+      info: colors.info,
+    },
+    radius,
+    spacing,
+    typography,
+    glassStyles,
+  };
+}
+
+export type AppTheme = ReturnType<typeof getAppTheme>;
+
+export function useAppTheme(): AppTheme {
+  const accentColor = useThemeStore((s) => s.accentColor);
+  return getAppTheme(accentColor || colors.accent);
+}

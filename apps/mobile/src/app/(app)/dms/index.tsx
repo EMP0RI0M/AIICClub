@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, radius } from "../../../theme/tokens";
+import { colors, radius, useAppTheme } from "../../../theme/tokens";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui/Button";
 import { useWorkspaceStore } from "../../../stores/workspace-store";
@@ -50,8 +50,9 @@ import {
 
 export default function DMsScreen() {
   const router = useRouter();
+  const theme = useAppTheme();
+  const themeAccent = theme.colors.accent;
   const { user } = useAuthStore();
-  const { accentColor: themeAccent } = useThemeStore();
   const [themeStudioOpen, setThemeStudioOpen] = useState(false);
   const {
     dms,
@@ -250,43 +251,46 @@ export default function DMsScreen() {
   return (
     <WallpaperBackground>
       <SafeAreaView edges={["top"]} style={styles.container}>
-        {/* Top Header Capsule */}
+        {/* Top Floating Curved Header Capsule */}
         <View style={styles.headerCapsuleWrap}>
-          <BlurView intensity={30} tint="dark" style={styles.headerCapsule}>
+          <BlurView intensity={35} tint="dark" style={styles.headerCapsule}>
             <LinearGradient
-              colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+              colors={["rgba(255,255,255,0.09)", "rgba(255,255,255,0.02)"]}
               style={StyleSheet.absoluteFillObject}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
             />
             <View style={styles.headerLeft}>
-              <View style={[styles.headerIconOrb, { backgroundColor: `${themeAccent}18`, borderColor: `${themeAccent}35` }]}>
+              <View style={[styles.headerIconOrb, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
                 <MessageSquare size={16} color={themeAccent} />
               </View>
-              <View>
-                <Text style={styles.title}>Direct Messages</Text>
+              <View style={{ flexShrink: 1 }}>
+                <Text style={styles.title} numberOfLines={1}>Direct Messages</Text>
                 <Text style={[styles.subtitle, { color: themeAccent }]}>AIIC ENCRYPTED COMM</Text>
               </View>
             </View>
 
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={styles.headerActions}>
               {/* Wallpaper & Theme Studio Button */}
               <TouchableOpacity
-                style={[styles.newBtn, { backgroundColor: `${themeAccent}15`, borderColor: `${themeAccent}30` }]}
+                style={[styles.headerActionBtn, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}
                 onPress={() => setThemeStudioOpen(true)}
+                hitSlop={6}
               >
                 <Palette size={15} color={themeAccent} />
               </TouchableOpacity>
 
               {/* Add Friend Button */}
               <TouchableOpacity
-                style={[styles.newBtn, { backgroundColor: `${themeAccent}15`, borderColor: `${themeAccent}30` }]}
+                style={[styles.addFriendBtn, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}
                 onPress={() => {
                   setTopTab("friends");
                   setFriendSubTab("add");
                 }}
+                hitSlop={6}
               >
-                <UserPlus size={15} color={themeAccent} />
+                <UserPlus size={14} color={themeAccent} />
+                <Text style={[styles.addFriendBtnText, { color: themeAccent }]}>Add Friend</Text>
               </TouchableOpacity>
             </View>
           </BlurView>
@@ -296,19 +300,19 @@ export default function DMsScreen() {
       <View style={styles.mainTabRowWrap}>
         <BlurView intensity={24} tint="dark" style={styles.mainTabRow}>
           <TouchableOpacity
-            style={[styles.mainTabPill, topTab === "messages" && styles.mainTabPillActive]}
+            style={[
+              styles.mainTabPill,
+              topTab === "messages" && [
+                styles.mainTabPillActive,
+                { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+              ],
+            ]}
             onPress={() => setTopTab("messages")}
           >
-            {topTab === "messages" && (
-              <LinearGradient
-                colors={["rgba(212, 160, 23, 0.25)", "rgba(212, 160, 23, 0.08)"]}
-                style={StyleSheet.absoluteFillObject}
-              />
-            )}
             <Text
               style={[
                 styles.mainTabPillText,
-                topTab === "messages" && styles.mainTabPillTextActive,
+                topTab === "messages" && [styles.mainTabPillTextActive, { color: themeAccent }],
               ]}
             >
               Messages ({dms.length})
@@ -316,26 +320,26 @@ export default function DMsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.mainTabPill, topTab === "friends" && styles.mainTabPillActive]}
+            style={[
+              styles.mainTabPill,
+              topTab === "friends" && [
+                styles.mainTabPillActive,
+                { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+              ],
+            ]}
             onPress={() => setTopTab("friends")}
           >
-            {topTab === "friends" && (
-              <LinearGradient
-                colors={["rgba(212, 160, 23, 0.25)", "rgba(212, 160, 23, 0.08)"]}
-                style={StyleSheet.absoluteFillObject}
-              />
-            )}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Text
                 style={[
                   styles.mainTabPillText,
-                  topTab === "friends" && styles.mainTabPillTextActive,
+                  topTab === "friends" && [styles.mainTabPillTextActive, { color: themeAccent }],
                 ]}
               >
                 Friends ({friends.length})
               </Text>
               {incomingRequests.length > 0 && (
-                <View style={styles.pendingPillDot} />
+                <View style={[styles.pendingPillDot, { backgroundColor: themeAccent }]} />
               )}
             </View>
           </TouchableOpacity>
@@ -353,7 +357,7 @@ export default function DMsScreen() {
                 colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
                 style={StyleSheet.absoluteFillObject}
               />
-              <Search size={15} color={colors.accent} />
+              <Search size={15} color={themeAccent} />
               <TextInput
                 placeholder="Search direct messages..."
                 placeholderTextColor="rgba(255, 255, 255, 0.4)"
@@ -371,7 +375,7 @@ export default function DMsScreen() {
 
           {isLoadingDMs && dms.length === 0 ? (
             <View style={styles.centerContainer}>
-              <ActivityIndicator size="small" color={colors.accent} />
+              <ActivityIndicator size="small" color={themeAccent} />
             </View>
           ) : (
             <FlatList
@@ -406,8 +410,8 @@ export default function DMsScreen() {
                       </Text>
                     </View>
                     {item.unreadCount ? (
-                      <View style={styles.unreadBadge}>
-                        <Text style={styles.unreadText}>{item.unreadCount}</Text>
+                      <View style={[styles.unreadBadge, { backgroundColor: themeAccent }]}>
+                        <Text style={[styles.unreadText, { color: theme.colors.accentText }]}>{item.unreadCount}</Text>
                       </View>
                     ) : null}
                   </BlurView>
@@ -415,8 +419,8 @@ export default function DMsScreen() {
               )}
               ListEmptyComponent={
                 <View style={styles.emptyState}>
-                  <View style={styles.emptyIconOrb}>
-                    <MessageSquare size={28} color={colors.accent} />
+                  <View style={[styles.emptyIconOrb, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+                    <MessageSquare size={28} color={themeAccent} />
                   </View>
                   <Text style={styles.emptyTitle}>No Direct Messages</Text>
                   <Text style={styles.emptySubtitle}>
@@ -888,7 +892,7 @@ const styles = StyleSheet.create({
   headerCapsuleWrap: {
     marginHorizontal: 14,
     marginTop: 6,
-    borderRadius: 22,
+    borderRadius: 28,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -900,74 +904,94 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 22,
+    borderColor: "rgba(39, 45, 56, 0.80)",
+    borderRadius: 28,
+    backgroundColor: "rgba(18, 22, 30, 0.85)",
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
+    flex: 1,
   },
   headerIconOrb: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(212, 160, 23, 0.15)",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(212, 160, 23, 0.25)",
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 15,
+    fontSize: 15.5,
     fontWeight: "800",
+    letterSpacing: -0.2,
   },
   subtitle: {
-    color: colors.accent,
-    fontSize: 8.5,
+    fontSize: 9,
     fontFamily: "monospace",
     fontWeight: "700",
-    letterSpacing: 0.5,
-    marginTop: 1,
+    letterSpacing: 0.6,
+    marginTop: 1.5,
   },
-  newBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(212, 160, 23, 0.12)",
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(212, 160, 23, 0.25)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  addFriendBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    height: 36,
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: "center",
+  },
+  addFriendBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: "monospace",
   },
   mainTabRowWrap: {
     marginHorizontal: 14,
     marginTop: 10,
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: "hidden",
   },
   mainTabRow: {
     flexDirection: "row",
     padding: 3,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(39, 45, 56, 0.70)",
+    backgroundColor: "rgba(18, 22, 30, 0.85)",
   },
   mainTabPill: {
     flex: 1,
-    paddingVertical: 9,
+    paddingVertical: 8,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 17,
+    borderRadius: 15,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   mainTabPillActive: {
     borderWidth: 1,
-    borderColor: "rgba(212, 160, 23, 0.35)",
   },
   mainTabPillText: {
     color: "rgba(255, 255, 255, 0.6)",
@@ -975,29 +999,28 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   mainTabPillTextActive: {
-    color: colors.accent,
     fontWeight: "800",
   },
   pendingPillDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.accent,
   },
   searchBarWrap: {
     marginHorizontal: 14,
     marginTop: 10,
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: "hidden",
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 18,
+    backgroundColor: "rgba(21, 25, 34, 0.65)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(39, 45, 56, 0.70)",
     gap: 8,
   },
   searchInput: {
@@ -1010,7 +1033,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dmRowWrap: {
-    borderRadius: 20,
+    borderRadius: 22,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -1021,10 +1044,12 @@ const styles = StyleSheet.create({
   dmRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 22,
+    backgroundColor: "rgba(21, 25, 34, 0.72)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(39, 45, 56, 0.75)",
     gap: 12,
   },
   dmInfo: {
@@ -1076,13 +1101,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(21, 25, 34, 0.65)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(39, 45, 56, 0.70)",
   },
   subTabBtnActive: {
-    backgroundColor: "rgba(212, 160, 23, 0.18)",
-    borderColor: colors.accent,
+    backgroundColor: "rgba(242, 170, 59, 0.14)",
+    borderColor: "rgba(242, 170, 59, 0.35)",
   },
   subTabText: {
     fontSize: 11.5,
@@ -1103,9 +1128,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(212, 160, 23, 0.12)",
+    backgroundColor: "rgba(21, 25, 34, 0.70)",
     borderWidth: 1,
-    borderColor: "rgba(212, 160, 23, 0.25)",
+    borderColor: "rgba(39, 45, 56, 0.80)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1218,15 +1243,15 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   liveDirectoryBox: {
-    borderRadius: 20,
+    borderRadius: 22,
     overflow: "hidden",
   },
   liveDirectoryInner: {
     padding: 16,
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    backgroundColor: "rgba(10, 10, 10, 0.6)",
+    borderColor: "rgba(39, 45, 56, 0.80)",
+    backgroundColor: "rgba(18, 22, 30, 0.85)",
   },
   liveDirectoryHeader: {
     flexDirection: "row",
@@ -1245,11 +1270,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    height: 42,
+    borderRadius: 16,
+    backgroundColor: "rgba(21, 25, 34, 0.65)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(39, 45, 56, 0.70)",
     paddingHorizontal: 12,
   },
   liveSearchInput: {
@@ -1274,11 +1299,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    padding: 10,
-    borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    padding: 12,
+    borderRadius: 18,
+    backgroundColor: "rgba(21, 25, 34, 0.65)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(39, 45, 56, 0.70)",
   },
   statusBadgePill: {
     paddingHorizontal: 10,

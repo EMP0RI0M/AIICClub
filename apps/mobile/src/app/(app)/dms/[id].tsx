@@ -21,7 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, radius } from "../../../theme/tokens";
+import { colors, radius, useAppTheme } from "../../../theme/tokens";
 import { Avatar } from "../../../components/ui/Avatar";
 import { useWorkspaceStore } from "../../../stores/workspace-store";
 import { useChatStore } from "../../../stores/chat-store";
@@ -266,7 +266,8 @@ export default function DMDetailScreen() {
   const [messageToReact, setMessageToReact] = useState<any | null>(null);
   const [giftModalOpen, setGiftModalOpen] = useState(false);
   const [themeStudioOpen, setThemeStudioOpen] = useState(false);
-  const { accentColor: themeAccent } = useThemeStore();
+  const theme = useAppTheme();
+  const themeAccent = theme.colors.accent;
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editText, setEditText] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);

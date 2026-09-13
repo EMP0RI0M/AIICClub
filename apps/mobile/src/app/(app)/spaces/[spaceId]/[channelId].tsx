@@ -65,7 +65,7 @@ import { LiquidUserDock } from "@/components/workspace/LiquidUserDock";
 import { SpaceMembersSheet, type SpaceMemberItem } from "@/components/workspace/SpaceMembersSheet";
 import { useThemeStore } from "@/stores/theme-store";
 import { useVoiceRecorder } from "../../../../lib/voice-recorder";
-import { colors, radius } from "../../../../theme/tokens";
+import { colors, radius, useAppTheme } from "../../../../theme/tokens";
 import {
   MessageSquare,
   MessagesSquare,
@@ -212,6 +212,8 @@ function SpaceRail({
   onOpenProfile: () => void;
   onCreateSpace?: () => void;
 }) {
+  const theme = useAppTheme();
+
   return (
     <View style={styles.rail}>
       <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFillObject} />
@@ -223,17 +225,25 @@ function SpaceRail({
       />
       {/* Direct Messages Home Button with Discord Left Pill Indicator */}
       <View style={styles.railItemWrapper}>
-        {currentSection === "dm" && <View style={styles.railIndicatorPillActive} />}
+        {currentSection === "dm" && (
+          <View style={[styles.railIndicatorPillActive, { backgroundColor: theme.colors.accent }]} />
+        )}
         <Pressable
           onPress={onDM}
           style={[
             styles.dmButton,
-            currentSection === "dm" && styles.activeDM,
+            currentSection === "dm" && [
+              styles.activeDM,
+              {
+                backgroundColor: theme.colors.accentSoft,
+                borderColor: theme.colors.accentBorder,
+              },
+            ],
           ]}
         >
           <MessageSquare
             size={18}
-            color={currentSection === "dm" ? "#101116" : colors.accent}
+            color={currentSection === "dm" ? theme.colors.accent : colors.textMuted}
           />
         </Pressable>
       </View>
@@ -253,7 +263,7 @@ function SpaceRail({
             <View key={server.id} style={styles.railItemWrapper}>
               {/* Discord Left Indicator Pill */}
               {active ? (
-                <View style={styles.railIndicatorPillActive} />
+                <View style={[styles.railIndicatorPillActive, { backgroundColor: theme.colors.accent }]} />
               ) : hasUnread ? (
                 <View style={styles.railIndicatorPillUnread} />
               ) : null}
@@ -262,7 +272,13 @@ function SpaceRail({
                 onPress={() => onSelectServer(server.id)}
                 style={[
                   styles.spaceButton,
-                  active && styles.activeSpace,
+                  active && [
+                    styles.activeSpace,
+                    {
+                      backgroundColor: theme.colors.accentSoft,
+                      borderColor: theme.colors.accentBorder,
+                    },
+                  ],
                 ]}
               >
                 {server.iconUrl ? (
@@ -271,16 +287,16 @@ function SpaceRail({
                     style={styles.spaceImage}
                   />
                 ) : (
-                  <View style={styles.spaceFallback}>
-                    <Text style={styles.spaceLetter}>
+                  <View style={[styles.spaceFallback, active && { borderColor: theme.colors.accentBorder }]}>
+                    <Text style={[styles.spaceLetter, active && { color: theme.colors.accent }]}>
                       {server.name.charAt(0).toUpperCase()}
                     </Text>
                   </View>
                 )}
 
                 {hasUnread && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>
+                  <View style={[styles.unreadBadge, { backgroundColor: theme.colors.accent }]}>
+                    <Text style={[styles.unreadText, { color: theme.colors.accentText }]}>
                       {(server.unreadCount || 0) > 99
                         ? "99+"
                         : server.unreadCount}
@@ -296,10 +312,10 @@ function SpaceRail({
         <View style={styles.railItemWrapper}>
           <Pressable
             onPress={onCreateSpace}
-            style={styles.addSpaceBtn}
+            style={[styles.addSpaceBtn, { borderColor: theme.colors.accentBorder }]}
             hitSlop={6}
           >
-            <Plus size={18} color={colors.accent} />
+            <Plus size={18} color={theme.colors.accent} />
           </Pressable>
         </View>
       </ScrollView>
@@ -307,61 +323,93 @@ function SpaceRail({
       {/* UTILITY ITEMS AT BOTTOM */}
       <View style={styles.utilityArea}>
         <View style={styles.railItemWrapper}>
-          {currentSection === "notices" && <View style={styles.railIndicatorPillActive} />}
+          {currentSection === "notices" && (
+            <View style={[styles.railIndicatorPillActive, { backgroundColor: theme.colors.accent }]} />
+          )}
           <Pressable
             onPress={onNotice}
             style={[
               styles.utilityButton,
-              currentSection === "notices" && styles.utilityActive,
+              currentSection === "notices" && [
+                styles.utilityActive,
+                {
+                  backgroundColor: theme.colors.accentSoft,
+                  borderColor: theme.colors.accentBorder,
+                },
+              ],
             ]}
           >
-            <Bell size={18} color={currentSection === "notices" ? colors.accent : colors.textMuted} />
+            <Bell size={18} color={currentSection === "notices" ? theme.colors.accent : colors.textMuted} />
           </Pressable>
         </View>
 
         <View style={styles.railItemWrapper}>
-          {currentSection === "archive" && <View style={styles.railIndicatorPillActive} />}
+          {currentSection === "archive" && (
+            <View style={[styles.railIndicatorPillActive, { backgroundColor: theme.colors.accent }]} />
+          )}
           <Pressable
             onPress={onArchive}
             style={[
               styles.utilityButton,
-              currentSection === "archive" && styles.utilityActive,
+              currentSection === "archive" && [
+                styles.utilityActive,
+                {
+                  backgroundColor: theme.colors.accentSoft,
+                  borderColor: theme.colors.accentBorder,
+                },
+              ],
             ]}
           >
-            <Archive size={18} color={currentSection === "archive" ? colors.accent : colors.textMuted} />
+            <Archive size={18} color={currentSection === "archive" ? theme.colors.accent : colors.textMuted} />
           </Pressable>
         </View>
 
         {isAdmin && (
           <View style={styles.railItemWrapper}>
-            {currentSection === "admin" && <View style={styles.railIndicatorPillActive} />}
+            {currentSection === "admin" && (
+              <View style={[styles.railIndicatorPillActive, { backgroundColor: theme.colors.accent }]} />
+            )}
             <Pressable
               onPress={onAdmin}
               style={[
                 styles.utilityButton,
-                currentSection === "admin" && styles.utilityActive,
+                currentSection === "admin" && [
+                  styles.utilityActive,
+                  {
+                    backgroundColor: theme.colors.accentSoft,
+                    borderColor: theme.colors.accentBorder,
+                  },
+                ],
               ]}
             >
-              <Settings size={18} color={currentSection === "admin" ? colors.accent : colors.textMuted} />
+              <Settings size={18} color={currentSection === "admin" ? theme.colors.accent : colors.textMuted} />
             </Pressable>
           </View>
         )}
 
         {/* AUTHENTICATED USER AVATAR & PRESENCE DOCK */}
         <View style={styles.railItemWrapper}>
-          {currentSection === "profile" && <View style={styles.railIndicatorPillActive} />}
+          {currentSection === "profile" && (
+            <View style={[styles.railIndicatorPillActive, { backgroundColor: theme.colors.accent }]} />
+          )}
           <Pressable
             onPress={onOpenProfile}
             style={[
               styles.userDockAvatarBtn,
-              currentSection === "profile" && styles.userDockActive,
+              currentSection === "profile" && [
+                styles.userDockActive,
+                {
+                  backgroundColor: theme.colors.accentSoft,
+                  borderColor: theme.colors.accentBorder,
+                },
+              ],
             ]}
           >
             {formatAvatarUrl(currentUser?.avatar) ? (
               <Image source={{ uri: formatAvatarUrl(currentUser?.avatar)! }} style={styles.dockAvatarImg} />
             ) : (
-              <View style={styles.dockAvatarFallback}>
-                <Text style={styles.dockAvatarLetter}>
+              <View style={[styles.dockAvatarFallback, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+                <Text style={[styles.dockAvatarLetter, { color: theme.colors.accent }]}>
                   {(currentUser?.displayName || currentUser?.username || "U")
                     .charAt(0)
                     .toUpperCase()}
@@ -384,6 +432,7 @@ function SpaceRail({
 function SelectedSpaceView({
   server,
   channels,
+  selectedChannelId,
   notice,
   canCreateNotice,
   onCreateNotice,
@@ -399,6 +448,7 @@ function SelectedSpaceView({
 }: {
   server: Server;
   channels: Channel[];
+  selectedChannelId?: string | null;
   notice?: any;
   canCreateNotice: boolean;
   onCreateNotice: () => void;
@@ -412,6 +462,7 @@ function SelectedSpaceView({
   currentUser?: any;
   onOpenProfile?: () => void;
 }) {
+  const theme = useAppTheme();
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [memberCount, setMemberCount] = useState<number>(16);
   const [showMembers, setShowMembers] = useState(false);
@@ -472,18 +523,19 @@ function SelectedSpaceView({
     return result;
   }, [channels]);
 
-  function renderChannelIcon(type: Channel["type"]) {
+  function renderChannelIcon(type: Channel["type"], isSelected: boolean) {
+    const activeColor = theme.colors.accent;
     switch (type) {
-      case "voice": return <Volume2 size={16} color={colors.accentTeal} />;
-      case "project": return <FolderKanban size={16} color={colors.accent} />;
-      case "board": return <Kanban size={16} color={colors.accentWarm} />;
-      case "docs": return <FileText size={16} color={colors.info} />;
-      case "github": return <Github size={16} color={colors.accentTeal} />;
-      case "incident": return <AlertTriangle size={16} color={colors.danger} />;
-      case "canvas": return <Layers size={16} color={colors.accent} />;
-      case "stage": return <Radio size={16} color={colors.live} />;
-      case "announcement": return <Bell size={16} color={colors.accent} />;
-      default: return <Hash size={16} color={colors.textMuted} />;
+      case "voice": return <Volume2 size={16} color={isSelected ? activeColor : theme.colors.accentTeal} />;
+      case "project": return <FolderKanban size={16} color={isSelected ? activeColor : theme.colors.accent} />;
+      case "board": return <Kanban size={16} color={isSelected ? activeColor : theme.colors.accentWarm} />;
+      case "docs": return <FileText size={16} color={isSelected ? activeColor : theme.colors.info} />;
+      case "github": return <Github size={16} color={isSelected ? activeColor : theme.colors.accentTeal} />;
+      case "incident": return <AlertTriangle size={16} color={isSelected ? activeColor : theme.colors.danger} />;
+      case "canvas": return <Layers size={16} color={isSelected ? activeColor : theme.colors.accent} />;
+      case "stage": return <Radio size={16} color={isSelected ? activeColor : theme.colors.live} />;
+      case "announcement": return <Bell size={16} color={isSelected ? activeColor : theme.colors.accent} />;
+      default: return <Hash size={16} color={isSelected ? activeColor : theme.colors.textMuted} />;
     }
   }
 
@@ -507,13 +559,13 @@ function SelectedSpaceView({
       <View style={styles.header}>
         <Pressable onPress={onOpenSettings} style={styles.serverTitleRow}>
           <View style={{ flex: 1 }}>
-            <View style={styles.spaceBadgeCapsule}>
-              <Sparkles size={11} color={colors.accent} />
-              <Text style={styles.spaceBadgeText}>{spaceBadgeLabel}</Text>
+            <View style={[styles.spaceBadgeCapsule, { borderColor: theme.colors.accentBorder, backgroundColor: theme.colors.accentSoft }]}>
+              <Sparkles size={11} color={theme.colors.accent} />
+              <Text style={[styles.spaceBadgeText, { color: theme.colors.accent }]}>{spaceBadgeLabel}</Text>
             </View>
             <Text style={styles.serverName}>{server.name}</Text>
             <View style={styles.serverMetaRow}>
-              <View style={styles.communityDot} />
+              <View style={[styles.communityDot, { backgroundColor: theme.colors.accent }]} />
               <Text style={styles.serverMemberCount}>
                 {memberCount} {memberCount === 1 ? "Member" : "Members"} • Community
               </Text>
@@ -528,14 +580,14 @@ function SelectedSpaceView({
               setInitialCategoryForCreate(undefined);
               setShowCreateChannel(true);
             }}
-            style={[styles.squareButton, { backgroundColor: "rgba(232, 163, 61, 0.15)", borderColor: "rgba(232, 163, 61, 0.35)", borderWidth: 1 }]}
+            style={[styles.squareButton, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder, borderWidth: 1 }]}
             hitSlop={6}
           >
-            <Plus size={16} color={colors.accent} />
+            <Plus size={16} color={theme.colors.accent} />
           </Pressable>
 
           <Pressable onPress={() => setShowMembers(true)} style={styles.squareButton} hitSlop={6}>
-            <Users size={16} color={colors.accent} />
+            <Users size={16} color={theme.colors.accent} />
           </Pressable>
 
           <Pressable onPress={onSearch} style={styles.squareButton} hitSlop={6}>
@@ -552,8 +604,8 @@ function SelectedSpaceView({
 
       {/* Compact Notice Strip (Accessible, non-dominating) */}
       {notice ? (
-        <Pressable onPress={onNotice} style={styles.noticeBar}>
-          <Bell size={14} color={colors.accent} />
+        <Pressable onPress={onNotice} style={[styles.noticeBar, { borderColor: theme.colors.accentBorder, backgroundColor: theme.colors.accentSoft }]}>
+          <Bell size={14} color={theme.colors.accent} />
           <Text style={styles.noticeTitle} numberOfLines={1}>
             {notice.title || "Announcement"}
           </Text>
@@ -583,7 +635,7 @@ function SelectedSpaceView({
                   <Text style={styles.categoryTitle}>{category.toUpperCase()}</Text>
                   <Text style={styles.categoryCount}>{items.length}</Text>
                   {categoryUnreads > 0 && isCollapsed && (
-                    <View style={styles.categoryUnreadDot} />
+                    <View style={[styles.categoryUnreadDot, { backgroundColor: theme.colors.accent }]} />
                   )}
                 </Pressable>
 
@@ -603,6 +655,7 @@ function SelectedSpaceView({
               {!isCollapsed &&
                 items.map((channel) => {
                   const hasUnreads = Boolean(channel.unreadCount && channel.unreadCount > 0);
+                  const isSelected = channel.id === selectedChannelId;
 
                   return (
                     <Pressable
@@ -610,18 +663,26 @@ function SelectedSpaceView({
                       onPress={() => onSelectChannel(channel.id)}
                       style={({ pressed }) => [
                         styles.channelRow,
+                        isSelected && [
+                          styles.channelRowSelected,
+                          {
+                            backgroundColor: theme.colors.accentSoft,
+                            borderColor: theme.colors.accentBorder,
+                          },
+                        ],
                         pressed && styles.channelRowPressed,
                       ]}
                     >
                       {hasUnreads && <View style={styles.channelUnreadBar} />}
-                      {renderChannelIcon(channel.type)}
+                      {renderChannelIcon(channel.type, isSelected)}
                       <Text
                         style={[
                           styles.channelName,
+                          isSelected && [styles.channelNameSelected, { color: theme.colors.accent }],
                           hasUnreads && styles.channelNameUnread,
-                          channel.type === "voice" && { color: colors.accentTeal },
-                          channel.type === "incident" && { color: colors.danger },
-                          channel.type === "github" && { color: colors.accentTeal },
+                          !isSelected && channel.type === "voice" && { color: colors.accentTeal },
+                          !isSelected && channel.type === "incident" && { color: colors.danger },
+                          !isSelected && channel.type === "github" && { color: colors.accentTeal },
                         ]}
                         numberOfLines={1}
                       >
@@ -635,8 +696,8 @@ function SelectedSpaceView({
                       )}
 
                       {hasUnreads && (
-                        <View style={styles.channelUnread}>
-                          <Text style={styles.unreadText}>{channel.unreadCount}</Text>
+                        <View style={[styles.channelUnread, { backgroundColor: theme.colors.accent }]}>
+                          <Text style={[styles.unreadText, { color: theme.colors.accentText }]}>{channel.unreadCount}</Text>
                         </View>
                       )}
                     </Pressable>
@@ -2507,6 +2568,7 @@ export default function AIICDiscordApp() {
               <SelectedSpaceView
                 server={selectedServer}
                 channels={channels}
+                selectedChannelId={selectedChannelId}
                 notice={notice}
                 canCreateNotice={canCreateNotice}
                 onCreateNotice={() => setCreateNoticeOpen(true)}
@@ -2734,32 +2796,36 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  /* LEVEL 1: NARROW LEFT SPACE RAIL (Translucent Blurred Rail) */
+  /* LEVEL 1: NARROW LEFT SPACE RAIL (Curved Translucent Glass Rail) */
   rail: {
-    width: 56,
-    backgroundColor: "rgba(8, 10, 15, 0.45)",
+    width: 58,
+    backgroundColor: "rgba(18, 22, 30, 0.75)",
     borderRightWidth: 1,
-    borderRightColor: "rgba(255, 255, 255, 0.05)",
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderTopRightRadius: 28,
+    borderBottomRightRadius: 28,
+    borderColor: "rgba(39, 45, 56, 0.70)",
     alignItems: "center",
-    paddingTop: 6,
-    paddingBottom: 6,
+    paddingTop: 8,
+    paddingBottom: 8,
     overflow: "hidden",
   },
 
   dmButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(21, 25, 34, 0.70)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(39, 45, 56, 0.75)",
   },
 
   activeDM: {
-    backgroundColor: "rgba(232, 163, 61, 0.16)",
-    borderColor: "rgba(232, 163, 61, 0.35)",
+    backgroundColor: "rgba(242, 170, 59, 0.14)",
+    borderColor: "rgba(242, 170, 59, 0.35)",
     shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -2770,7 +2836,7 @@ const styles = StyleSheet.create({
   railDivider: {
     width: 28,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(39, 45, 56, 0.60)",
     marginVertical: 8,
   },
 
@@ -3173,12 +3239,14 @@ const styles = StyleSheet.create({
   },
 
   categoryAddBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   categoryChevron: {
@@ -3187,8 +3255,8 @@ const styles = StyleSheet.create({
 
   categoryTitle: {
     flex: 1,
-    color: "rgba(255, 255, 255, 0.45)",
-    fontSize: 10,
+    color: "rgba(255, 255, 255, 0.50)",
+    fontSize: 10.5,
     fontWeight: "800",
     letterSpacing: 0.8,
   },
@@ -3197,10 +3265,10 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 10,
     fontFamily: "monospace",
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
 
   categoryUnreadDot: {
@@ -3211,19 +3279,24 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
 
-  /* Subtle Liquid Glass Floating Channel Rows */
+  /* Curved Obsidian Glass Floating Channel Rows */
   channelRow: {
-    minHeight: 44,
+    minHeight: 46,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     gap: 10,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.025)",
-    marginBottom: 4,
+    borderRadius: 18,
+    backgroundColor: "rgba(21, 25, 34, 0.65)",
+    marginBottom: 6,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.055)",
+    borderColor: "rgba(39, 45, 56, 0.70)",
     position: "relative",
+  },
+
+  channelRowSelected: {
+    backgroundColor: "rgba(242, 170, 59, 0.12)",
+    borderColor: "rgba(242, 170, 59, 0.35)",
   },
 
   channelUnreadBar: {
@@ -3238,25 +3311,30 @@ const styles = StyleSheet.create({
   },
 
   incidentChannelRow: {
-    backgroundColor: "rgba(239, 68, 68, 0.05)",
-    borderColor: "rgba(239, 68, 68, 0.18)",
+    backgroundColor: "rgba(228, 91, 97, 0.08)",
+    borderColor: "rgba(228, 91, 97, 0.25)",
   },
 
   githubChannelRow: {
-    backgroundColor: "rgba(45, 212, 191, 0.05)",
-    borderColor: "rgba(45, 212, 191, 0.18)",
+    backgroundColor: "rgba(50, 214, 197, 0.08)",
+    borderColor: "rgba(50, 214, 197, 0.25)",
   },
 
   channelRowPressed: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    borderColor: "rgba(255, 255, 255, 0.10)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   channelName: {
     flex: 1,
-    color: "rgba(255, 255, 255, 0.70)",
+    color: "rgba(255, 255, 255, 0.75)",
     fontSize: 13.5,
     fontWeight: "500",
+  },
+
+  channelNameSelected: {
+    color: colors.accent,
+    fontWeight: "700",
   },
 
   channelNameUnread: {
@@ -3265,12 +3343,12 @@ const styles = StyleSheet.create({
   },
 
   voiceBadge: {
-    backgroundColor: "rgba(45, 212, 191, 0.10)",
-    paddingHorizontal: 6,
+    backgroundColor: "rgba(50, 214, 197, 0.12)",
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "rgba(45, 212, 191, 0.18)",
+    borderColor: "rgba(50, 214, 197, 0.25)",
   },
 
   /* Discord Persistent User Profile Dock */
@@ -4256,10 +4334,10 @@ const styles = StyleSheet.create({
   },
 
   searchModalCard: {
-    backgroundColor: "rgba(14, 16, 24, 0.85)",
-    borderRadius: 14,
+    backgroundColor: "rgba(18, 22, 30, 0.90)",
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(39, 45, 56, 0.85)",
     maxHeight: "80%",
     overflow: "hidden",
   },
@@ -4267,9 +4345,10 @@ const styles = StyleSheet.create({
   searchModalHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomColor: "rgba(39, 45, 56, 0.60)",
     gap: 10,
   },
 
@@ -4280,26 +4359,30 @@ const styles = StyleSheet.create({
   },
 
   searchResultsScroll: {
-    padding: 12,
+    padding: 14,
   },
 
   searchSection: {
-    marginBottom: 14,
+    marginBottom: 16,
   },
 
   searchSectionTitle: {
     color: colors.textMuted,
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: "800",
     letterSpacing: 1,
-    marginBottom: 6,
+    marginBottom: 8,
   },
 
   searchResultRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingVertical: 7,
+    gap: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    backgroundColor: "rgba(21, 25, 34, 0.50)",
+    marginBottom: 4,
   },
 
   searchResultName: {
@@ -4317,23 +4400,23 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12.5,
     textAlign: "center",
-    paddingVertical: 18,
+    paddingVertical: 24,
   },
 
   noticeModalCard: {
-    backgroundColor: "rgba(14, 16, 24, 0.85)",
-    borderRadius: 14,
+    backgroundColor: "rgba(18, 22, 30, 0.92)",
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.20)",
-    padding: 16,
-    gap: 10,
+    borderColor: "rgba(39, 45, 56, 0.85)",
+    padding: 18,
+    gap: 12,
   },
 
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 2,
+    marginBottom: 4,
   },
 
   modalTitle: {
@@ -4343,22 +4426,23 @@ const styles = StyleSheet.create({
   },
 
   noticeModalInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    borderRadius: 10,
+    backgroundColor: "rgba(21, 25, 34, 0.65)",
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(39, 45, 56, 0.80)",
     color: colors.textPrimary,
-    padding: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 13.5,
   },
 
   publishBtn: {
-    height: 44,
-    borderRadius: 10,
+    height: 46,
+    borderRadius: 16,
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
+    marginTop: 6,
   },
 
   publishBtnText: {
