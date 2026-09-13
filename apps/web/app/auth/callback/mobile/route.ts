@@ -92,13 +92,25 @@ export async function GET(request: NextRequest) {
     (function() {
       var hash = window.location.hash || '';
       var search = window.location.search || '';
-      var finalUrl = 'aiic://auth/callback' + search + hash;
+      
+      var urlParams = new URLSearchParams(search);
+      var expoUrl = urlParams.get('expo_url');
+      
+      // Clean internal expo_url param out of forwarded search params
+      urlParams.delete('expo_url');
+      var cleanSearch = urlParams.toString() ? '?' + urlParams.toString() : '';
+
+      var finalUrl = expoUrl 
+        ? expoUrl + (expoUrl.includes('?') ? (cleanSearch.replace('?', '&') + hash) : (cleanSearch + hash))
+        : 'aiic://auth/callback' + cleanSearch + hash;
       
       var btn = document.getElementById('open-app');
       if (btn) btn.href = finalUrl;
       
       // Auto-bounce immediately
-      window.location.replace(finalUrl);
+      try {
+        window.location.href = finalUrl;
+      } catch (e) {}
     })();
   </script>
 </body>

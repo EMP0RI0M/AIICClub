@@ -294,13 +294,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch {}
 
       const isExpoGo = Constants.appOwnership === "expo" || Constants.executionEnvironment === "storeClient";
+      const expoCallbackUrl = Linking.createURL("auth/callback");
       const redirectTo =
         Platform.OS === "web"
           ? typeof window !== "undefined"
             ? `${window.location.origin}/auth/callback`
-            : Linking.createURL("auth/callback")
+            : expoCallbackUrl
           : isExpoGo
-          ? Linking.createURL("auth/callback")
+          ? `https://aiic-bbs.vercel.app/auth/callback/mobile?expo_url=${encodeURIComponent(expoCallbackUrl)}`
           : "https://aiic-bbs.vercel.app/auth/callback/mobile";
 
       console.log("[AIIC OAuth] detected isExpoGo:", isExpoGo, "redirect URI:", redirectTo);
