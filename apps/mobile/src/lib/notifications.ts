@@ -6,17 +6,23 @@ import { soundService } from "./sound-service";
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-// Configure notification behavior for foreground notifications
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    priority: Notifications.AndroidNotificationPriority.HIGH,
-  }),
-});
+// Configure notification behavior for foreground notifications safely
+try {
+  if (Notifications && typeof Notifications.setNotificationHandler === "function") {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+        priority: Notifications.AndroidNotificationPriority?.HIGH ?? 4,
+      }),
+    });
+  }
+} catch (err) {
+  console.warn("[NotificationService] setNotificationHandler skipped:", err);
+}
 
 export interface InAppNotification {
   id: string;

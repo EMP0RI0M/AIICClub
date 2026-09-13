@@ -104,6 +104,13 @@
           "photosPermission": "AIIC needs photo library access for sharing images and attachments in chats.",
           "cameraPermission": "AIIC needs camera access for video calls, avatar photos, and media attachments."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#E8A33D"
+        }
       ]
     ],
     "experiments": {
