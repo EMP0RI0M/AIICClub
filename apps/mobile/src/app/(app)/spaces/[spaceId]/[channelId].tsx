@@ -45,6 +45,7 @@ import { CanvasChannelView } from "../../../../components/chat/CanvasChannelView
 import { DocsChannelView } from "@/components/chat/DocsChannelView";
 import { BoardChannelView } from "@/components/chat/BoardChannelView";
 import { GitHubChannelView } from "@/components/chat/GitHubChannelView";
+import { NotebookChannelView } from "@/components/chat/NotebookChannelView";
 import { SpaceDrawerModal } from "@/components/navigation/SpaceDrawerModal";
 import { CreateSpaceModal } from "@/components/space/CreateSpaceModal";
 import { CreateChannelModal } from "@/components/space/CreateChannelModal";
@@ -905,11 +906,18 @@ function TextChannelScreen({
     channel.type === "project" ||
     channel.type === "docs" ||
     channel.type === "incident" ||
-    channel.type === "canvas";
+    channel.type === "canvas" ||
+    channel.type === "notebook" ||
+    channel.name.toLowerCase().includes("notebook") ||
+    channel.name.toLowerCase().includes("jupyter");
 
   const [activeTab, setActiveTab] = useState<"tool" | "chat">(
     isSpecialized ? "tool" : "chat"
   );
+
+  useEffect(() => {
+    setActiveTab(isSpecialized ? "tool" : "chat");
+  }, [channel.id, isSpecialized]);
   const [showChannelMembers, setShowChannelMembers] = useState(false);
   const [channelMembers, setChannelMembers] = useState<SpaceMemberItem[]>([]);
   const [channelOptionsOpen, setChannelOptionsOpen] = useState(false);
@@ -1285,6 +1293,12 @@ function TextChannelScreen({
           />
         ) : channel.type === "incident" ? (
           <IncidentChannelView
+            channelId={channel.id}
+            channelName={channel.name}
+            onBack={() => setActiveTab("chat")}
+          />
+        ) : channel.type === "notebook" || channel.name.toLowerCase().includes("notebook") || channel.name.toLowerCase().includes("jupyter") ? (
+          <NotebookChannelView
             channelId={channel.id}
             channelName={channel.name}
             onBack={() => setActiveTab("chat")}
