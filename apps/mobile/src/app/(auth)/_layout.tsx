@@ -8,6 +8,11 @@ export default function AuthLayout() {
         headerShown: false,
         animation: "slide_from_right",
       }}
-    />
+    >
+      <Stack.Screen name="login" />
+      <Stack.Screen name="register" />
+      <Stack.Screen name="email-login" />
+      <Stack.Screen name="forgot-password" />
+    </Stack>
   );
 }

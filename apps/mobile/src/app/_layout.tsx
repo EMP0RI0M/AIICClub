@@ -111,7 +111,6 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(app)" options={{ headerShown: false }} />
-          <Stack.Screen name="(admin)" options={{ headerShown: false }} />
         </Stack>
         {isRestoring && (
           <View style={styles.loadingOverlay} pointerEvents="auto">
