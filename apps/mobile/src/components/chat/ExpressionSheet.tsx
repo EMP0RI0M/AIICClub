@@ -30,9 +30,11 @@ import {
   Layers,
   ExternalLink,
   Plus,
+  Scissors,
 } from "lucide-react-native";
 import * as WebBrowser from "expo-web-browser";
 import { fetchExpressions } from "../../lib/api";
+import { NativeStickerMakerModal } from "./NativeStickerMakerModal";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -1277,6 +1279,7 @@ export function ExpressionSheet({
   const [items, setItems] = useState<Array<{ id: string; url: string; title: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stickerMakerOpen, setStickerMakerOpen] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -1649,26 +1652,34 @@ export function ExpressionSheet({
             )}
           </View>
 
-          {/* KLIPY Attribution & Direct Create Sticker Trigger */}
+          {/* KLIPY Attribution & Native Sticker Studio Trigger */}
           {activeTab !== "emoji" && (
             <View style={styles.attributionBar}>
               <Text style={styles.attributionText}>powered by klipy</Text>
               <Pressable
-                onPress={async () => {
+                onPress={() => {
                   NativeHaptics.selection();
-                  await WebBrowser.openBrowserAsync("https://klipy.com/create");
+                  setStickerMakerOpen(true);
                 }}
                 style={styles.createStickerLink}
                 hitSlop={6}
               >
-                <Plus size={10} color={colors.accent} />
-                <Text style={styles.createStickerLinkText}>Create Sticker</Text>
-                <ExternalLink size={9} color={colors.accent} />
+                <Scissors size={10} color={colors.accent} />
+                <Text style={styles.createStickerLinkText}>Sticker Studio</Text>
               </Pressable>
             </View>
           )}
         </Pressable>
       </Pressable>
+
+      <NativeStickerMakerModal
+        visible={stickerMakerOpen}
+        onClose={() => setStickerMakerOpen(false)}
+        onSendSticker={(stickerUri, title) => {
+          onSelectSticker(stickerUri, title);
+          onClose();
+        }}
+      />
     </Modal>
   );
 }
