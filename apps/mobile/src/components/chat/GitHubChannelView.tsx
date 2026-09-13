@@ -72,17 +72,30 @@ export function GitHubChannelView({
   const [activeFilter, setActiveFilter] = useState<"all" | "open" | "merged" | "closed">("all");
   const [bindModalOpen, setBindModalOpen] = useState(false);
   const [binding, setBinding] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadData = async (isManual = false) => {
     if (!channelId) return;
     if (isManual) setRefreshing(true);
     else setLoading(true);
+    setLoadError(null);
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("TIMEOUT")), 8000)
+    );
 
     try {
-      const res = await api<GitHubChannelData>(`/channels/${channelId}/github`);
+      const res = (await Promise.race([
+        api<GitHubChannelData>(`/channels/${channelId}/github`),
+        timeoutPromise,
+      ])) as GitHubChannelData;
       if (res) setData(res);
     } catch (err: any) {
-      console.warn("[GitHubChannelView] Load failed:", err?.message);
+      if (err?.message === "TIMEOUT") {
+        setLoadError("GitHub took too long to respond. Try again.");
+      } else {
+        setLoadError("GitHub connection failed. Try again.");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -148,6 +161,18 @@ export function GitHubChannelView({
         <View style={styles.centerBox}>
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.loadingText}>Connecting to GitHub repository...</Text>
+        </View>
+      ) : loadError && !data?.repository ? (
+        <View style={styles.emptyWrap}>
+          <View style={styles.emptyIconWrap}>
+            <Github size={36} color={colors.statusDnd} />
+          </View>
+          <Text style={styles.emptyTitle}>Connection Issue</Text>
+          <Text style={styles.emptyDesc}>{loadError}</Text>
+          <Pressable onPress={() => loadData(true)} style={styles.connectBtn}>
+            <RefreshCw size={15} color={colors.accentContrast} />
+            <Text style={styles.connectBtnText}>Retry Connection</Text>
+          </Pressable>
         </View>
       ) : !data?.repository ? (
         /* Empty State: Repository not connected */

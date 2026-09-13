@@ -276,7 +276,7 @@ export default function DMsScreen() {
                       start={{ x: 0, y: 0 }}
                       end={{ x: 0, y: 1 }}
                     />
-                    <Avatar name={item.name} presence={item.presence} size={44} />
+                    <Avatar name={item.name} presence={item.presence} size={44} url={(item as any).avatar || (item as any).avatarUrl} />
                     <View style={styles.dmInfo}>
                       <View style={styles.dmTop}>
                         <Text style={styles.dmName} numberOfLines={1}>
@@ -372,7 +372,7 @@ export default function DMsScreen() {
                       colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
                       style={StyleSheet.absoluteFillObject}
                     />
-                    <Avatar name={item.name} presence={item.presence} size={42} />
+                    <Avatar name={item.name} presence={item.presence} size={42} url={(item as any).avatar || (item as any).avatarUrl} />
                     <View style={styles.dmInfo}>
                       <Text style={styles.dmName}>{item.name}</Text>
                       <Text style={styles.dmSnippet}>@{((item as any).username || item.name.toLowerCase().replace(/\s+/g, ""))}</Text>
@@ -425,6 +425,11 @@ export default function DMsScreen() {
                           : item.receiver?.name || "User"
                       }
                       size={42}
+                      url={
+                        item.type === "incoming"
+                          ? item.sender?.avatarUrl || item.sender?.avatar_url || item.sender?.avatar
+                          : item.receiver?.avatarUrl || item.receiver?.avatar_url || item.receiver?.avatar
+                      }
                     />
                     <View style={styles.dmInfo}>
                       <Text style={styles.dmName}>
@@ -503,7 +508,7 @@ export default function DMsScreen() {
                         colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
                         style={StyleSheet.absoluteFillObject}
                       />
-                      <Avatar name={item.displayName} size={42} />
+                      <Avatar name={item.displayName} size={42} url={item.avatarUrl || item.avatar_url || item.avatar} />
                       <View style={styles.dmInfo}>
                         <Text style={styles.dmName}>{item.displayName}</Text>
                         <Text style={styles.dmSnippet}>@{item.username}</Text>

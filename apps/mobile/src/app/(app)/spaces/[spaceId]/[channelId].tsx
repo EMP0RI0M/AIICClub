@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Image,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,10 +23,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "../../../../stores/auth-store";
 import { useWorkspaceStore } from "../../../../stores/workspace-store";
 import { useChatStore } from "../../../../stores/chat-store";
-import { api, searchUsers, publishAnnouncement, fetchUserProfile } from "../../../../lib/api";
+import { api, searchUsers, publishAnnouncement, fetchUserProfile, fetchOrgMembers } from "../../../../lib/api";
 import { NativeHaptics } from "../../../../lib/haptics";
 import { notificationService } from "../../../../lib/notifications";
 import { AttachmentCard, parseMessageAttachments } from "../../../../components/chat/AttachmentCard";
+import { RichMarkdown, ReasoningTrace } from "../../../../components/chat/RichMarkdown";
+import { formatAvatarUrl } from "../../../../lib/avatar";
 import { Avatar } from "../../../../components/ui/Avatar";
 import { GlassCard } from "../../../../components/ui/GlassCard";
 import { Badge } from "../../../../components/ui/Badge";
@@ -42,6 +46,7 @@ import { SpaceDrawerModal } from "@/components/navigation/SpaceDrawerModal";
 import { CreateSpaceModal } from "@/components/space/CreateSpaceModal";
 import { MobileArchiveView } from "@/components/archive/MobileArchiveView";
 import { MobileNoticeBoardView } from "@/components/notifications/MobileNoticeBoardView";
+import { MobileProfileStatusView } from "@/components/profile/MobileProfileStatusView";
 import { UserProfileModal, type UserProfileData } from "@/components/profile/UserProfileModal";
 import { MobileThreadModal } from "@/components/chat/MobileThreadModal";
 import { MobileAdminView } from "@/components/admin/MobileAdminView";
@@ -89,7 +94,16 @@ import {
   Layers,
   Terminal,
   Activity,
+  Compass,
+  Headphones,
+  ChevronDown,
+  Users,
+  RotateCw,
+  MoreHorizontal,
+  Copy,
+  RefreshCw,
 } from "lucide-react-native";
+import * as Clipboard from "expo-clipboard";
 
 /* =========================================================
    TYPES & 9 DISTINCT SPACE TYPES
@@ -139,6 +153,7 @@ export type Message = {
     id: string;
     authorName: string;
     text: string;
+    authorId?: string;
   };
   attachment?: {
     url?: string;
@@ -151,6 +166,8 @@ export type Message = {
     count: number;
     reacted: boolean;
   }>;
+  threadReplyCount?: number;
+  thread?: any;
 };
 
 /* =========================================================
@@ -169,6 +186,7 @@ function SpaceRail({
   onAdmin,
   currentUser,
   onOpenProfile,
+  onCreateSpace,
 }: {
   servers: Server[];
   selectedServerId: string | null;
@@ -181,124 +199,167 @@ function SpaceRail({
   onAdmin: () => void;
   currentUser: any;
   onOpenProfile: () => void;
+  onCreateSpace?: () => void;
 }) {
   return (
     <View style={styles.rail}>
-      {/* DM button above spaces */}
-      <Pressable
-        onPress={onDM}
-        style={[
-          styles.dmButton,
-          currentSection === "dm" && styles.activeDM,
-        ]}
-      >
-        <MessageSquare
-          size={20}
-          color={currentSection === "dm" ? "#101116" : colors.accent}
-        />
-      </Pressable>
+      <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFillObject} />
+      <LinearGradient
+        colors={["rgba(255, 255, 255, 0.05)", "rgba(255, 255, 255, 0.01)"]}
+        style={StyleSheet.absoluteFillObject}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      />
+      {/* Direct Messages Home Button with Discord Left Pill Indicator */}
+      <View style={styles.railItemWrapper}>
+        {currentSection === "dm" && <View style={styles.railIndicatorPillActive} />}
+        <Pressable
+          onPress={onDM}
+          style={[
+            styles.dmButton,
+            currentSection === "dm" && styles.activeDM,
+          ]}
+        >
+          <MessageSquare
+            size={18}
+            color={currentSection === "dm" ? "#101116" : colors.accent}
+          />
+        </Pressable>
+      </View>
 
       <View style={styles.railDivider} />
 
-      {/* SPACE LIST (CIRCULAR / ROUNDED SERVER ICONS) */}
+      {/* SPACE LIST (DISCORD-STYLE SQUIRCLE ICONS & LEFT PILLS) */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.spaceList}
       >
         {servers.map((server) => {
           const active = selectedServerId === server.id && currentSection === "space";
+          const hasUnread = Boolean(server.unreadCount && server.unreadCount > 0);
 
           return (
-            <Pressable
-              key={server.id}
-              onPress={() => onSelectServer(server.id)}
-              style={[
-                styles.spaceButton,
-                active && styles.activeSpace,
-              ]}
-            >
-              {server.iconUrl ? (
-                <Image
-                  source={{ uri: server.iconUrl }}
-                  style={styles.spaceImage}
-                />
-              ) : (
-                <View style={styles.spaceFallback}>
-                  <Text style={styles.spaceLetter}>
-                    {server.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
+            <View key={server.id} style={styles.railItemWrapper}>
+              {/* Discord Left Indicator Pill */}
+              {active ? (
+                <View style={styles.railIndicatorPillActive} />
+              ) : hasUnread ? (
+                <View style={styles.railIndicatorPillUnread} />
+              ) : null}
 
-              {!!server.unreadCount && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadText}>
-                    {server.unreadCount > 99
-                      ? "99+"
-                      : server.unreadCount}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
+              <Pressable
+                onPress={() => onSelectServer(server.id)}
+                style={[
+                  styles.spaceButton,
+                  active && styles.activeSpace,
+                ]}
+              >
+                {server.iconUrl ? (
+                  <Image
+                    source={{ uri: server.iconUrl }}
+                    style={styles.spaceImage}
+                  />
+                ) : (
+                  <View style={styles.spaceFallback}>
+                    <Text style={styles.spaceLetter}>
+                      {server.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+
+                {hasUnread && (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadText}>
+                      {(server.unreadCount || 0) > 99
+                        ? "99+"
+                        : server.unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
           );
         })}
+
+        {/* Add Space / Server Button */}
+        <View style={styles.railItemWrapper}>
+          <Pressable
+            onPress={onCreateSpace}
+            style={styles.addSpaceBtn}
+            hitSlop={6}
+          >
+            <Plus size={18} color={colors.accent} />
+          </Pressable>
+        </View>
       </ScrollView>
 
       {/* UTILITY ITEMS AT BOTTOM */}
       <View style={styles.utilityArea}>
-        <Pressable
-          onPress={onNotice}
-          style={[
-            styles.utilityButton,
-            currentSection === "notices" && styles.utilityActive,
-          ]}
-        >
-          <Bell size={18} color={currentSection === "notices" ? colors.accent : colors.textMuted} />
-        </Pressable>
-
-        <Pressable
-          onPress={onArchive}
-          style={[
-            styles.utilityButton,
-            currentSection === "archive" && styles.utilityActive,
-          ]}
-        >
-          <Archive size={18} color={currentSection === "archive" ? colors.accent : colors.textMuted} />
-        </Pressable>
-
-        {isAdmin && (
+        <View style={styles.railItemWrapper}>
+          {currentSection === "notices" && <View style={styles.railIndicatorPillActive} />}
           <Pressable
-            onPress={onAdmin}
+            onPress={onNotice}
             style={[
               styles.utilityButton,
-              currentSection === "admin" && styles.utilityActive,
+              currentSection === "notices" && styles.utilityActive,
             ]}
           >
-            <Settings size={18} color={currentSection === "admin" ? colors.accent : colors.textMuted} />
+            <Bell size={18} color={currentSection === "notices" ? colors.accent : colors.textMuted} />
           </Pressable>
+        </View>
+
+        <View style={styles.railItemWrapper}>
+          {currentSection === "archive" && <View style={styles.railIndicatorPillActive} />}
+          <Pressable
+            onPress={onArchive}
+            style={[
+              styles.utilityButton,
+              currentSection === "archive" && styles.utilityActive,
+            ]}
+          >
+            <Archive size={18} color={currentSection === "archive" ? colors.accent : colors.textMuted} />
+          </Pressable>
+        </View>
+
+        {isAdmin && (
+          <View style={styles.railItemWrapper}>
+            {currentSection === "admin" && <View style={styles.railIndicatorPillActive} />}
+            <Pressable
+              onPress={onAdmin}
+              style={[
+                styles.utilityButton,
+                currentSection === "admin" && styles.utilityActive,
+              ]}
+            >
+              <Settings size={18} color={currentSection === "admin" ? colors.accent : colors.textMuted} />
+            </Pressable>
+          </View>
         )}
 
         {/* AUTHENTICATED USER AVATAR & PRESENCE DOCK */}
-        <Pressable
-          onPress={onOpenProfile}
-          style={[
-            styles.userDockAvatarBtn,
-            currentSection === "profile" && styles.userDockActive,
-          ]}
-        >
-          {currentUser?.avatar ? (
-            <Image source={{ uri: currentUser.avatar }} style={styles.dockAvatarImg} />
-          ) : (
-            <View style={styles.dockAvatarFallback}>
-              <Text style={styles.dockAvatarLetter}>
-                {(currentUser?.displayName || currentUser?.username || "U")
-                  .charAt(0)
-                  .toUpperCase()}
-              </Text>
-            </View>
-          )}
-          <View style={styles.presenceDot} />
-        </Pressable>
+        <View style={styles.railItemWrapper}>
+          {currentSection === "profile" && <View style={styles.railIndicatorPillActive} />}
+          <Pressable
+            onPress={onOpenProfile}
+            style={[
+              styles.userDockAvatarBtn,
+              currentSection === "profile" && styles.userDockActive,
+            ]}
+          >
+            {formatAvatarUrl(currentUser?.avatar) ? (
+              <Image source={{ uri: formatAvatarUrl(currentUser?.avatar)! }} style={styles.dockAvatarImg} />
+            ) : (
+              <View style={styles.dockAvatarFallback}>
+                <Text style={styles.dockAvatarLetter}>
+                  {(currentUser?.displayName || currentUser?.username || "U")
+                    .charAt(0)
+                    .toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <View style={styles.presenceDot} />
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -322,6 +383,8 @@ function SelectedSpaceView({
   onEvents,
   onOpenSettings,
   onOpenDrawer,
+  currentUser,
+  onOpenProfile,
 }: {
   server: Server;
   channels: Channel[];
@@ -335,7 +398,31 @@ function SelectedSpaceView({
   onEvents: () => void;
   onOpenSettings?: () => void;
   onOpenDrawer?: () => void;
+  currentUser?: any;
+  onOpenProfile?: () => void;
 }) {
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  const [isMuted, setIsMuted] = useState(false);
+  const [isDeafened, setIsDeafened] = useState(false);
+  const [memberCount, setMemberCount] = useState<number>(16);
+
+  useEffect(() => {
+    if (server?.id) {
+      fetchOrgMembers(server.id)
+        .then((res) => {
+          if (res?.members && res.members.length > 0) {
+            setMemberCount(res.members.length);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [server?.id]);
+
+  const toggleCategory = (cat: string) => {
+    NativeHaptics.light();
+    setCollapsedCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
+  };
+
   const categories = useMemo(() => {
     const result: Record<string, Channel[]> = {};
 
@@ -393,7 +480,7 @@ function SelectedSpaceView({
 
   return (
     <View style={styles.selectorView}>
-      {/* Space Header */}
+      {/* Rich Discord-Style Space Identity Header */}
       <View style={styles.header}>
         <Pressable onPress={onOpenSettings} style={styles.serverTitleRow}>
           <View style={{ flex: 1 }}>
@@ -402,29 +489,22 @@ function SelectedSpaceView({
               <Text style={styles.spaceBadgeText}>{spaceBadgeLabel}</Text>
             </View>
             <Text style={styles.serverName}>{server.name}</Text>
-            {server.description ? (
-              <Text style={styles.serverDescription} numberOfLines={1}>
-                {server.description}
+            <View style={styles.serverMetaRow}>
+              <View style={styles.communityDot} />
+              <Text style={styles.serverMemberCount}>
+                {memberCount} {memberCount === 1 ? "Member" : "Members"} • Community
               </Text>
-            ) : null}
+            </View>
           </View>
         </Pressable>
 
         <View style={styles.headerActions}>
-          <Pressable onPress={onSearch} style={styles.squareButton}>
+          <Pressable onPress={onSearch} style={styles.squareButton} hitSlop={6}>
             <Search size={16} color={colors.textPrimary} />
           </Pressable>
 
-          <Pressable onPress={onAdd} style={styles.squareButton}>
-            <Plus size={16} color={colors.textPrimary} />
-          </Pressable>
-
-          <Pressable onPress={onEvents} style={styles.squareButton}>
-            <Calendar size={16} color={colors.textPrimary} />
-          </Pressable>
-
           {onOpenSettings && (
-            <Pressable onPress={onOpenSettings} style={styles.squareButton}>
+            <Pressable onPress={onOpenSettings} style={styles.squareButton} hitSlop={6}>
               <Settings size={16} color={colors.accent} />
             </Pressable>
           )}
@@ -442,52 +522,183 @@ function SelectedSpaceView({
         </Pressable>
       ) : null}
 
-      {/* Full-width Categorized Channel List */}
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.channelScroll}>
-        {Object.entries(categories).map(([category, items]) => (
-          <View key={category} style={styles.categoryBlock}>
-            <Text style={styles.categoryTitle}>{category.toUpperCase()}</Text>
+      {/* Full-width Categorized Channel List with Collapsible Categories */}
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.channelScroll} contentContainerStyle={{ paddingBottom: 80 }}>
+        {Object.entries(categories).map(([category, items]) => {
+          const isCollapsed = Boolean(collapsedCategories[category]);
+          const categoryUnreads = items.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
 
-            {items.map((channel) => (
+          return (
+            <View key={category} style={styles.categoryBlock}>
               <Pressable
-                key={channel.id}
-                onPress={() => onSelectChannel(channel.id)}
-                style={({ pressed }) => [
-                  styles.channelRow,
-                  channel.type === "incident" && styles.incidentChannelRow,
-                  channel.type === "github" && styles.githubChannelRow,
-                  pressed && styles.channelRowPressed,
-                ]}
+                onPress={() => toggleCategory(category)}
+                style={styles.categoryHeaderRow}
+                hitSlop={8}
               >
-                {renderChannelIcon(channel.type)}
-
-                <Text
-                  style={[
-                    styles.channelName,
-                    channel.type === "incident" && { color: colors.danger },
-                    channel.type === "github" && { color: colors.accentTeal },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {channel.name}
-                </Text>
-
-                {channel.type === "voice" && (
-                  <View style={styles.voiceBadge}>
-                    <Text style={styles.voiceBadgeText}>LIVE</Text>
-                  </View>
-                )}
-
-                {!!channel.unreadCount && (
-                  <View style={styles.channelUnread}>
-                    <Text style={styles.unreadText}>{channel.unreadCount}</Text>
-                  </View>
+                <ChevronDown
+                  size={12}
+                  color={colors.textMuted}
+                  style={[styles.categoryChevron, isCollapsed && { transform: [{ rotate: "-90deg" }] }]}
+                />
+                <Text style={styles.categoryTitle}>{category.toUpperCase()}</Text>
+                <Text style={styles.categoryCount}>{items.length}</Text>
+                {categoryUnreads > 0 && isCollapsed && (
+                  <View style={styles.categoryUnreadDot} />
                 )}
               </Pressable>
-            ))}
-          </View>
-        ))}
+
+              {!isCollapsed &&
+                items.map((channel) => {
+                  const hasUnreads = Boolean(channel.unreadCount && channel.unreadCount > 0);
+
+                  return (
+                    <Pressable
+                      key={channel.id}
+                      onPress={() => onSelectChannel(channel.id)}
+                      style={({ pressed }) => [
+                        styles.channelRow,
+                        channel.type === "incident" && styles.incidentChannelRow,
+                        channel.type === "github" && styles.githubChannelRow,
+                        pressed && styles.channelRowPressed,
+                      ]}
+                    >
+                      {/* Left unread white bar indicator */}
+                      {hasUnreads && <View style={styles.channelUnreadBar} />}
+
+                      {renderChannelIcon(channel.type)}
+
+                      <Text
+                        style={[
+                          styles.channelName,
+                          hasUnreads && styles.channelNameUnread,
+                          channel.type === "incident" && { color: colors.danger },
+                          channel.type === "github" && { color: colors.accentTeal },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {channel.name}
+                      </Text>
+
+                      {channel.type === "voice" && (
+                        <View style={styles.voiceBadge}>
+                          <Text style={styles.voiceBadgeText}>LIVE</Text>
+                        </View>
+                      )}
+
+                      {hasUnreads && (
+                        <View style={styles.channelUnread}>
+                          <Text style={styles.unreadText}>{channel.unreadCount}</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+            </View>
+          );
+        })}
       </ScrollView>
+
+      {/* DISCORD PERSISTENT BOTTOM USER PROFILE DOCK */}
+      <View style={styles.discordUserDock}>
+        <BlurView intensity={Platform.OS === "ios" ? 35 : 20} tint="dark" style={StyleSheet.absoluteFill} />
+        <LinearGradient
+          colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        <Pressable
+          onPress={onOpenProfile}
+          style={styles.discordDockUserInfo}
+          hitSlop={4}
+        >
+          <View style={styles.discordDockAvatarWrap}>
+            {formatAvatarUrl(currentUser?.avatar) ? (
+              <Image source={{ uri: formatAvatarUrl(currentUser?.avatar)! }} style={styles.discordDockAvatarImg} />
+            ) : (
+              <View style={styles.discordDockAvatarFallback}>
+                <Text style={styles.discordDockAvatarLetter}>
+                  {(currentUser?.displayName || currentUser?.username || "R")
+                    .charAt(0)
+                    .toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <View
+              style={[
+                styles.discordDockPresenceDot,
+                currentUser?.status === "idle" && { backgroundColor: colors.statusIdle },
+                currentUser?.status === "dnd" && { backgroundColor: colors.statusDnd },
+                currentUser?.status === "invisible" && { backgroundColor: colors.statusOffline },
+              ]}
+            />
+          </View>
+
+          <View style={styles.discordDockNames}>
+            <Text style={styles.discordDockDisplayName} numberOfLines={1}>
+              {currentUser?.displayName || "Member"}
+            </Text>
+            <Text
+              style={[
+                styles.discordDockStatusText,
+                currentUser?.status === "idle" && { color: colors.statusIdle },
+                currentUser?.status === "dnd" && { color: colors.statusDnd },
+                currentUser?.status === "invisible" && { color: colors.statusOffline },
+              ]}
+              numberOfLines={1}
+            >
+              {currentUser?.status === "invisible"
+                ? "Invisible"
+                : currentUser?.status === "dnd"
+                ? "Do not disturb"
+                : currentUser?.status === "idle"
+                ? "Idle"
+                : "Online"}
+            </Text>
+          </View>
+        </Pressable>
+
+        {/* Discord Quick Media Controls */}
+        <View style={styles.discordDockControls}>
+          <Pressable
+            onPress={() => {
+              NativeHaptics.light();
+              setIsMuted(!isMuted);
+            }}
+            style={[styles.discordDockIconBtn, isMuted && styles.discordDockIconBtnActive]}
+            hitSlop={6}
+          >
+            {isMuted ? (
+              <MicOff size={16} color={colors.danger} />
+            ) : (
+              <Mic size={16} color={colors.textSecondary} />
+            )}
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              NativeHaptics.light();
+              setIsDeafened(!isDeafened);
+            }}
+            style={[styles.discordDockIconBtn, isDeafened && styles.discordDockIconBtnActive]}
+            hitSlop={6}
+          >
+            <Headphones
+              size={16}
+              color={isDeafened ? colors.danger : colors.textSecondary}
+            />
+          </Pressable>
+
+          <Pressable
+            onPress={onOpenProfile}
+            style={styles.discordDockIconBtn}
+            hitSlop={6}
+          >
+            <Settings size={16} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }
@@ -690,6 +901,30 @@ function TextChannelScreen({
             </Pressable>
           </View>
         )}
+
+        {/* Floating Liquid Glass Control Capsule (↻ •••) */}
+        <View style={styles.floatingHeaderCapsule}>
+          <Pressable
+            onPress={() => {
+              NativeHaptics.light();
+              useChatStore.getState().loadChannelMessages(channel.id);
+            }}
+            style={styles.floatingHeaderBtn}
+            hitSlop={6}
+          >
+            <RotateCw size={12} color={colors.textMuted} />
+          </Pressable>
+          <View style={styles.floatingHeaderDivider} />
+          <Pressable
+            onPress={() => {
+              NativeHaptics.light();
+            }}
+            style={styles.floatingHeaderBtn}
+            hitSlop={6}
+          >
+            <MoreHorizontal size={13} color={colors.textMuted} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Render Specialized Tool View or Chat Stream */}
@@ -747,15 +982,13 @@ function TextChannelScreen({
             onCancelReply={() => setReplyingTo(null)}
           />
 
-          {/* Native Thread Modal Sheet */}
+          {/* Dedicated Isolated Thread Modal Sheet */}
           <MobileThreadModal
             visible={Boolean(activeThreadMessage)}
             parentMessage={activeThreadMessage as any}
-            allMessages={messages as any}
+            channelId={channel.id}
+            currentUserId={currentUserId}
             onClose={() => setActiveThreadMessage(null)}
-            onSendReply={async (content, replyToId) => {
-              await onSend(content, replyToId);
-            }}
             onToggleReaction={onToggleReaction}
           />
         </>
@@ -771,6 +1004,144 @@ function TextChannelScreen({
 function isImageUrl(url: string, mimeType?: string) {
   if (mimeType?.startsWith("image/")) return true;
   return /\.(png|jpe?g|gif|webp|bmp|avif)(\?.*)?$/i.test(url);
+}
+
+function DoubleTapHeartOverlay({ visible }: { visible: boolean }) {
+  const scale = useRef(new Animated.Value(0.2)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      scale.setValue(0.2);
+      opacity.setValue(1);
+      Animated.parallel([
+        Animated.spring(scale, {
+          toValue: 1.3,
+          friction: 4,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.delay(350),
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.doubleTapHeartWrapper,
+        {
+          opacity,
+          transform: [{ scale }],
+        },
+      ]}
+    >
+      <Text style={{ fontSize: 34 }}>❤️</Text>
+    </Animated.View>
+  );
+}
+
+function SwipeableMessageRow({
+  children,
+  timestamp,
+  onSwipeReply,
+}: {
+  children: React.ReactNode;
+  timestamp?: string;
+  onSwipeReply?: () => void;
+}) {
+  const panX = useRef(new Animated.Value(0)).current;
+  const replyTriggered = useRef(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return (
+          Math.abs(gestureState.dx) > 12 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.8
+        );
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dx < 0) {
+          // Swipe Left -> reveal timestamp
+          panX.setValue(Math.max(-75, gestureState.dx));
+        } else if (gestureState.dx > 0 && onSwipeReply) {
+          // Swipe Right -> pull to reply
+          panX.setValue(Math.min(70, gestureState.dx));
+          if (gestureState.dx > 45 && !replyTriggered.current) {
+            replyTriggered.current = true;
+            NativeHaptics.light();
+          } else if (gestureState.dx <= 45 && replyTriggered.current) {
+            replyTriggered.current = false;
+          }
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx > 45 && onSwipeReply && replyTriggered.current) {
+          NativeHaptics.medium();
+          onSwipeReply();
+        }
+        replyTriggered.current = false;
+        Animated.spring(panX, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 8,
+          tension: 40,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        replyTriggered.current = false;
+        Animated.spring(panX, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 8,
+          tension: 40,
+        }).start();
+      },
+    })
+  ).current;
+
+  const formattedTime = useMemo(() => {
+    if (!timestamp) return "";
+    try {
+      return new Date(timestamp).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+    } catch {
+      return "";
+    }
+  }, [timestamp]);
+
+  return (
+    <View style={styles.swipeRowWrapper}>
+      {/* Swipe Left: Timestamp */}
+      <View style={styles.swipeTimestampContainer}>
+        <Text style={styles.swipeTimestampText}>{formattedTime}</Text>
+      </View>
+
+      <Animated.View
+        style={{
+          transform: [{ translateX: panX }],
+          width: "100%",
+        }}
+        {...panResponder.panHandlers}
+      >
+        {children}
+      </Animated.View>
+    </View>
+  );
 }
 
 function NativeMessageList({
@@ -794,199 +1165,323 @@ function NativeMessageList({
 }) {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [heartPoppingId, setHeartPoppingId] = useState<string | null>(null);
+  const lastTapTime = useRef<{ [msgId: string]: number }>({});
+  const flatListRef = useRef<FlatList<Message>>(null);
+
+  const handleMessagePress = (item: Message) => {
+    const now = Date.now();
+    const lastTime = lastTapTime.current[item.id] || 0;
+    if (now - lastTime < 320) {
+      // Double-tap reaction triggered!
+      lastTapTime.current[item.id] = 0;
+      NativeHaptics.success();
+      setHeartPoppingId(item.id);
+      onToggleReaction?.(item.id, "❤️");
+      setTimeout(() => {
+        setHeartPoppingId((curr) => (curr === item.id ? null : curr));
+      }, 700);
+    } else {
+      lastTapTime.current[item.id] = now;
+    }
+  };
+
+  const handleJumpToMessage = (targetId: string) => {
+    const targetIndex = messages.findIndex((m) => m.id === targetId);
+    if (targetIndex !== -1 && flatListRef.current) {
+      try {
+        flatListRef.current.scrollToIndex({
+          index: targetIndex,
+          animated: true,
+          viewPosition: 0.5,
+        });
+      } catch {
+        flatListRef.current.scrollToOffset({
+          offset: Math.max(0, targetIndex * 70),
+          animated: true,
+        });
+      }
+      setHighlightedMessageId(targetId);
+      NativeHaptics.light();
+      setTimeout(() => {
+        setHighlightedMessageId((curr) => (curr === targetId ? null : curr));
+      }, 2000);
+    }
+  };
 
   const quickEmojis = ["👍", "🔥", "🚀", "❤️", "👀", "🎉", "🧠", "💯"];
 
   return (
     <>
       <FlatList
+        ref={flatListRef}
         data={messages}
         keyExtractor={(item) => item.id}
         style={styles.messages}
         contentContainerStyle={styles.messageContent}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => {
+        onScrollToIndexFailed={(info) => {
+          flatListRef.current?.scrollToOffset({
+            offset: info.averageItemLength * info.index,
+            animated: true,
+          });
+        }}
+        renderItem={({ item, index }) => {
           const { cleanText, attachments } = parseMessageAttachments(item.content || "");
+          const isBot = Boolean(
+            item.user?.displayName?.toLowerCase().includes("bot") ||
+            item.user?.displayName?.toLowerCase().includes("ai") ||
+            item.user?.displayName?.toLowerCase().includes("corvus") ||
+            item.user?.id === "00000000-0000-0000-0000-000000000001"
+          );
           const isOwnMessage =
-            item.user.id === currentUserId ||
-            item.user.id === "me" ||
-            isAdmin;
+            !isBot &&
+            Boolean(
+              (currentUserId && item.user?.id === currentUserId) ||
+              item.user?.id === "me"
+            );
+          const userAvatarUrl = formatAvatarUrl(item.user?.avatarUrl);
+
+          const prevItem = index > 0 ? messages[index - 1] : null;
+          const isConsecutive = Boolean(
+            prevItem &&
+            prevItem.user?.id === item.user?.id &&
+            !item.replyTo &&
+            !item.attachment &&
+            Math.abs(new Date(item.createdAt).getTime() - new Date(prevItem.createdAt).getTime()) < 300000
+          );
+
+          const isHighlighted = item.id === highlightedMessageId;
+
+          // Resolve reply author name cleanly
+          let replyAuthorName = "Member";
+          if (item.replyTo) {
+            if (item.replyTo.authorId && item.replyTo.authorId === currentUserId) {
+              replyAuthorName = "You";
+            } else if (item.replyTo.authorName) {
+              replyAuthorName = item.replyTo.authorName;
+            } else {
+              const orig = messages.find((m) => m.id === item.replyTo?.id);
+              if (orig) {
+                replyAuthorName = orig.user?.id === currentUserId ? "You" : orig.user?.displayName || "Member";
+              }
+            }
+          }
 
           return (
-            <View style={{ marginBottom: 6 }}>
-              {/* Quoted reply header if message is a reply to another message */}
-              {item.replyTo && (
-                <View style={styles.messageReplyHeader}>
-                  <CornerUpLeft size={12} color={colors.accent} />
-                  <Text style={styles.messageReplyAuthor}>{item.replyTo.authorName}:</Text>
-                  <Text style={styles.messageReplySnippet} numberOfLines={1}>
-                    {parseMessageAttachments(item.replyTo.text || "").cleanText || "Attachment"}
-                  </Text>
-                </View>
-              )}
-
+            <SwipeableMessageRow
+              timestamp={item.createdAt}
+              onSwipeReply={() => onReply?.(item)}
+            >
               <View
                 style={[
-                  styles.messageRowWrapper,
-                  isOwnMessage && styles.messageRowWrapperOwn,
+                  styles.messageItemContainer,
+                  isConsecutive && styles.messageItemConsecutive,
+                  isHighlighted && styles.messageItemHighlighted,
                 ]}
               >
-                {!isOwnMessage && (
+                {/* Quoted reply header if message is a reply to another message */}
+                {item.replyTo && (
                   <Pressable
-                    onPress={() => {
-                      fetchUserProfile(item.user.id).then((res) => onOpenProfile?.(res.user)).catch(() => onOpenProfile?.({
-                        id: item.user.id,
-                        displayName: item.user.displayName,
-                        username: item.user.displayName.toLowerCase().replace(/\s+/g, ""),
-                        avatarUrl: item.user.avatarUrl,
-                        status: "online",
-                      }));
-                    }}
-                    hitSlop={6}
-                    style={styles.avatarGlowContainer}
+                    onPress={() => item.replyTo?.id && handleJumpToMessage(item.replyTo.id)}
+                    style={styles.messageReplyHeader}
+                    hitSlop={4}
                   >
-                    {item.user?.avatarUrl ? (
-                      <Image source={{ uri: item.user.avatarUrl }} style={styles.messageAvatar} />
-                    ) : (
-                      <View style={styles.messageAvatarFallback}>
-                        <Text style={styles.avatarLetter}>
-                          {(item.user?.displayName || "U").charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
+                    <CornerUpLeft size={12} color={colors.accent} />
+                    <Text style={styles.messageReplyAuthor}>{replyAuthorName}:</Text>
+                    <Text style={styles.messageReplySnippet} numberOfLines={1}>
+                      {parseMessageAttachments(item.replyTo.text || "").cleanText || "Attachment"}
+                    </Text>
                   </Pressable>
                 )}
 
-                <View style={[styles.messageContentColumn, isOwnMessage && styles.messageContentColumnOwn]}>
-                  {/* Floating Author Metadata Line */}
-                  <View style={[styles.messageHeader, isOwnMessage && { justifyContent: "flex-end" }]}>
-                    <Text
-                      style={[
-                        styles.displayName,
-                        {
-                          color:
-                            item.user?.displayName?.includes("Bot") ||
-                            item.user?.id === "00000000-0000-0000-0000-000000000001"
-                              ? "#818CF8"
-                              : isOwnMessage
-                              ? "rgba(243, 197, 107, 0.9)"
-                              : item.user?.roleColor || colors.textPrimary,
-                        },
+                <View
+                  style={[
+                    styles.messageRowWrapper,
+                    isOwnMessage && styles.messageRowWrapperOwn,
+                  ]}
+                >
+                  {!isOwnMessage && !isConsecutive && (
+                    <Pressable
+                      onPress={() => {
+                        fetchUserProfile(item.user.id).then((res) => onOpenProfile?.(res.user)).catch(() => onOpenProfile?.({
+                          id: item.user.id,
+                          displayName: item.user.displayName,
+                          username: item.user.displayName.toLowerCase().replace(/\s+/g, ""),
+                          avatarUrl: item.user.avatarUrl,
+                          status: "online",
+                        }));
+                      }}
+                      hitSlop={6}
+                      style={styles.avatarGlowContainer}
+                    >
+                      {userAvatarUrl ? (
+                        <Image source={{ uri: userAvatarUrl }} style={styles.messageAvatar} />
+                      ) : (
+                        <View style={styles.messageAvatarFallback}>
+                          <Text style={styles.avatarLetter}>
+                            {(item.user?.displayName || "U").charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  )}
+
+                  {/* Empty avatar spacer for consecutive non-own messages */}
+                  {!isOwnMessage && isConsecutive && (
+                    <View style={styles.avatarConsecutiveSpacer} />
+                  )}
+
+                  <View style={[styles.messageContentColumn, isOwnMessage && styles.messageContentColumnOwn]}>
+                    {/* Floating Author Metadata Line (omitted for consecutive messages) */}
+                    {!isConsecutive && (
+                      <View style={[styles.messageHeader, isOwnMessage && { justifyContent: "flex-end" }]}>
+                        <Text
+                          style={[
+                            styles.displayName,
+                            {
+                              color:
+                                isBot
+                                  ? "#818CF8"
+                                  : isOwnMessage
+                                  ? "rgba(243, 197, 107, 0.9)"
+                                  : item.user?.roleColor || colors.textPrimary,
+                            },
+                          ]}
+                        >
+                          {isOwnMessage ? "You" : item.user?.displayName || "Member"}
+                        </Text>
+
+                        {isBot && (
+                          <View style={styles.botBadge}>
+                            <Sparkles size={9} color="#818CF8" style={{ marginRight: 3 }} />
+                            <Text style={styles.botBadgeText}>AI</Text>
+                          </View>
+                        )}
+
+                        <Text style={styles.timestamp}>
+                          {item.createdAt
+                            ? new Date(item.createdAt).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : ""}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Clean Fluid Message Body */}
+                    <Pressable
+                      delayLongPress={150}
+                      onPress={() => handleMessagePress(item)}
+                      onLongPress={() => {
+                        NativeHaptics.medium();
+                        setSelectedMessage(item);
+                        setActionMenuOpen(true);
+                      }}
+                      style={({ pressed }) => [
+                        styles.visionGlassBubble,
+                        isOwnMessage
+                          ? styles.visionGlassBubbleOwn
+                          : isBot
+                          ? styles.visionGlassBubbleBot
+                          : styles.visionGlassBubbleOther,
+                        pressed && styles.visionGlassBubblePressed,
                       ]}
                     >
-                      {isOwnMessage ? "You" : item.user?.displayName || "Member"}
-                    </Text>
+                      {/* Instagram-style floating double-tap heart burst */}
+                      <DoubleTapHeartOverlay visible={heartPoppingId === item.id} />
 
-                    {(item.user?.displayName?.includes("Bot") ||
-                      item.user?.id === "00000000-0000-0000-0000-000000000001") && (
-                      <View style={styles.botBadge}>
-                        <Text style={styles.botBadgeText}>AI</Text>
-                      </View>
-                    )}
+                      {/* Rich Markdown & LaTeX Message Body */}
+                      {cleanText ? (
+                        <RichMarkdown
+                          content={cleanText}
+                          textColor={isOwnMessage ? "#FFFFFF" : colors.textPrimary}
+                          fontSize={14}
+                        />
+                      ) : null}
 
-                    <Text style={styles.timestamp}>
-                      {item.createdAt
-                        ? new Date(item.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : ""}
-                    </Text>
+                      {/* AI Compact Action Bar */}
+                      {isBot && cleanText ? (
+                        <View style={styles.aiActionBar}>
+                          <Pressable
+                            onPress={async () => {
+                              await Clipboard.setStringAsync(cleanText);
+                              NativeHaptics.success();
+                            }}
+                            style={styles.aiActionBtn}
+                            hitSlop={6}
+                          >
+                            <Copy size={11} color={colors.textMuted} />
+                            <Text style={styles.aiActionText}>Copy</Text>
+                          </Pressable>
+                        </View>
+                      ) : null}
+
+                      {attachments.map((att, idx) => (
+                        <AttachmentCard key={idx} attachment={att} />
+                      ))}
+
+                      {item.attachment?.url && isImageUrl(item.attachment.url, item.attachment.mimeType) && (
+                        <Image source={{ uri: item.attachment.url }} style={styles.attachmentImage} resizeMode="cover" />
+                      )}
+
+                      {item.attachment?.url && !isImageUrl(item.attachment.url, item.attachment.mimeType) && (
+                        <View style={styles.fileCard}>
+                          <Text style={styles.fileName}>{item.attachment.name || "Attachment"}</Text>
+                        </View>
+                      )}
+
+                      {/* Dedicated Thread Indicator Badge if message has a thread */}
+                      {Boolean((item.threadReplyCount && item.threadReplyCount > 0) || (item.thread && item.thread.messageCount > 0)) && (
+                        <Pressable
+                          onPress={() => onOpenThread?.(item)}
+                          style={styles.threadIndicatorBadge}
+                          hitSlop={6}
+                        >
+                          <MessagesSquare size={13} color={colors.accent} />
+                          <Text style={styles.threadIndicatorText}>
+                            {item.threadReplyCount || item.thread?.messageCount}{" "}
+                            {(item.threadReplyCount || item.thread?.messageCount) === 1 ? "thread reply" : "thread replies"} • View Thread
+                          </Text>
+                        </Pressable>
+                      )}
+                    </Pressable>
                   </View>
+                </View>
 
-                  {/* Translucent Fluid Glass Message Body */}
-                  <Pressable
-                    delayLongPress={150}
-                    onLongPress={() => {
-                      NativeHaptics.medium();
-                      setSelectedMessage(item);
-                      setActionMenuOpen(true);
-                    }}
-                    style={({ pressed }) => [
-                      styles.visionGlassBubble,
-                      isOwnMessage
-                        ? styles.visionGlassBubbleOwn
-                        : (item.user?.displayName?.includes("Bot") || item.user?.id === "00000000-0000-0000-0000-000000000001")
-                        ? styles.visionGlassBubbleBot
-                        : styles.visionGlassBubbleOther,
-                      pressed && { opacity: 0.82, transform: [{ scale: 0.985 }] },
-                    ]}
-                  >
-                    <LinearGradient
-                      colors={
-                        isOwnMessage
-                          ? ["rgba(255, 255, 255, 0.12)", "rgba(255, 255, 255, 0)"]
-                          : ["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0)"]
-                      }
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 0, y: 1 }}
-                      style={styles.bubbleTopSpecular}
-                    />
-
-                    {cleanText ? <Text style={styles.messageText}>{cleanText}</Text> : null}
-
-                    {attachments.map((att, idx) => (
-                      <AttachmentCard key={idx} attachment={att} />
-                    ))}
-
-                    {item.attachment?.url && isImageUrl(item.attachment.url, item.attachment.mimeType) && (
-                      <Image source={{ uri: item.attachment.url }} style={styles.attachmentImage} resizeMode="cover" />
-                    )}
-
-                    {item.attachment?.url && !isImageUrl(item.attachment.url, item.attachment.mimeType) && (
-                      <View style={styles.fileCard}>
-                        <Text style={styles.fileName}>{item.attachment.name || "Attachment"}</Text>
-                      </View>
-                    )}
-
-                    {/* Thread Indicator Badge if message has replies */}
-                    {messages.filter((m) => m.replyTo?.id === item.id).length > 0 && (
+                {/* Reaction Pills & Add Reaction Button */}
+                {item.reactions && item.reactions.length > 0 && (
+                  <View style={[styles.reactions, isOwnMessage && { justifyContent: "flex-end" }]}>
+                    {item.reactions.map((reaction) => (
                       <Pressable
-                        onPress={() => onOpenThread?.(item)}
-                        style={styles.threadIndicatorBadge}
-                        hitSlop={6}
+                        key={reaction.emoji}
+                        onPress={() => onToggleReaction?.(item.id, reaction.emoji)}
+                        style={[
+                          styles.reaction,
+                          reaction.reacted && styles.reactionActive,
+                        ]}
                       >
-                        <MessagesSquare size={13} color={colors.accent} />
-                        <Text style={styles.threadIndicatorText}>
-                          {messages.filter((m) => m.replyTo?.id === item.id).length}{" "}
-                          {messages.filter((m) => m.replyTo?.id === item.id).length === 1 ? "reply" : "replies"}
+                        <Text style={{ color: colors.textPrimary, fontSize: 12 }}>
+                          {reaction.emoji} {reaction.count}
                         </Text>
                       </Pressable>
-                    )}
-                  </Pressable>
-                </View>
-              </View>
+                    ))}
 
-              {/* Reaction Pills & Add Reaction Button */}
-              {item.reactions && item.reactions.length > 0 && (
-                <View style={[styles.reactions, isOwnMessage && { justifyContent: "flex-end" }]}>
-                  {item.reactions.map((reaction) => (
                     <Pressable
-                      key={reaction.emoji}
-                      onPress={() => onToggleReaction?.(item.id, reaction.emoji)}
-                      style={[
-                        styles.reaction,
-                        reaction.reacted && styles.reactionActive,
-                      ]}
+                      onPress={() => {
+                        setSelectedMessage(item);
+                        setActionMenuOpen(true);
+                      }}
+                      style={styles.addReactionBtn}
                     >
-                      <Text style={{ color: colors.textPrimary, fontSize: 12 }}>
-                        {reaction.emoji} {reaction.count}
-                      </Text>
+                      <Smile size={13} color={colors.textMuted} />
                     </Pressable>
-                  ))}
-
-                  <Pressable
-                    onPress={() => {
-                      setSelectedMessage(item);
-                      setActionMenuOpen(true);
-                    }}
-                    style={styles.addReactionBtn}
-                  >
-                    <Smile size={13} color={colors.textMuted} />
-                  </Pressable>
-                </View>
-              )}
-            </View>
+                  </View>
+                )}
+              </View>
+            </SwipeableMessageRow>
           );
         }}
       />
@@ -994,7 +1489,18 @@ function NativeMessageList({
       {/* Message Action & Reaction Modal */}
       <Modal visible={actionMenuOpen} transparent animationType="fade" onRequestClose={() => setActionMenuOpen(false)}>
         <Pressable style={styles.actionModalBackdrop} onPress={() => setActionMenuOpen(false)}>
+          <BlurView intensity={Platform.OS === "ios" ? 45 : 30} tint="dark" style={StyleSheet.absoluteFill} />
+        </Pressable>
+
+        <View style={styles.actionModalSheetWrapper} pointerEvents="box-none">
           <View style={styles.actionModalSheet}>
+            <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={StyleSheet.absoluteFill} />
+            <LinearGradient
+              colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.01)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
             <Text style={styles.actionModalTitle}>Add Reaction</Text>
             <View style={styles.emojiPickerRow}>
               {quickEmojis.map((emoji) => (
@@ -1027,12 +1533,11 @@ function NativeMessageList({
               >
                 <MessagesSquare size={16} color={colors.accent} />
                 <Text style={styles.actionMenuText}>
-                  {selectedMessage &&
-                  messages.filter((m) => m.replyTo?.id === selectedMessage.id).length > 0
+                  {selectedMessage && (selectedMessage.threadReplyCount || selectedMessage.thread?.messageCount || 0) > 0
                     ? `Open Thread (${
-                        messages.filter((m) => m.replyTo?.id === selectedMessage.id).length
+                        selectedMessage.threadReplyCount || selectedMessage.thread?.messageCount
                       } replies)`
-                    : "Open Thread"}
+                    : "Start Thread"}
                 </Text>
               </Pressable>
 
@@ -1047,6 +1552,21 @@ function NativeMessageList({
               >
                 <CornerUpLeft size={16} color={colors.accent} />
                 <Text style={styles.actionMenuText}>Reply to Message</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.actionMenuRow}
+                onPress={async () => {
+                  if (selectedMessage) {
+                    const textToCopy = parseMessageAttachments(selectedMessage.content || "").cleanText;
+                    await Clipboard.setStringAsync(textToCopy);
+                    NativeHaptics.success();
+                  }
+                  setActionMenuOpen(false);
+                }}
+              >
+                <Copy size={16} color={colors.textMuted} />
+                <Text style={styles.actionMenuText}>Copy Message</Text>
               </Pressable>
 
               {/* Delete Message Button (Author or Admin Only) */}
@@ -1074,14 +1594,12 @@ function NativeMessageList({
                     }}
                   >
                     <Trash2 size={16} color={colors.danger} />
-                    <Text style={[styles.actionMenuText, { color: colors.danger }]}>
-                      Delete Message
-                    </Text>
+                    <Text style={[styles.actionMenuText, { color: colors.danger }]}>Delete Message</Text>
                   </Pressable>
                 )}
             </View>
           </View>
-        </Pressable>
+        </View>
       </Modal>
     </>
   );
@@ -1427,7 +1945,18 @@ function SearchModal({
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
+          <BlurView intensity={Platform.OS === "ios" ? 25 : 15} tint="dark" style={StyleSheet.absoluteFill} />
+        </Pressable>
+
         <View style={styles.searchModalCard}>
+          <BlurView intensity={Platform.OS === "ios" ? 35 : 20} tint="dark" style={StyleSheet.absoluteFill} />
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.01)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <View style={styles.searchModalHeader}>
             <Search size={16} color={colors.accent} />
             <TextInput
@@ -1468,7 +1997,7 @@ function SearchModal({
                 <Text style={styles.searchSectionTitle}>MEMBERS</Text>
                 {userResults.map((u) => (
                   <View key={u.id} style={styles.searchResultRow}>
-                    <Avatar name={u.displayName || u.username} size={28} />
+                    <Avatar name={u.displayName || u.username} size={28} url={u.avatarUrl || (u as any).avatar_url || (u as any).avatar} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.searchResultName}>{u.displayName || u.username}</Text>
                       <Text style={styles.searchResultSub}>@{u.username}</Text>
@@ -1538,7 +2067,18 @@ function CreateNoticeModal({
         style={styles.modalBackdrop}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
+          <BlurView intensity={Platform.OS === "ios" ? 25 : 15} tint="dark" style={StyleSheet.absoluteFill} />
+        </Pressable>
+
         <View style={styles.noticeModalCard}>
+          <BlurView intensity={Platform.OS === "ios" ? 35 : 20} tint="dark" style={StyleSheet.absoluteFill} />
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.01)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Publish Space Notice</Text>
             <Pressable onPress={onClose} hitSlop={10}>
@@ -1734,6 +2274,8 @@ export default function AIICDiscordApp() {
         count: r.count,
         reacted: !!r.reacted,
       })),
+      threadReplyCount: m.threadReplyCount ?? m.thread?.messageCount ?? 0,
+      thread: m.thread,
     }));
   }, [messages, selectedChannelId]);
 
@@ -1787,42 +2329,52 @@ export default function AIICDiscordApp() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.root}>
+        {/* Ambient background light gradients / orbs for translucent Liquid Glass depth */}
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+          <View style={styles.ambientGlowAmber} />
+          <View style={styles.ambientGlowTeal} />
+          <View style={styles.ambientGlowPurple} />
+        </View>
+
         {/* =================================================
             LEVEL 1: DISCORD LEFT SPACE / SERVER RAIL
             ================================================= */}
-        <SpaceRail
-          servers={servers}
-          selectedServerId={selectedServerId}
-          onSelectServer={(id) => {
-            setSelectedServerId(id);
-            setActiveSpace(id);
-            setSelectedChannelId(null);
-            setCurrentSection("space");
-          }}
-          onDM={() => {
-            setCurrentSection("dm");
-            setSelectedChannelId(null);
-          }}
-          currentSection={currentSection}
-          isAdmin={isAdmin}
-          onNotice={() => {
-            setCurrentSection("notices");
-            setSelectedChannelId(null);
-          }}
-          onArchive={() => {
-            setCurrentSection("archive");
-            setSelectedChannelId(null);
-          }}
-          onAdmin={() => {
-            setCurrentSection("admin");
-            setSelectedChannelId(null);
-          }}
-          currentUser={user}
-          onOpenProfile={() => {
-            setCurrentSection("profile");
-            setSelectedChannelId(null);
-          }}
-        />
+        {!(currentSection === "space" && selectedServer && selectedChannel) && (
+          <SpaceRail
+            servers={servers}
+            selectedServerId={selectedServerId}
+            onSelectServer={(id) => {
+              setSelectedServerId(id);
+              setActiveSpace(id);
+              setSelectedChannelId(null);
+              setCurrentSection("space");
+            }}
+            onDM={() => {
+              setCurrentSection("dm");
+              setSelectedChannelId(null);
+            }}
+            currentSection={currentSection}
+            isAdmin={isAdmin}
+            onNotice={() => {
+              setCurrentSection("notices");
+              setSelectedChannelId(null);
+            }}
+            onArchive={() => {
+              setCurrentSection("archive");
+              setSelectedChannelId(null);
+            }}
+            onAdmin={() => {
+              setCurrentSection("admin");
+              setSelectedChannelId(null);
+            }}
+            currentUser={user}
+            onOpenProfile={() => {
+              setCurrentSection("profile");
+              setSelectedChannelId(null);
+            }}
+            onCreateSpace={() => setCreateSpaceModalOpen(true)}
+          />
+        )}
 
         {/* =================================================
             LEVEL 2: MAIN CONTENT & CHAT STREAM
@@ -1890,7 +2442,7 @@ export default function AIICDiscordApp() {
                     style={styles.dmRow}
                     onPress={() => router.push(`/(app)/dms/${item.id}` as any)}
                   >
-                    <Avatar name={item.name} presence={item.presence} size={42} />
+                    <Avatar name={item.name} presence={item.presence} size={42} url={(item as any).avatar || (item as any).avatarUrl} />
                     <View style={styles.dmInfo}>
                       <View style={styles.dmTop}>
                         <Text style={styles.dmName} numberOfLines={1}>
@@ -1934,97 +2486,9 @@ export default function AIICDiscordApp() {
             <MobileAdminView initialData={adminData} />
           )}
 
-          {/* DETAILED MEMBER PROFILE & IDENTITY */}
+          {/* DETAILED MEMBER PROFILE & STATUS VIEW (SINGLE CLEAR IDENTITY) */}
           {currentSection === "profile" && (
-            <ScrollView style={styles.page} showsVerticalScrollIndicator={false}>
-              <Text style={styles.pageTitle}>Member Identity</Text>
-              <View style={styles.profileCard}>
-                <View style={styles.profileAvatarWrap}>
-                  {user?.avatar ? (
-                    <Image source={{ uri: user.avatar }} style={styles.profileAvatar} />
-                  ) : (
-                    <View style={styles.profileAvatarFallback}>
-                      <Text style={styles.profileAvatarLetter}>
-                        {(user?.displayName || user?.username || "U").charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.profileStatusDot} />
-                </View>
-
-                <Text style={styles.profileName}>
-                  {user?.displayName || user?.username || "Member"}
-                </Text>
-                <Text style={styles.profileUsername}>@{user?.username || "member"}</Text>
-
-                <View style={styles.roleTag}>
-                  <Shield size={13} color={colors.accent} />
-                  <Text style={styles.roleTagText}>
-                    {(user?.role || "MEMBER").replace(/_/g, " ").toUpperCase()}
-                  </Text>
-                </View>
-
-                {user?.bio ? (
-                  <View style={styles.profileSectionBox}>
-                    <Text style={styles.profileSectionLabel}>ABOUT</Text>
-                    <Text style={styles.profileBio}>{user.bio}</Text>
-                  </View>
-                ) : null}
-
-                {(user?.classYear || user?.section) ? (
-                  <View style={styles.profileSectionBox}>
-                    <Text style={styles.profileSectionLabel}>ACADEMIC AFFILIATION</Text>
-                    <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-                      {user.classYear && (
-                        <View style={styles.profileAffilPill}>
-                          <Text style={styles.profileAffilText}>Class of {user.classYear}</Text>
-                        </View>
-                      )}
-                      {user.section && (
-                        <View style={styles.profileAffilPill}>
-                          <Text style={styles.profileAffilText}>Squad: {user.section}</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                ) : null}
-
-                {user?.skills && user.skills.length > 0 ? (
-                  <View style={styles.profileSectionBox}>
-                    <Text style={styles.profileSectionLabel}>SKILLS & EXPERTISE</Text>
-                    <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-                      {user.skills.map((s, i) => (
-                        <View key={i} style={styles.profileSkillChip}>
-                          <Text style={styles.profileSkillText}>{s}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                ) : null}
-
-                {user?.interests && user.interests.length > 0 ? (
-                  <View style={styles.profileSectionBox}>
-                    <Text style={styles.profileSectionLabel}>RESEARCH & TOPIC INTERESTS</Text>
-                    <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-                      {user.interests.map((it, i) => (
-                        <View key={i} style={styles.profileInterestChip}>
-                          <Text style={styles.profileInterestText}>#{it}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                ) : null}
-
-                <View style={styles.profileActionRow}>
-                  <Pressable
-                    onPress={() => router.push("/(app)/profile/settings" as any)}
-                    style={styles.profileEditBtn}
-                  >
-                    <Text style={styles.profileEditBtnText}>Edit Profile & Settings</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </ScrollView>
+            <MobileProfileStatusView />
           )}
         </View>
       </View>
@@ -2126,25 +2590,25 @@ export default function AIICDiscordApp() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
   },
 
   mobileRoot: {
     flex: 1,
     flexDirection: "column",
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
   },
 
   mainContentFull: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
   },
 
   menuDrawerBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
@@ -2163,55 +2627,96 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  /* LEVEL 1: NARROW LEFT SPACE RAIL */
+  /* LEVEL 1: NARROW LEFT SPACE RAIL (Translucent Blurred Rail) */
   rail: {
-    width: 78,
-    backgroundColor: "rgba(14, 18, 26, 0.82)",
+    width: 56,
+    backgroundColor: "rgba(8, 10, 15, 0.45)",
     borderRightWidth: 1,
-    borderRightColor: "rgba(255, 255, 255, 0.10)",
+    borderRightColor: "rgba(255, 255, 255, 0.05)",
     alignItems: "center",
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 6,
+    paddingBottom: 6,
+    overflow: "hidden",
   },
 
   dmButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.28)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   activeDM: {
-    backgroundColor: colors.accent,
-    borderColor: "rgba(255, 255, 255, 0.40)",
+    backgroundColor: "rgba(232, 163, 61, 0.16)",
+    borderColor: "rgba(232, 163, 61, 0.35)",
     shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
   },
 
   railDivider: {
-    width: 36,
+    width: 28,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.10)",
-    marginVertical: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    marginVertical: 8,
+  },
+
+  railItemWrapper: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    paddingVertical: 2,
+  },
+
+  railIndicatorPillActive: {
+    position: "absolute",
+    left: 0,
+    width: 3.5,
+    height: 28,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+    backgroundColor: "#FFFFFF",
+  },
+
+  railIndicatorPillUnread: {
+    position: "absolute",
+    left: 0,
+    width: 3.5,
+    height: 8,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+  },
+
+  addSpaceBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   spaceList: {
     alignItems: "center",
-    paddingBottom: 8,
-    gap: 10,
+    paddingBottom: 6,
+    gap: 6,
   },
 
   spaceButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
@@ -2220,35 +2725,36 @@ const styles = StyleSheet.create({
   },
 
   activeSpace: {
-    backgroundColor: "rgba(232, 163, 61, 0.18)",
-    borderColor: "rgba(232, 163, 61, 0.45)",
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    borderColor: "rgba(232, 163, 61, 0.35)",
+    borderRadius: 11,
     shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
   },
 
   spaceImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 9,
   },
 
   spaceFallback: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(36, 39, 54, 0.8)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   spaceLetter: {
     color: colors.textPrimary,
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "800",
   },
 
@@ -2256,74 +2762,78 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: -2,
     bottom: -2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    minWidth: 15,
+    height: 15,
+    borderRadius: 7.5,
     backgroundColor: colors.danger,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
 
   unreadText: {
     color: colors.textPrimary,
-    fontSize: 10,
+    fontSize: 8.5,
     fontWeight: "800",
   },
 
   utilityArea: {
     marginTop: "auto",
-    gap: 8,
+    gap: 6,
     alignItems: "center",
   },
 
   utilityButton: {
-    width: 48,
-    height: 44,
-    borderRadius: 14,
+    width: 36,
+    height: 34,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
 
   utilityActive: {
-    backgroundColor: "rgba(58, 60, 78, 0.75)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
 
   userDockAvatarBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
-    marginTop: 4,
+    marginTop: 2,
   },
 
   userDockActive: {
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.accent,
   },
 
   dockAvatarImg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
   },
 
   dockAvatarFallback: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   dockAvatarLetter: {
     color: colors.textPrimary,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
 
@@ -2331,24 +2841,24 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 0,
     bottom: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: colors.statusOnline,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.background,
   },
 
   /* LEVEL 2: MAIN CONTENT AREA */
   mainContent: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
   },
 
   /* SELECTED SPACE VIEW (CHANNEL SELECTOR) */
   selectorView: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
   },
 
   header: {
@@ -2356,21 +2866,24 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.12)",
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "transparent",
   },
 
   serverTitleRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   spaceBadgeCapsule: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    backgroundColor: "rgba(232, 163, 61, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.18)",
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
@@ -2387,7 +2900,7 @@ const styles = StyleSheet.create({
 
   serverName: {
     color: colors.textPrimary,
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: "800",
     letterSpacing: -0.3,
   },
@@ -2400,48 +2913,49 @@ const styles = StyleSheet.create({
 
   headerActions: {
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
   },
 
   searchButton: {
     flex: 1,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   searchText: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
   },
 
   squareButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
+  /* Thin Translucent Amber Glass Announcement Banner Pill */
   noticeBar: {
     marginHorizontal: 14,
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-    backgroundColor: "rgba(232, 163, 61, 0.08)",
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: "rgba(232, 163, 61, 0.06)",
     borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.25)",
+    borderColor: "rgba(232, 163, 61, 0.20)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -2449,13 +2963,13 @@ const styles = StyleSheet.create({
 
   emptyNoticeBar: {
     marginHorizontal: 14,
-    marginTop: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: "rgba(22, 24, 33, 0.85)",
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     borderStyle: "dashed",
     flexDirection: "row",
     alignItems: "center",
@@ -2490,7 +3004,7 @@ const styles = StyleSheet.create({
 
   noticeTitle: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
   },
 
@@ -2506,59 +3020,227 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
 
+  serverMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+  },
+
+  communityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.statusOnline,
+  },
+
+  serverMemberCount: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: "monospace",
+  },
+
   categoryBlock: {
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+
+  categoryHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 4,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+
+  categoryChevron: {
+    marginRight: 2,
   },
 
   categoryTitle: {
-    color: colors.textMuted,
-    fontSize: 11,
+    flex: 1,
+    color: "rgba(255, 255, 255, 0.45)",
+    fontSize: 10,
     fontWeight: "800",
-    letterSpacing: 0.7,
-    paddingHorizontal: 4,
-    paddingTop: 14,
-    paddingBottom: 6,
+    letterSpacing: 0.8,
   },
 
+  categoryCount: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontFamily: "monospace",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+  },
+
+  categoryUnreadDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+    marginLeft: 4,
+  },
+
+  /* Subtle Liquid Glass Floating Channel Rows */
   channelRow: {
-    minHeight: 46,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     gap: 10,
-    borderRadius: 12,
-    backgroundColor: "rgba(22, 24, 33, 0.85)",
-    marginBottom: 6,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.025)",
+    marginBottom: 4,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.055)",
+    position: "relative",
+  },
+
+  channelUnreadBar: {
+    position: "absolute",
+    left: -2,
+    top: 12,
+    bottom: 12,
+    width: 3,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+    backgroundColor: "#FFFFFF",
   },
 
   incidentChannelRow: {
-    backgroundColor: "rgba(239, 68, 68, 0.08)",
-    borderColor: "rgba(239, 68, 68, 0.25)",
+    backgroundColor: "rgba(239, 68, 68, 0.05)",
+    borderColor: "rgba(239, 68, 68, 0.18)",
   },
 
   githubChannelRow: {
-    backgroundColor: "rgba(45, 212, 191, 0.08)",
-    borderColor: "rgba(45, 212, 191, 0.25)",
+    backgroundColor: "rgba(45, 212, 191, 0.05)",
+    borderColor: "rgba(45, 212, 191, 0.18)",
   },
 
   channelRowPressed: {
-    backgroundColor: "rgba(58, 60, 78, 0.75)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255, 255, 255, 0.10)",
   },
 
   channelName: {
     flex: 1,
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "600",
+    color: "rgba(255, 255, 255, 0.70)",
+    fontSize: 13.5,
+    fontWeight: "500",
+  },
+
+  channelNameUnread: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
 
   voiceBadge: {
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
+    backgroundColor: "rgba(45, 212, 191, 0.10)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(45, 212, 191, 0.18)",
+  },
+
+  /* Discord Persistent User Profile Dock */
+  discordUserDock: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(10, 12, 18, 0.75)",
+    overflow: "hidden",
+  },
+
+  discordDockUserInfo: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  discordDockAvatarWrap: {
+    position: "relative",
+  },
+
+  discordDockAvatarImg: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+  },
+
+  discordDockAvatarFallback: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(232, 163, 61, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  discordDockAvatarLetter: {
+    color: colors.accent,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  discordDockPresenceDot: {
+    position: "absolute",
+    right: -1,
+    bottom: -1,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.statusOnline,
+    borderWidth: 2,
+    borderColor: "#0A0C12",
+  },
+
+  discordDockNames: {
+    flex: 1,
+  },
+
+  discordDockDisplayName: {
+    color: colors.textPrimary,
+    fontSize: 12.5,
+    fontWeight: "700",
+  },
+
+  discordDockStatusText: {
+    color: colors.statusOnline,
+    fontSize: 10,
+    fontWeight: "500",
+  },
+
+  discordDockControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  discordDockIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  discordDockIconBtnActive: {
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
   },
 
   voiceBadgeText: {
@@ -2569,77 +3251,104 @@ const styles = StyleSheet.create({
   },
 
   channelUnread: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: colors.danger,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
   },
 
   /* DEDICATED CHANNEL SCREEN */
   channelScreen: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
   },
 
   ambientGlowAmber: {
     position: "absolute",
-    width: 400,
-    height: 400,
-    borderRadius: 200,
-    backgroundColor: "rgba(232, 163, 61, 0.07)",
-    top: 40,
-    left: -120,
+    width: 480,
+    height: 480,
+    borderRadius: 240,
+    backgroundColor: "rgba(232, 163, 61, 0.035)",
+    top: -80,
+    left: -100,
   },
 
   ambientGlowTeal: {
     position: "absolute",
-    width: 360,
-    height: 360,
-    borderRadius: 180,
-    backgroundColor: "rgba(45, 212, 191, 0.05)",
-    top: "40%",
-    right: -110,
+    width: 440,
+    height: 440,
+    borderRadius: 220,
+    backgroundColor: "rgba(45, 212, 191, 0.025)",
+    top: "35%",
+    right: -120,
   },
 
   ambientGlowPurple: {
     position: "absolute",
-    width: 380,
-    height: 380,
-    borderRadius: 190,
-    backgroundColor: "rgba(139, 92, 246, 0.06)",
-    bottom: 40,
-    left: -100,
+    width: 420,
+    height: 420,
+    borderRadius: 210,
+    backgroundColor: "rgba(129, 140, 248, 0.025)",
+    bottom: -80,
+    left: -80,
   },
 
   channelHeader: {
-    height: 56,
+    height: 52,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.10)",
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     gap: 8,
     overflow: "hidden",
-    backgroundColor: "rgba(18, 22, 30, 0.75)",
+    backgroundColor: "rgba(10, 12, 18, 0.40)",
+  },
+
+  floatingHeaderCapsule: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+    gap: 2,
+    marginLeft: "auto",
+  },
+
+  floatingHeaderBtn: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  floatingHeaderDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    marginHorizontal: 1,
   },
 
   backBtn: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   channelHeaderName: {
     color: colors.textPrimary,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
   },
 
@@ -2661,7 +3370,7 @@ const styles = StyleSheet.create({
   messageRowWrapper: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: 6,
     gap: 8,
     width: "100%",
   },
@@ -2675,7 +3384,7 @@ const styles = StyleSheet.create({
   },
 
   messageContentColumn: {
-    flex: 1,
+    flexShrink: 1,
     maxWidth: "85%",
     alignItems: "flex-start",
   },
@@ -2684,11 +3393,84 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
 
+  swipeRowWrapper: {
+    position: "relative",
+    width: "100%",
+  },
+
+  swipeTimestampContainer: {
+    position: "absolute",
+    right: 8,
+    top: "50%",
+    transform: [{ translateY: -9 }],
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
+
+  swipeTimestampText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: "monospace",
+    fontWeight: "600",
+  },
+
+  swipeReplyContainer: {
+    position: "absolute",
+    left: 8,
+    top: "50%",
+    transform: [{ translateY: -14 }],
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  swipeReplyBubble: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(232, 163, 61, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  doubleTapHeartWrapper: {
+    position: "absolute",
+    alignSelf: "center",
+    top: "50%",
+    transform: [{ translateY: -20 }],
+    zIndex: 99,
+  },
+
+  messageItemContainer: {
+    marginBottom: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+
+  messageItemConsecutive: {
+    marginBottom: 2,
+  },
+
+  messageItemHighlighted: {
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    borderColor: "rgba(232, 163, 61, 0.7)",
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+
+  avatarConsecutiveSpacer: {
+    width: 32,
+  },
+
   botBadge: {
-    backgroundColor: "rgba(99, 102, 241, 0.15)",
-    borderColor: "rgba(99, 102, 241, 0.3)",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(129, 140, 248, 0.12)",
+    borderColor: "rgba(129, 140, 248, 0.25)",
     borderWidth: 0.5,
-    borderRadius: 6,
+    borderRadius: 4,
     paddingHorizontal: 4,
     paddingVertical: 1,
   },
@@ -2701,68 +3483,90 @@ const styles = StyleSheet.create({
   },
 
   visionGlassBubble: {
-    paddingHorizontal: 13,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    overflow: "hidden",
-    borderWidth: 0.5,
     marginTop: 2,
+    borderRadius: 16,
+    maxWidth: "100%",
   },
 
   visionGlassBubbleOther: {
-    backgroundColor: "rgba(255, 255, 255, 0.035)",
-    borderColor: "rgba(255, 255, 255, 0.07)",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 24,
-    borderBottomRightRadius: 22,
+    backgroundColor: "rgba(16, 19, 27, 0.75)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
     borderBottomLeftRadius: 4,
   },
 
   visionGlassBubbleOwn: {
-    backgroundColor: "rgba(232, 163, 61, 0.08)",
-    borderColor: "rgba(232, 163, 61, 0.18)",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 18,
+    backgroundColor: "rgba(22, 20, 16, 0.80)",
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.35)",
     borderBottomRightRadius: 4,
-    borderBottomLeftRadius: 22,
   },
 
   visionGlassBubbleBot: {
-    backgroundColor: "rgba(99, 102, 241, 0.025)",
-    borderColor: "rgba(129, 140, 248, 0.12)",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 24,
-    borderBottomRightRadius: 20,
-    borderBottomLeftRadius: 6,
+    backgroundColor: "rgba(16, 18, 26, 0.75)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderLeftWidth: 3,
+    borderLeftColor: "#818CF8",
+    borderRadius: 16,
+    borderBottomLeftRadius: 4,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
   },
 
-  bubbleTopSpecular: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
+  visionGlassBubblePressed: {
+    opacity: 0.92,
+  },
+
+  aiActionBar: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
+    paddingTop: 4,
+    borderTopWidth: 0.5,
+    borderTopColor: "rgba(255, 255, 255, 0.05)",
+  },
+
+  aiActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+  },
+
+  aiActionText: {
+    fontSize: 10.5,
+    color: colors.textMuted,
+    fontWeight: "600",
   },
 
   messageAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
   },
 
   messageAvatarFallback: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(232, 163, 61, 0.15)",
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(232, 163, 61, 0.10)",
     borderWidth: 0.5,
-    borderColor: "rgba(232, 163, 61, 0.3)",
+    borderColor: "rgba(232, 163, 61, 0.22)",
     alignItems: "center",
     justifyContent: "center",
   },
 
   avatarLetter: {
     color: colors.accent,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
 
@@ -2777,7 +3581,7 @@ const styles = StyleSheet.create({
   },
 
   displayName: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "800",
   },
 
@@ -2788,8 +3592,8 @@ const styles = StyleSheet.create({
 
   messageText: {
     color: "#E1E2E8",
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13.5,
+    lineHeight: 20,
     marginTop: 2,
   },
 
@@ -2797,18 +3601,18 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 280,
     height: 180,
-    borderRadius: 14,
+    borderRadius: 12,
     marginTop: 8,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
 
   fileCard: {
     marginTop: 8,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
 
   fileName: {
@@ -2819,46 +3623,46 @@ const styles = StyleSheet.create({
   reactions: {
     flexDirection: "row",
     gap: 6,
-    marginTop: 7,
+    marginTop: 6,
   },
 
   reaction: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
 
   composer: {
-    minHeight: 54,
-    margin: 10,
-    borderRadius: 20,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    minHeight: 48,
+    margin: 8,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.07)",
   },
 
   composerRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 6,
-    paddingHorizontal: 8,
+    gap: 8,
+    paddingHorizontal: 12,
     paddingVertical: 6,
   },
 
   composerPill: {
     flex: 1,
-    minHeight: 46,
+    minHeight: 44,
     maxHeight: 120,
-    backgroundColor: "rgba(23, 25, 36, 0.75)",
-    borderRadius: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 6,
@@ -2867,27 +3671,27 @@ const styles = StyleSheet.create({
   },
 
   pillIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
   },
 
   gifBadgeBtn: {
     paddingHorizontal: 4,
-    height: 36,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
   },
 
   detachedActionButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "rgba(23, 25, 36, 0.75)",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -2899,14 +3703,14 @@ const styles = StyleSheet.create({
   },
 
   actionDeleteRow: {
-    backgroundColor: "rgba(255, 77, 79, 0.1)",
+    backgroundColor: "rgba(255, 77, 79, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(255, 77, 79, 0.25)",
+    borderColor: "rgba(255, 77, 79, 0.20)",
   },
 
   composerPlus: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2917,13 +3721,13 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 14,
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
 
   sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
@@ -2936,48 +3740,48 @@ const styles = StyleSheet.create({
   /* SUB PAGES */
   page: {
     flex: 1,
-    padding: 16,
-    backgroundColor: colors.background,
+    padding: 14,
+    backgroundColor: "transparent",
   },
 
   pageHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: 14,
   },
 
   pageTitle: {
     color: colors.textPrimary,
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "800",
   },
 
   createBtn: {
-    backgroundColor: "rgba(232, 163, 61, 0.16)",
+    backgroundColor: "rgba(232, 163, 61, 0.10)",
     borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.3)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+    borderColor: "rgba(232, 163, 61, 0.22)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
 
   createBtnText: {
     color: colors.accent,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
   },
 
   dmRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: "rgba(22, 24, 33, 0.85)",
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.025)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    marginBottom: 8,
-    gap: 12,
+    borderColor: "rgba(255, 255, 255, 0.055)",
+    marginBottom: 6,
+    gap: 10,
   },
 
   dmInfo: {
@@ -2992,7 +3796,7 @@ const styles = StyleSheet.create({
 
   dmName: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "700",
   },
 
@@ -3029,19 +3833,19 @@ const styles = StyleSheet.create({
   },
 
   noticeCard: {
-    padding: 16,
-    borderRadius: 14,
-    backgroundColor: "rgba(22, 24, 33, 0.85)",
-    marginBottom: 10,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.07)",
   },
 
   noticeCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 4,
   },
 
   noticeCardCategory: {
@@ -3059,39 +3863,39 @@ const styles = StyleSheet.create({
 
   noticeCardTitle: {
     color: colors.textPrimary,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
   },
 
   noticeCardText: {
     color: colors.textMuted,
-    marginTop: 6,
-    lineHeight: 20,
-    fontSize: 13,
+    marginTop: 4,
+    lineHeight: 18,
+    fontSize: 12.5,
   },
 
   archiveRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: "rgba(22, 24, 33, 0.85)",
-    marginBottom: 8,
+    gap: 10,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.025)",
+    marginBottom: 6,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.055)",
   },
 
   archiveTitle: {
     color: colors.textPrimary,
     fontWeight: "700",
-    fontSize: 14,
+    fontSize: 13.5,
   },
 
   archiveDescription: {
     color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 3,
+    fontSize: 11.5,
+    marginTop: 2,
   },
 
   adminGrid: {
@@ -3103,72 +3907,72 @@ const styles = StyleSheet.create({
 
   adminStat: {
     width: "48%",
-    minHeight: 100,
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: "rgba(22, 24, 33, 0.85)",
+    minHeight: 90,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.07)",
   },
 
   adminStatTitle: {
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: "600",
   },
 
   adminStatValue: {
     color: colors.textPrimary,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "800",
-    marginTop: 12,
+    marginTop: 8,
   },
 
   /* PROFILE CARD */
   profileCard: {
-    padding: 20,
-    borderRadius: 18,
-    backgroundColor: "rgba(22, 24, 33, 0.85)",
+    padding: 18,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.07)",
     alignItems: "center",
     marginTop: 10,
   },
 
   profileAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    marginBottom: 12,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    marginBottom: 10,
   },
 
   profileAvatarFallback: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   profileAvatarLetter: {
     color: colors.textPrimary,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "800",
   },
 
   profileName: {
     color: colors.textPrimary,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
   },
 
   profileEmail: {
     color: colors.textMuted,
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 2,
   },
 
@@ -3176,13 +3980,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    backgroundColor: "rgba(232, 163, 61, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.3)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    marginTop: 10,
+    borderColor: "rgba(232, 163, 61, 0.22)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginTop: 8,
   },
 
   roleTagText: {
@@ -3205,11 +4009,11 @@ const styles = StyleSheet.create({
   },
 
   profileEditBtn: {
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -3223,16 +4027,16 @@ const styles = StyleSheet.create({
   /* MODALS */
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
     justifyContent: "center",
     padding: 16,
   },
 
   searchModalCard: {
-    backgroundColor: "#111219",
-    borderRadius: 18,
+    backgroundColor: "rgba(14, 16, 24, 0.85)",
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     maxHeight: "80%",
     overflow: "hidden",
   },
@@ -3240,24 +4044,24 @@ const styles = StyleSheet.create({
   searchModalHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
+    padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.12)",
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
     gap: 10,
   },
 
   searchModalInput: {
     flex: 1,
     color: colors.textPrimary,
-    fontSize: 15,
+    fontSize: 14,
   },
 
   searchResultsScroll: {
-    padding: 14,
+    padding: 12,
   },
 
   searchSection: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
 
   searchSectionTitle: {
@@ -3265,19 +4069,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: 6,
   },
 
   searchResultRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingVertical: 8,
+    paddingVertical: 7,
   },
 
   searchResultName: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "600",
   },
 
@@ -3288,55 +4092,55 @@ const styles = StyleSheet.create({
 
   emptySearchText: {
     color: colors.textMuted,
-    fontSize: 13,
+    fontSize: 12.5,
     textAlign: "center",
-    paddingVertical: 20,
+    paddingVertical: 18,
   },
 
   noticeModalCard: {
-    backgroundColor: "#111219",
-    borderRadius: 18,
+    backgroundColor: "rgba(14, 16, 24, 0.85)",
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    padding: 18,
-    gap: 12,
+    borderColor: "rgba(232, 163, 61, 0.20)",
+    padding: 16,
+    gap: 10,
   },
 
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 2,
   },
 
   modalTitle: {
     color: colors.textPrimary,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
 
   noticeModalInput: {
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     color: colors.textPrimary,
-    padding: 12,
-    fontSize: 14,
+    padding: 10,
+    fontSize: 13.5,
   },
 
   publishBtn: {
-    height: 48,
-    borderRadius: 14,
+    height: 44,
+    borderRadius: 10,
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 6,
+    marginTop: 4,
   },
 
   publishBtnText: {
     color: colors.accentContrast,
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "800",
   },
 
@@ -3377,19 +4181,24 @@ const styles = StyleSheet.create({
   },
 
   actionModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+  },
+
+  actionModalSheetWrapper: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
     justifyContent: "flex-end",
   },
 
   actionModalSheet: {
-    backgroundColor: "#12141D",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: "rgba(14, 16, 24, 0.85)",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.12)",
     padding: 18,
-    paddingBottom: 32,
+    paddingBottom: Platform.OS === "ios" ? 36 : 24,
+    overflow: "hidden",
   },
 
   actionModalTitle: {

@@ -150,6 +150,29 @@ export interface FriendEntry {
   pending?: "incoming" | "outgoing";
 }
 
+export interface ThreadSummary {
+  id: string;
+  channelId: string;
+  parentMessageId: string;
+  title: string;
+  creatorId: string;
+  creator?: MemberRef;
+  messageCount: number;
+  lastMessageAt: string;
+  createdAt: string;
+}
+
+export interface ThreadMessage {
+  id: string;
+  threadId: string;
+  channelId?: string;
+  author: MemberRef;
+  content: string;
+  createdAt: string;
+  editedAt?: string;
+  reactions?: { emoji: string; count: number; reacted?: boolean }[];
+}
+
 export interface ChatMessage {
   id: string;
   author: MemberRef;
@@ -157,7 +180,9 @@ export interface ChatMessage {
   text: string;
   pinned?: boolean;
   edited?: boolean;
-  replyTo?: { id: string; authorName: string; text: string };
+  replyTo?: { id: string; authorName: string; text: string; authorId?: string };
+  thread?: ThreadSummary | { id: string; messageCount: number; lastMessageAt: string };
+  threadReplyCount?: number;
   attachments?: { kind: "image" | "video" | "file" | "gif"; name: string; url?: string; size?: string }[];
   reactions?: { emoji: string; count: number; reacted?: boolean }[];
 }

@@ -9,7 +9,10 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  Platform,
 } from "react-native";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   Bell,
   Pin,
@@ -87,6 +90,16 @@ export function MobileNoticeBoardView({
 
   return (
     <View style={styles.container}>
+      <BlurView intensity={Platform.OS === "ios" ? 30 : 20} tint="dark" style={StyleSheet.absoluteFill} />
+      <LinearGradient
+        colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.01)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={styles.ambientGlowAmber} pointerEvents="none" />
+      <View style={styles.ambientGlowTeal} pointerEvents="none" />
+
       {/* Header */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
@@ -366,7 +379,25 @@ function CreateNoticeModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#090C12",
+    backgroundColor: "rgba(9, 12, 18, 0.94)",
+  },
+  ambientGlowAmber: {
+    position: "absolute",
+    top: -60,
+    right: -40,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+  },
+  ambientGlowTeal: {
+    position: "absolute",
+    bottom: 80,
+    left: -50,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(45, 212, 191, 0.08)",
   },
   header: {
     flexDirection: "row",
@@ -376,6 +407,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
   },
   headerBadge: {
     flexDirection: "row",
@@ -415,12 +447,12 @@ const styles = StyleSheet.create({
     gap: 8,
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   searchInput: {
     flex: 1,
@@ -479,20 +511,20 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   card: {
-    backgroundColor: "rgba(18, 23, 34, 0.85)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     gap: 8,
   },
   cardPinned: {
-    borderColor: "rgba(45, 212, 191, 0.3)",
-    backgroundColor: "rgba(18, 28, 38, 0.88)",
+    borderColor: "rgba(45, 212, 191, 0.35)",
+    backgroundColor: "rgba(45, 212, 191, 0.06)",
   },
   cardUrgent: {
-    borderColor: "rgba(239, 68, 68, 0.3)",
-    backgroundColor: "rgba(34, 18, 22, 0.88)",
+    borderColor: "rgba(239, 68, 68, 0.35)",
+    backgroundColor: "rgba(239, 68, 68, 0.06)",
   },
   cardHeader: {
     flexDirection: "row",

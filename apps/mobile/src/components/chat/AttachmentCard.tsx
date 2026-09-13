@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { colors, radius } from "../../theme/tokens";
-import { FileText, Download, ExternalLink, Image as ImageIcon } from "lucide-react-native";
+import { FileText, Download, ExternalLink, Play, Film, Music } from "lucide-react-native";
 import { ImageViewerModal } from "../ui/ImageViewerModal";
 import { NativeHaptics } from "../../lib/haptics";
 
@@ -19,6 +19,7 @@ export interface AttachmentItem {
   name?: string;
   size?: number;
   mimeType?: string;
+  duration?: string;
   kind?: "image" | "video" | "audio" | "file" | "gif";
 }
 
@@ -38,6 +39,24 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const isVideo =
+    attachment.kind === "video" ||
+    attachment.mimeType?.startsWith("video/") ||
+    Boolean(attachment.url?.match(/\.(mp4|webm|mov|mkv)($|\?)/i));
+
+  const isAudio =
+    attachment.kind === "audio" ||
+    attachment.mimeType?.startsWith("audio/") ||
+    Boolean(attachment.url?.match(/\.(mp3|wav|ogg|m4a)($|\?)/i));
+
+  const isImage =
+    !isVideo &&
+    !isAudio &&
+    (attachment.kind === "image" ||
+      attachment.kind === "gif" ||
+      attachment.mimeType?.startsWith("image/") ||
+      Boolean(attachment.url?.match(/\.(jpeg|jpg|gif|png|webp|bmp|avif)($|\?)/i)));
+
   const handleOpen = () => {
     NativeHaptics.light();
     if (isImage && !imageError) {
@@ -48,12 +67,6 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
       );
     }
   };
-
-  const isImage =
-    attachment.kind === "image" ||
-    attachment.kind === "gif" ||
-    attachment.mimeType?.startsWith("image/") ||
-    attachment.url.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i);
 
   if (isImage && !imageError) {
     return (
@@ -93,6 +106,60 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
     );
   }
 
+  if (isVideo) {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.88}
+        onPress={handleOpen}
+        style={styles.videoCard}
+      >
+        <View style={styles.videoThumbnailBox}>
+          <View style={styles.playCircle}>
+            <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
+          </View>
+        </View>
+        <View style={styles.videoMeta}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+            <Film size={12} color={colors.accent} />
+            <Text style={styles.videoName} numberOfLines={1}>
+              {attachment.name || "Video Clip"}
+            </Text>
+          </View>
+          <Text style={styles.videoSub}>
+            {attachment.duration ? `Duration ${attachment.duration}` : "Play Clip"}
+            {attachment.size ? ` · ${formatFileSize(attachment.size)}` : ""}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  if (isAudio) {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.88}
+        onPress={handleOpen}
+        style={styles.docCard}
+      >
+        <View style={[styles.docIconWrap, { backgroundColor: "rgba(45, 212, 191, 0.15)" }]}>
+          <Music size={18} color={colors.accentTeal} />
+        </View>
+        <View style={styles.docInfo}>
+          <Text style={styles.docName} numberOfLines={1}>
+            {attachment.name || "Audio message"}
+          </Text>
+          <Text style={styles.docMeta}>
+            {attachment.duration ? `${attachment.duration} · ` : ""}
+            {formatFileSize(attachment.size)}
+          </Text>
+        </View>
+        <View style={styles.downloadBtn}>
+          <Play size={14} color={colors.accent} fill={colors.accent} />
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -100,7 +167,7 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
       style={styles.docCard}
     >
       <View style={styles.docIconWrap}>
-        <FileText size={20} color={colors.accentTeal} />
+        <FileText size={18} color={colors.accentTeal} />
       </View>
       <View style={styles.docInfo}>
         <Text style={styles.docName} numberOfLines={1}>
@@ -111,7 +178,7 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
         </Text>
       </View>
       <View style={styles.downloadBtn}>
-        <Download size={16} color={colors.accent} />
+        <Download size={15} color={colors.accent} />
       </View>
     </TouchableOpacity>
   );
@@ -119,29 +186,73 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
 
 export function parseMessageAttachments(rawText: string): {
   cleanText: string;
+  reasoningText: string | null;
   attachments: AttachmentItem[];
 } {
   const attachments: AttachmentItem[] = [];
-  let cleanText = rawText;
+  let cleanText = rawText || "";
+  let reasoningText: string | null = null;
 
-  // Regex to detect attachment JSON payloads: attachment:{...} or [attachment: {...}]
-  const attachmentRegex = /attachment:((?:%7B.*?%7D)|(?:\{.*?\}))/gi;
-  let match;
+  // Extract and strip AI thinking/reasoning blocks
+  const thinkMatch =
+    cleanText.match(/<think>([\s\S]*?)(?:<\/think>|$)/i) ||
+    cleanText.match(/<thought>([\s\S]*?)(?:<\/thought>|$)/i) ||
+    cleanText.match(/<thinking>([\s\S]*?)(?:<\/thinking>|$)/i) ||
+    cleanText.match(/^Here's a thinking process:([\s\S]*?)(?=\n\n(?:[A-Z0-9#]|```)|$)/im);
 
-  while ((match = attachmentRegex.exec(rawText)) !== null) {
-    try {
-      const decodedStr = decodeURIComponent(match[1]);
-      const parsed = JSON.parse(decodedStr);
-      if (parsed.url) {
-        attachments.push(parsed);
-      }
-    } catch {}
+  if (thinkMatch && thinkMatch[1]?.trim()) {
+    reasoningText = thinkMatch[1].trim();
   }
 
-  // Also extract standalone image/doc markdown URLs: ![alt](url)
+  // Robust regex to detect all prefix payloads: (attachment|clip|video|audio|file):{...} or percent-encoded
+  const payloadRegex = /(?:attachment|clip|video|audio|file):((?:%7B[\s\S]*?%7D)|(?:\{[\s\S]*?\}))/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = payloadRegex.exec(cleanText)) !== null) {
+    try {
+      const fullMatch = match[0];
+      const jsonStr = match[1];
+      const isClip = fullMatch.toLowerCase().startsWith("clip:");
+      const isVideoPrefix = fullMatch.toLowerCase().startsWith("video:");
+      const isAudioPrefix = fullMatch.toLowerCase().startsWith("audio:");
+
+      const decodedStr = jsonStr.startsWith("%7B") || jsonStr.startsWith("%7b")
+        ? decodeURIComponent(jsonStr)
+        : jsonStr;
+
+      const parsed = JSON.parse(decodedStr);
+      if (parsed.url) {
+        let kind: AttachmentItem["kind"] = parsed.kind;
+        if (!kind) {
+          if (isClip || isVideoPrefix || parsed.mimeType?.startsWith("video/") || parsed.url.match(/\.(webm|mp4|mov)($|\?)/i)) {
+            kind = "video";
+          } else if (isAudioPrefix || parsed.mimeType?.startsWith("audio/") || parsed.url.match(/\.(mp3|wav|ogg|m4a)($|\?)/i)) {
+            kind = "audio";
+          } else if (parsed.mimeType?.startsWith("image/") || parsed.url.match(/\.(png|jpg|jpeg|gif|webp)($|\?)/i)) {
+            kind = "image";
+          } else {
+            kind = "file";
+          }
+        }
+
+        attachments.push({
+          url: parsed.url,
+          name: parsed.name || (kind === "video" ? "Video Clip" : "Attachment"),
+          size: parsed.size,
+          duration: parsed.duration,
+          mimeType: parsed.mimeType,
+          kind,
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to parse attachment payload:", e);
+    }
+  }
+
+  // Also extract standalone markdown images: ![alt](url)
   const mdImgRegex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
-  let imgMatch;
-  while ((imgMatch = mdImgRegex.exec(rawText)) !== null) {
+  let imgMatch: RegExpExecArray | null;
+  while ((imgMatch = mdImgRegex.exec(cleanText)) !== null) {
     attachments.push({
       name: imgMatch[1] || "Image",
       url: imgMatch[2],
@@ -149,10 +260,10 @@ export function parseMessageAttachments(rawText: string): {
     });
   }
 
-  // Also auto-detect plain standalone image URLs (e.g. Supabase storage, giphy, tenor, unsplash, direct extensions)
+  // Also extract standalone image URLs
   const rawUrlRegex = /(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^\s]*)?)/gi;
-  let rawUrlMatch;
-  while ((rawUrlMatch = rawUrlRegex.exec(rawText)) !== null) {
+  let rawUrlMatch: RegExpExecArray | null;
+  while ((rawUrlMatch = rawUrlRegex.exec(cleanText)) !== null) {
     const matchedUrl = rawUrlMatch[1];
     if (!attachments.some((a) => a.url === matchedUrl)) {
       const filename = matchedUrl.split("/").pop()?.split("?")[0] || "Image";
@@ -164,28 +275,37 @@ export function parseMessageAttachments(rawText: string): {
     }
   }
 
+  // Thoroughly clean cleanText: Strip payload tags, reasoning, and raw payload strings
   cleanText = cleanText
-    .replace(/attachment:((?:%7B.*?%7D)|(?:\{.*?\}))/gi, "")
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<think>[\s\S]*/gi, "")
+    .replace(/<thought>[\s\S]*?<\/thought>/gi, "")
+    .replace(/<thought>[\s\S]*/gi, "")
+    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
+    .replace(/<thinking>[\s\S]*/gi, "")
+    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
+    .replace(/<reasoning>[\s\S]*/gi, "")
+    .replace(/^Here's a thinking process:[\s\S]*?(?=\n\n(?:[A-Z0-9#]|```)|$)/gim, "")
+    .replace(/(?:attachment|clip|video|audio|file):((?:%7B[\s\S]*?%7D)|(?:\{[\s\S]*?\}))/gi, "")
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, "")
-    .replace(/(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^\s]*)?)/gi, (match) => {
-      // If the entire message is just the image URL, clear the text so only image displays
-      if (cleanText.trim() === match.trim()) return "";
-      return match;
+    .replace(/(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^\s]*)?)/gi, (m) => {
+      if (cleanText.trim() === m.trim()) return "";
+      return m;
     })
     .trim();
 
-  return { cleanText, attachments };
+  return { cleanText, reasoningText, attachments };
 }
 
 const styles = StyleSheet.create({
   imageContainer: {
     borderRadius: radius.md,
     overflow: "hidden",
-    marginTop: 8,
+    marginTop: 6,
     maxWidth: 280,
-    backgroundColor: colors.surfaceInput,
+    backgroundColor: "rgba(10, 12, 18, 0.8)",
     borderWidth: 1,
-    borderColor: colors.borderGlass,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   imagePlaceholder: {
     width: 280,
@@ -214,23 +334,71 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 6,
   },
+
+  // Video / Clip Card
+  videoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(18, 22, 34, 0.85)",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    padding: 8,
+    marginTop: 6,
+    maxWidth: 290,
+    gap: 10,
+  },
+  videoThumbnailBox: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.sm,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  playCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(232, 163, 61, 0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingLeft: 2,
+  },
+  videoMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  videoName: {
+    color: colors.textPrimary,
+    fontSize: 12.5,
+    fontWeight: "600",
+  },
+  videoSub: {
+    color: colors.textMuted,
+    fontSize: 10.5,
+  },
+
+  // Document Card
   docCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceGlass,
+    backgroundColor: "rgba(18, 22, 34, 0.85)",
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.borderGlass,
-    padding: 10,
-    marginTop: 8,
-    maxWidth: 300,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    padding: 9,
+    marginTop: 6,
+    maxWidth: 290,
     gap: 10,
   },
   docIconWrap: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: radius.sm,
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -239,19 +407,19 @@ const styles = StyleSheet.create({
   },
   docName: {
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "600",
     marginBottom: 2,
   },
   docMeta: {
     color: colors.textMuted,
-    fontSize: 11,
+    fontSize: 10.5,
   },
   downloadBtn: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: radius.sm,
-    backgroundColor: colors.accentSoft,
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
     alignItems: "center",
     justifyContent: "center",
   },

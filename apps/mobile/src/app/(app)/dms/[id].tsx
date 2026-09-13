@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Animated,
+  PanResponder,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -37,9 +39,13 @@ import {
   Edit3,
   SmilePlus,
   Check,
+  CheckCheck,
   Plus,
+  CornerUpLeft,
 } from "lucide-react-native";
 import { AttachmentCard, parseMessageAttachments } from "../../../components/chat/AttachmentCard";
+import { RichMarkdown, ReasoningTrace } from "../../../components/chat/RichMarkdown";
+import { formatAvatarUrl } from "../../../lib/avatar";
 import { UserProfileModal, type UserProfileData } from "../../../components/profile/UserProfileModal";
 import {
   MobileAttachmentSheet,
@@ -51,6 +57,143 @@ import { NativeHaptics } from "../../../lib/haptics";
 import { fetchUserProfile } from "../../../lib/api";
 
 const QUICK_REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉", "🚀", "👀", "💯"];
+
+function DoubleTapHeartOverlay({ visible }: { visible: boolean }) {
+  const scale = useRef(new Animated.Value(0.2)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      scale.setValue(0.2);
+      opacity.setValue(1);
+      Animated.parallel([
+        Animated.spring(scale, {
+          toValue: 1.3,
+          friction: 4,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.delay(350),
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.doubleTapHeartWrapper,
+        {
+          opacity,
+          transform: [{ scale }],
+        },
+      ]}
+    >
+      <Text style={{ fontSize: 34 }}>❤️</Text>
+    </Animated.View>
+  );
+}
+
+function SwipeableMessageRow({
+  children,
+  timestamp,
+  onSwipeReply,
+}: {
+  children: React.ReactNode;
+  timestamp?: string;
+  onSwipeReply?: () => void;
+}) {
+  const panX = useRef(new Animated.Value(0)).current;
+  const replyTriggered = useRef(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return (
+          Math.abs(gestureState.dx) > 12 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.8
+        );
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dx < 0) {
+          // Swipe Left -> reveal timestamp
+          panX.setValue(Math.max(-75, gestureState.dx));
+        } else if (gestureState.dx > 0 && onSwipeReply) {
+          // Swipe Right -> pull to reply
+          panX.setValue(Math.min(70, gestureState.dx));
+          if (gestureState.dx > 45 && !replyTriggered.current) {
+            replyTriggered.current = true;
+            NativeHaptics.light();
+          } else if (gestureState.dx <= 45 && replyTriggered.current) {
+            replyTriggered.current = false;
+          }
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx > 45 && onSwipeReply && replyTriggered.current) {
+          NativeHaptics.medium();
+          onSwipeReply();
+        }
+        replyTriggered.current = false;
+        Animated.spring(panX, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 8,
+          tension: 40,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        replyTriggered.current = false;
+        Animated.spring(panX, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 8,
+          tension: 40,
+        }).start();
+      },
+    })
+  ).current;
+
+  const formattedTime = useMemo(() => {
+    if (!timestamp) return "";
+    try {
+      return new Date(timestamp).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
+  }, [timestamp]);
+
+  return (
+    <View style={styles.swipeRowWrapper}>
+      {/* Swipe Left: Timestamp */}
+      <View style={styles.swipeTimestampContainer}>
+        <Text style={styles.swipeTimestampText}>{formattedTime}</Text>
+      </View>
+
+      <Animated.View
+        style={{
+          transform: [{ translateX: panX }],
+          width: "100%",
+        }}
+        {...panResponder.panHandlers}
+      >
+        {children}
+      </Animated.View>
+    </View>
+  );
+}
 
 export default function DMDetailScreen() {
   const router = useRouter();
@@ -83,6 +226,50 @@ export default function DMDetailScreen() {
   const [editText, setEditText] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [copyToast, setCopyToast] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<any | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [heartPoppingId, setHeartPoppingId] = useState<string | null>(null);
+  const lastTapTime = useRef<{ [msgId: string]: number }>({});
+  const flatListRef = useRef<FlatList<any>>(null);
+
+  const handleMessagePress = (item: any) => {
+    const now = Date.now();
+    const lastTime = lastTapTime.current[item.id] || 0;
+    if (now - lastTime < 320) {
+      lastTapTime.current[item.id] = 0;
+      NativeHaptics.success();
+      setHeartPoppingId(item.id);
+      toggleDMReaction(convoId, item.id, "❤️");
+      setTimeout(() => {
+        setHeartPoppingId((curr) => (curr === item.id ? null : curr));
+      }, 700);
+    } else {
+      lastTapTime.current[item.id] = now;
+    }
+  };
+
+  const handleJumpToMessage = (targetId: string) => {
+    const targetIndex = messagesList.findIndex((m) => m.id === targetId);
+    if (targetIndex !== -1 && flatListRef.current) {
+      try {
+        flatListRef.current.scrollToIndex({
+          index: targetIndex,
+          animated: true,
+          viewPosition: 0.5,
+        });
+      } catch {
+        flatListRef.current.scrollToOffset({
+          offset: Math.max(0, targetIndex * 70),
+          animated: true,
+        });
+      }
+      setHighlightedMessageId(targetId);
+      NativeHaptics.light();
+      setTimeout(() => {
+        setHighlightedMessageId((curr) => (curr === targetId ? null : curr));
+      }, 2000);
+    }
+  };
 
   const [stagedAttachment, setStagedAttachment] = useState<{
     url: string;
@@ -118,10 +305,12 @@ export default function DMDetailScreen() {
       const attPayload = `attachment:${JSON.stringify(stagedAttachment)}`;
       finalContent = rawText ? `${rawText}\n${attPayload}` : attPayload;
     }
+    const replyId = replyingTo?.id;
     setInputText("");
     setStagedAttachment(null);
+    setReplyingTo(null);
     try {
-      await sendDMMessageAction(convoId, finalContent);
+      await sendDMMessageAction(convoId, finalContent, replyId);
     } catch (err) {
       console.error("Failed to send DM:", err);
     }
@@ -261,6 +450,7 @@ export default function DMDetailScreen() {
               name={conversation.name}
               presence={conversation.presence}
               size={32}
+              url={(conversation as any)?.avatar || (conversation as any)?.avatarUrl}
             />
             <View style={{ minWidth: 0, flex: 1 }}>
               <Text style={styles.headerName} numberOfLines={1}>
@@ -299,6 +489,7 @@ export default function DMDetailScreen() {
           </View>
         ) : (
           <FlatList
+            ref={flatListRef}
             data={messagesList}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
@@ -306,142 +497,183 @@ export default function DMDetailScreen() {
               const isMe = item.author.id === (user?.id || "u-anon") || item.author.id === "me";
               const { cleanText, attachments } = parseMessageAttachments(item.text || "");
               const hasReactions = item.reactions && item.reactions.length > 0;
+              const isHighlighted = item.id === highlightedMessageId;
+
+              let replyAuthorName = "User";
+              if (item.replyTo) {
+                if (item.replyTo.authorId && (item.replyTo.authorId === user?.id || item.replyTo.authorId === "me")) {
+                  replyAuthorName = "You";
+                } else if (item.replyTo.authorName) {
+                  replyAuthorName = item.replyTo.authorName;
+                } else {
+                  const orig = messagesList.find((m) => m.id === item.replyTo?.id);
+                  if (orig) {
+                    replyAuthorName = (orig.author.id === user?.id || orig.author.id === "me") ? "You" : orig.author.name;
+                  }
+                }
+              }
 
               return (
-                <View
-                  style={[
-                    styles.messageBubbleWrap,
-                    isMe ? styles.myMessageWrap : styles.theirMessageWrap,
-                  ]}
+                <SwipeableMessageRow
+                  timestamp={item.at}
+                  onSwipeReply={() => setReplyingTo(item)}
                 >
-                  {!isMe && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        fetchUserProfile(item.author.id).then((res) => setSelectedUser(res.user)).catch(() => setSelectedUser({
-                          id: item.author.id,
-                          displayName: item.author.name,
-                          username: item.author.name.toLowerCase().replace(/\s+/g, ""),
-                          avatarUrl: item.author.avatar,
-                          status: "online",
-                        }));
-                      }}
-                    >
-                      <Avatar name={item.author.name} size={28} url={item.author.avatar} />
-                    </TouchableOpacity>
-                  )}
-                  <View style={{ maxWidth: "80%", alignItems: isMe ? "flex-end" : "flex-start" }}>
-                    <Pressable
-                      delayLongPress={150}
-                      onLongPress={() => {
-                        NativeHaptics.medium();
-                        setSelectedMessage(item);
-                        setMessageActionOpen(true);
-                      }}
-                      style={[
-                        styles.bubbleGlassWrap,
-                        isMe ? styles.myBubbleGlassWrap : styles.theirBubbleGlassWrap,
-                      ]}
-                    >
-                      <BlurView
-                        intensity={isMe ? 20 : 25}
-                        tint="dark"
+                  <View
+                    style={[
+                      styles.messageBubbleWrap,
+                      isMe ? styles.myMessageWrap : styles.theirMessageWrap,
+                      isHighlighted && styles.messageHighlighted,
+                    ]}
+                  >
+                    {!isMe && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          fetchUserProfile(item.author.id).then((res) => setSelectedUser(res.user)).catch(() => setSelectedUser({
+                            id: item.author.id,
+                            displayName: item.author.name,
+                            username: item.author.name.toLowerCase().replace(/\s+/g, ""),
+                            avatarUrl: item.author.avatar,
+                            status: "online",
+                          }));
+                        }}
+                      >
+                        <Avatar name={item.author.name} size={28} url={item.author.avatar} />
+                      </TouchableOpacity>
+                    )}
+                    <View style={{ maxWidth: "80%", alignItems: isMe ? "flex-end" : "flex-start" }}>
+                      {/* Quoted reply header if message is a reply */}
+                      {item.replyTo && (
+                        <Pressable
+                          onPress={() => item.replyTo?.id && handleJumpToMessage(item.replyTo.id)}
+                          style={styles.dmReplyHeader}
+                          hitSlop={4}
+                        >
+                          <CornerUpLeft size={11} color={colors.accent} />
+                          <Text style={styles.dmReplyAuthor}>{replyAuthorName}:</Text>
+                          <Text style={styles.dmReplySnippet} numberOfLines={1}>
+                            {parseMessageAttachments(item.replyTo.text || "").cleanText || "Attachment"}
+                          </Text>
+                        </Pressable>
+                      )}
+
+                      <Pressable
+                        delayLongPress={150}
+                        onPress={() => handleMessagePress(item)}
+                        onLongPress={() => {
+                          NativeHaptics.medium();
+                          setSelectedMessage(item);
+                          setMessageActionOpen(true);
+                        }}
                         style={[
-                          styles.bubbleInner,
-                          isMe ? styles.myBubbleInner : styles.theirBubbleInner,
+                          styles.bubbleGlassWrap,
+                          isMe ? styles.myBubbleGlassWrap : styles.theirBubbleGlassWrap,
                         ]}
                       >
-                        <LinearGradient
-                          colors={
-                            isMe
-                              ? ["rgba(232, 163, 61, 0.12)", "rgba(232, 163, 61, 0.04)"]
-                              : ["rgba(255, 255, 255, 0.04)", "rgba(255, 255, 255, 0.01)"]
-                          }
-                          style={StyleSheet.absoluteFillObject}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 0, y: 1 }}
-                        />
+                        <DoubleTapHeartOverlay visible={heartPoppingId === item.id} />
 
-                        {cleanText ? (
-                          <Text
-                            style={[
-                              styles.bubbleText,
-                              isMe ? styles.myBubbleText : styles.theirBubbleText,
-                            ]}
-                          >
-                            {cleanText}
-                          </Text>
-                        ) : null}
-
-                        {/* Decoded Attachments */}
-                        {attachments.map((att, idx) => (
-                          <AttachmentCard key={idx} attachment={att} />
-                        ))}
-
-                        <Text
+                        <BlurView
+                          intensity={isMe ? 20 : 25}
+                          tint="dark"
                           style={[
-                            styles.bubbleTime,
-                            isMe ? styles.myBubbleTime : styles.theirBubbleTime,
+                            styles.bubbleInner,
+                            isMe ? styles.myBubbleInner : styles.theirBubbleInner,
                           ]}
                         >
-                          {new Date(item.at).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </Text>
-                      </BlurView>
-                    </Pressable>
+                          <LinearGradient
+                            colors={
+                              isMe
+                                ? ["rgba(232, 163, 61, 0.12)", "rgba(232, 163, 61, 0.04)"]
+                                : ["rgba(255, 255, 255, 0.04)", "rgba(255, 255, 255, 0.01)"]
+                            }
+                            style={StyleSheet.absoluteFillObject}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 0, y: 1 }}
+                          />
 
-                    {/* Translucent Liquid Glass Reaction Strip */}
-                    {hasReactions && (
-                      <View style={[styles.reactionsStrip, isMe && styles.myReactionsStrip]}>
-                        {item.reactions!.map((reaction, rIdx) => {
-                          const userReacted = reaction.reacted;
-                          return (
-                            <TouchableOpacity
-                              key={`${reaction.emoji}-${rIdx}`}
-                              onPress={() => {
-                                NativeHaptics.selection();
-                                toggleDMReaction(convoId, item.id, reaction.emoji);
-                              }}
+                          {/* Rich Markdown & LaTeX Message Body */}
+                          {cleanText ? (
+                            <RichMarkdown
+                              content={cleanText}
+                              textColor={isMe ? "#FFFFFF" : colors.textPrimary}
+                            />
+                          ) : null}
+
+                          {/* Decoded Attachments */}
+                          {attachments.map((att, idx) => (
+                            <AttachmentCard key={idx} attachment={att} />
+                          ))}
+
+                          <View style={styles.bubbleMetaRow}>
+                            <Text
                               style={[
-                                styles.reactionBadge,
-                                userReacted && styles.reactionBadgeActive,
+                                styles.bubbleTime,
+                                isMe ? styles.myBubbleTime : styles.theirBubbleTime,
                               ]}
                             >
-                              <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
-                              {reaction.count > 1 && (
-                                <Text
-                                  style={[
-                                    styles.reactionCount,
-                                    userReacted && styles.reactionCountActive,
-                                  ]}
-                                >
-                                  {reaction.count}
-                                </Text>
-                              )}
-                            </TouchableOpacity>
-                          );
-                        })}
-                        <TouchableOpacity
-                          onPress={() => {
-                            NativeHaptics.light();
-                            setMessageToReact(item);
-                            setReactModalOpen(true);
-                          }}
-                          style={styles.reactionAddBtn}
-                          hitSlop={6}
-                        >
-                          <Plus size={11} color={colors.textMuted} />
-                        </TouchableOpacity>
-                      </View>
-                    )}
+                              {new Date(item.at).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </Text>
+                            {isMe && (
+                              <CheckCheck size={12} color="rgba(232, 163, 61, 0.85)" style={{ marginLeft: 3 }} />
+                            )}
+                          </View>
+                        </BlurView>
+                      </Pressable>
+
+                      {/* Translucent Liquid Glass Reaction Strip */}
+                      {hasReactions && (
+                        <View style={[styles.reactionsStrip, isMe && styles.myReactionsStrip]}>
+                          {item.reactions!.map((reaction: any, rIdx: number) => {
+                            const userReacted = reaction.reacted;
+                            return (
+                              <TouchableOpacity
+                                key={`${item.id}_${reaction.emoji}_${rIdx}`}
+                                onPress={() => {
+                                  NativeHaptics.selection();
+                                  toggleDMReaction(convoId, item.id, reaction.emoji);
+                                }}
+                                style={[
+                                  styles.reactionBadge,
+                                  userReacted && styles.reactionBadgeActive,
+                                ]}
+                              >
+                                <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+                                {reaction.count > 1 && (
+                                  <Text
+                                    style={[
+                                      styles.reactionCount,
+                                      userReacted && styles.reactionCountActive,
+                                    ]}
+                                  >
+                                    {reaction.count}
+                                  </Text>
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })}
+                          <TouchableOpacity
+                            onPress={() => {
+                              NativeHaptics.light();
+                              setMessageToReact(item);
+                              setReactModalOpen(true);
+                            }}
+                            style={styles.reactionAddBtn}
+                            hitSlop={6}
+                          >
+                            <Plus size={11} color={colors.textMuted} />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
                   </View>
-                </View>
+                </SwipeableMessageRow>
               );
             }}
             ListEmptyComponent={
               <View style={styles.emptyState}>
-                <Avatar name={conversation.name} size={54} />
+                <Avatar name={conversation.name} size={54} url={(conversation as any)?.avatar || (conversation as any)?.avatarUrl} />
                 <Text style={styles.emptyTitle}>{conversation.name}</Text>
                 <Text style={styles.emptySubtitle}>
                   This is the beginning of your direct message history with {conversation.name}.
@@ -449,6 +681,26 @@ export default function DMDetailScreen() {
               </View>
             }
           />
+        )}
+
+        {/* Replying Preview Bar */}
+        {replyingTo && (
+          <View style={styles.replyingBar}>
+            <View style={styles.replyingLeft}>
+              <CornerUpLeft size={13} color={colors.accent} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.replyingAuthor}>
+                  Replying to {(replyingTo.author?.id === user?.id || replyingTo.author?.id === "me") ? "yourself" : replyingTo.author?.name}
+                </Text>
+                <Text style={styles.replyingSnippet} numberOfLines={1}>
+                  {parseMessageAttachments(replyingTo.text || "").cleanText || "Attachment"}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={() => setReplyingTo(null)} hitSlop={8}>
+              <X size={14} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Staged Attachment Preview Banner */}
@@ -995,14 +1247,97 @@ const styles = StyleSheet.create({
   theirBubbleText: {
     color: colors.textPrimary,
   },
-  bubbleTime: {
-    fontSize: 10,
+  swipeRowWrapper: {
+    position: "relative",
+    width: "100%",
+  },
+  swipeTimestampContainer: {
+    position: "absolute",
+    right: 8,
+    top: "50%",
+    transform: [{ translateY: -9 }],
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
+  swipeTimestampText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: "monospace",
+    fontWeight: "600",
+  },
+  doubleTapHeartWrapper: {
+    position: "absolute",
+    alignSelf: "center",
+    top: "50%",
+    transform: [{ translateY: -20 }],
+    zIndex: 99,
+  },
+  dmReplyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  dmReplyAuthor: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: "monospace",
+  },
+  dmReplySnippet: {
+    color: colors.textMuted,
+    fontSize: 11,
+    flex: 1,
+  },
+  messageHighlighted: {
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    borderColor: "rgba(232, 163, 61, 0.7)",
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 4,
+  },
+  bubbleMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
     alignSelf: "flex-end",
     marginTop: 3,
+  },
+  replyingBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    marginHorizontal: 12,
+    marginBottom: 6,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.3)",
+  },
+  replyingLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  replyingAuthor: {
+    fontSize: 11,
+    color: colors.accent,
+    fontWeight: "700",
+    fontFamily: "monospace",
+  },
+  replyingSnippet: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  bubbleTime: {
+    fontSize: 10,
     fontFamily: "monospace",
   },
   myBubbleTime: {
-    color: "rgba(10, 10, 14, 0.65)",
+    color: "rgba(255, 255, 255, 0.6)",
     fontWeight: "600",
   },
   theirBubbleTime: {

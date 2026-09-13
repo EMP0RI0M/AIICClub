@@ -10,7 +10,10 @@ import {
   ActivityIndicator,
   Alert,
   Share,
+  Platform,
 } from "react-native";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   X,
   Shield,
@@ -88,6 +91,17 @@ export function SpaceSettingsModal({
       onRequestClose={onClose}
     >
       <View style={styles.container}>
+        <BlurView intensity={Platform.OS === "ios" ? 35 : 20} tint="dark" style={StyleSheet.absoluteFill} />
+        <LinearGradient
+          colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.01)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Ambient Glow Orbs */}
+        <View style={styles.ambientGlowAmber} pointerEvents="none" />
+        <View style={styles.ambientGlowTeal} pointerEvents="none" />
+
         {/* Top Header */}
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
@@ -675,7 +689,25 @@ function DangerSection({ spaceName, onDeleteSpace }: { spaceName: string; onDele
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0D0E15",
+    backgroundColor: "rgba(10, 11, 16, 0.94)",
+  },
+  ambientGlowAmber: {
+    position: "absolute",
+    top: -60,
+    right: -40,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+  },
+  ambientGlowTeal: {
+    position: "absolute",
+    bottom: 100,
+    left: -60,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: "rgba(45, 212, 191, 0.08)",
   },
   header: {
     flexDirection: "row",
@@ -686,6 +718,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
   },
   headerSubtitle: {
     color: colors.accent,

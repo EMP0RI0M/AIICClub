@@ -2,11 +2,14 @@ import React, { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { View, ActivityIndicator, StyleSheet, LogBox } from "react-native";
 import * as Linking from "expo-linking";
 import { useAuthStore } from "../stores/auth-store";
 import { colors } from "../theme/tokens";
 import { NotificationBanner } from "../components/ui/NotificationBanner";
+
+// Suppress runtime debug warning overlays from floating over mobile preview
+LogBox.ignoreAllLogs(true);
 
 export default function RootLayout() {
   const { isAuthenticated, isRestoring, restoreSession, handleOAuthCallback } = useAuthStore();

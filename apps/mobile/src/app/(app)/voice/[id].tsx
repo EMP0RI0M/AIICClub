@@ -102,7 +102,7 @@ export default function VoiceStageScreen() {
                 elevated
                 style={[styles.speakerCard, s.speaking && styles.speakingBorder]}
               >
-                <Avatar name={s.name} size={54} />
+                <Avatar name={s.name} size={54} url={s.avatar || s.avatarUrl || s.avatar_url} />
                 <Text style={styles.speakerName} numberOfLines={1}>
                   {s.name}
                 </Text>
@@ -122,7 +122,7 @@ export default function VoiceStageScreen() {
           <View style={styles.audienceList}>
             {listeners.map((l: any) => (
               <View key={l.id} style={styles.audienceRow}>
-                <Avatar name={l.name} size={36} />
+                <Avatar name={l.name} size={36} url={l.avatar || l.avatarUrl || l.avatar_url} />
                 <Text style={styles.audienceName}>{l.name}</Text>
                 {l.handRaised && (
                   <View style={styles.handBadge}>

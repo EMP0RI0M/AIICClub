@@ -1,17 +1,19 @@
 import React, { useState } from "react";
 import {
+  Modal,
+  StyleSheet,
   View,
   Text,
-  Modal,
   TextInput,
   Pressable,
+  ScrollView,
+  Platform,
   ActivityIndicator,
   Alert,
-  StyleSheet,
   KeyboardAvoidingView,
-  Platform,
-  ScrollView,
 } from "react-native";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius } from "../../theme/tokens";
 import { NativeHaptics } from "../../lib/haptics";
 import { notificationService } from "../../lib/notifications";
@@ -119,7 +121,20 @@ export function CreateSpaceModal({
         style={styles.modalBackdrop}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
+          <BlurView intensity={Platform.OS === "ios" ? 25 : 15} tint="dark" style={StyleSheet.absoluteFill} />
+        </Pressable>
+
         <View style={styles.modalSheet}>
+          <BlurView intensity={Platform.OS === "ios" ? 40 : 25} tint="dark" style={StyleSheet.absoluteFill} />
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.09)", "rgba(255, 255, 255, 0.01)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.ambientGlowAmber} pointerEvents="none" />
+
           {/* Modal Header */}
           <View style={styles.modalHeader}>
             <View style={styles.headerTitleWrap}>
@@ -226,17 +241,27 @@ export function CreateSpaceModal({
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
     justifyContent: "flex-end",
   },
+  ambientGlowAmber: {
+    position: "absolute",
+    top: -40,
+    right: -30,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(212, 160, 23, 0.12)",
+  },
   modalSheet: {
-    backgroundColor: "#11121A",
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    backgroundColor: "rgba(12, 14, 22, 0.85)",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.12)",
     maxHeight: "85%",
     paddingBottom: Platform.OS === "ios" ? 36 : 24,
+    overflow: "hidden",
   },
   modalHeader: {
     flexDirection: "row",

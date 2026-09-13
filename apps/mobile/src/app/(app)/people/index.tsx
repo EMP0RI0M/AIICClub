@@ -138,6 +138,7 @@ export default function PeopleDirectoryScreen() {
                   name={item.displayName || item.username}
                   presence={item.status || "offline"}
                   size={46}
+                  url={item.avatarUrl || (item as any).avatar_url || (item as any).avatar}
                 />
                 <View style={styles.memberMeta}>
                   <View style={styles.nameRow}>

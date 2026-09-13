@@ -105,44 +105,44 @@ export default SidebarMenu;
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
+    padding: 16,
     width: "100%",
-    borderRadius: 24,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
   card: {
-    padding: 16,
-    width: 280,
+    padding: 12,
+    width: 270,
   },
   nav: {
     width: "100%",
-    gap: 8,
+    gap: 6,
     zIndex: 30,
   },
   menuButton: {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
     backgroundColor: "transparent",
   },
   menuButtonActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.22)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
   menuButtonPressed: {
-    backgroundColor: "rgba(255, 255, 255, 0.10)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     transform: [{ scale: 0.98 }],
   },
   menuText: {
     color: "rgba(255, 255, 255, 0.78)",
-    fontSize: 14.5,
+    fontSize: 14,
     fontWeight: "500",
   },
   menuTextActive: {

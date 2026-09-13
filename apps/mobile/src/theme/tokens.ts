@@ -5,31 +5,31 @@
 
 export const colors = {
   // Surfaces
-  background: "#0A0B11",
-  bgDeep: "#07080D",
-  surface: "#111219",
-  surfaceRaised: "#171821",
-  surfaceOverlay: "#1D1E2C",
-  surfaceGlass: "rgba(17, 18, 25, 0.85)",
-  surfaceGlassElevated: "rgba(23, 24, 33, 0.88)",
-  surfaceInput: "#13141C",
+  background: "#08090E",
+  bgDeep: "#05060A",
+  surface: "#0F1017",
+  surfaceRaised: "#141620",
+  surfaceOverlay: "#1A1C28",
+  surfaceGlass: "rgba(255, 255, 255, 0.035)",
+  surfaceGlassElevated: "rgba(255, 255, 255, 0.06)",
+  surfaceInput: "rgba(255, 255, 255, 0.04)",
 
   // Brand Accent (Corvus Amber / Ochre)
   accent: "#E8A33D",
   accentHover: "#F2B557",
   accentPressed: "#C9862B",
-  accentSoft: "rgba(232, 163, 61, 0.14)",
-  accentMuted: "rgba(232, 163, 61, 0.5)",
+  accentSoft: "rgba(232, 163, 61, 0.10)",
+  accentMuted: "rgba(232, 163, 61, 0.45)",
   accentContrast: "#1A1206",
   textOnAccent: "#1A1206",
 
   // Accent Secondary & Highlights
   accentTeal: "#2DD4BF",
   accentTealDim: "#1E9E8E",
-  accentTealSoft: "rgba(45, 212, 191, 0.14)",
+  accentTealSoft: "rgba(45, 212, 191, 0.10)",
   accentWarm: "#F5A623",
   live: "#22E0D6",
-  liveSoft: "rgba(34, 224, 214, 0.14)",
+  liveSoft: "rgba(34, 224, 214, 0.10)",
 
   // Presence / Status
   statusOnline: "#3DDC84",
@@ -46,28 +46,28 @@ export const colors = {
   // Semantic Status
   success: "#22C55E",
   successDim: "#16A34A",
-  successSoft: "rgba(34, 197, 94, 0.14)",
+  successSoft: "rgba(34, 197, 94, 0.10)",
   danger: "#EF4444",
   dangerDim: "#B91C1C",
-  dangerSoft: "rgba(239, 68, 68, 0.14)",
+  dangerSoft: "rgba(239, 68, 68, 0.10)",
   warning: "#F59E0B",
-  warningSoft: "rgba(245, 158, 11, 0.14)",
+  warningSoft: "rgba(245, 158, 11, 0.10)",
   info: "#3B82F6",
-  infoSoft: "rgba(59, 130, 246, 0.14)",
+  infoSoft: "rgba(59, 130, 246, 0.10)",
 
   // Borders & Dividers
-  border: "#1E2030",
-  borderSubtle: "#161724",
-  borderHighlight: "#272A40",
-  borderActive: "#3D3F60",
-  borderGlass: "rgba(255, 255, 255, 0.08)",
-  borderAccent: "rgba(232, 163, 61, 0.3)",
+  border: "rgba(255, 255, 255, 0.08)",
+  borderSubtle: "rgba(255, 255, 255, 0.05)",
+  borderHighlight: "rgba(255, 255, 255, 0.12)",
+  borderActive: "rgba(232, 163, 61, 0.30)",
+  borderGlass: "rgba(255, 255, 255, 0.07)",
+  borderAccent: "rgba(232, 163, 61, 0.25)",
 
   // Row States
-  hoverRow: "#14151F",
-  activeRow: "#1E2035",
-  activeRowTeal: "#0D2520",
-  reactionOwn: "#231A52",
+  hoverRow: "rgba(255, 255, 255, 0.04)",
+  activeRow: "rgba(232, 163, 61, 0.08)",
+  activeRowTeal: "rgba(45, 212, 191, 0.08)",
+  reactionOwn: "rgba(232, 163, 61, 0.12)",
 };
 
 export const spacing = {
@@ -83,10 +83,10 @@ export const spacing = {
 export const radius = {
   xs: 4,
   sm: 6,
-  md: 8,
-  lg: 12,
-  xl: 16,
-  xxl: 24,
+  md: 10,
+  lg: 14,
+  xl: 18,
+  xxl: 22,
   full: 9999,
 };
 
@@ -107,23 +107,23 @@ export const glassStyles = {
     backgroundColor: colors.surfaceGlass,
     borderColor: colors.borderGlass,
     borderWidth: 1,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
   },
   elevated: {
     backgroundColor: colors.surfaceGlassElevated,
     borderColor: colors.borderHighlight,
     borderWidth: 1,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 2,
   },
   card: {
-    backgroundColor: colors.surfaceRaised,
-    borderColor: colors.border,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderColor: colors.borderSubtle,
     borderWidth: 1,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
   },
 };

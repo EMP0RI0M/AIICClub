@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View, Pressable, Animated, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { notificationService, InAppNotification } from "../../lib/notifications";
 import { colors, radius } from "../../theme/tokens";
 import { Bell, AlertTriangle, CheckCircle2, MessageSquare, X } from "lucide-react-native";
@@ -47,11 +49,11 @@ export function NotificationBanner() {
   const getIcon = () => {
     switch (notification.type) {
       case "urgent":
-        return <AlertTriangle size={16} color={colors.danger} />;
+        return <AlertTriangle size={15} color={colors.danger} />;
       case "success":
-        return <CheckCircle2 size={16} color={colors.live} />;
+        return <CheckCircle2 size={15} color={colors.live} />;
       default:
-        return <Bell size={16} color={colors.accent} />;
+        return <Bell size={15} color={colors.accent} />;
     }
   };
 
@@ -60,12 +62,25 @@ export function NotificationBanner() {
       style={[
         styles.container,
         {
-          top: insets.top + (Platform.OS === "ios" ? 4 : 12),
+          top: insets.top + (Platform.OS === "ios" ? 4 : 10),
           transform: [{ translateY }],
         },
       ]}
     >
       <Pressable onPress={handlePress} style={styles.card}>
+        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <LinearGradient
+          colors={["rgba(232, 163, 61, 0.12)", "rgba(232, 163, 61, 0.02)"]}
+          style={StyleSheet.absoluteFillObject}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+        <LinearGradient
+          colors={["rgba(255, 255, 255, 0.20)", "rgba(255, 255, 255, 0)"]}
+          style={styles.topSpecular}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+        />
         <View style={styles.iconContainer}>{getIcon()}</View>
         <View style={styles.content}>
           <Text style={styles.title} numberOfLines={1}>
@@ -93,26 +108,34 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(18, 18, 20, 0.95)",
-    borderRadius: radius.lg,
+    backgroundColor: "rgba(20, 16, 12, 0.50)",
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderColor: "rgba(232, 163, 61, 0.22)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: "hidden",
+  },
+  topSpecular: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
   },
   iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.md,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "rgba(232, 163, 61, 0.10)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: 10,
   },
   content: {
     flex: 1,

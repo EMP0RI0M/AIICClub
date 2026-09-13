@@ -130,6 +130,7 @@ export default function ProfileScreen() {
               name={user?.displayName || "Member"}
               presence={user?.status === "invisible" ? "offline" : (user?.status || "online")}
               size={64}
+              url={user?.avatar || (user as any)?.avatarUrl || (user as any)?.avatar_url}
             />
             <View style={styles.profileMeta}>
               <Text style={styles.displayName}>

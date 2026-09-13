@@ -613,13 +613,13 @@ export function MobileEmojiModal({ visible, title = "Emoji Picker", onClose, onS
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
-          {EMOJI_SETS.map((group) => (
-            <View key={group.label} style={{ marginBottom: 18 }}>
+          {EMOJI_SETS.map((group, gIdx) => (
+            <View key={`group-${group.label}-${gIdx}`} style={{ marginBottom: 18 }}>
               <Text style={styles.emojiGroupTitle}>{group.label}</Text>
               <View style={styles.emojiGrid}>
-                {group.emojis.map((emoji) => (
+                {group.emojis.map((emoji, eIdx) => (
                   <Pressable
-                    key={emoji}
+                    key={`emoji-${group.label}-${emoji}-${eIdx}`}
                     onPress={() => {
                       NativeHaptics.selection();
                       onSelectEmoji(emoji);

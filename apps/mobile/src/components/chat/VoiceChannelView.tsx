@@ -184,7 +184,7 @@ export function VoiceChannelView({
                 p.speaking && styles.speakingTile,
               ]}
             >
-              <Avatar name={p.name} size={54} />
+              <Avatar name={p.name} size={54} url={(p as any).avatar || (p as any).avatarUrl} />
               <Text style={styles.participantName} numberOfLines={1}>
                 {p.name}
               </Text>
@@ -210,7 +210,7 @@ export function VoiceChannelView({
             <View style={styles.audienceGrid}>
               {listeners.map((p) => (
                 <View key={p.id} style={styles.audienceItem}>
-                  <Avatar name={p.name} size={40} />
+                  <Avatar name={p.name} size={40} url={(p as any).avatar || (p as any).avatarUrl} />
                   {p.raisedHand && (
                     <View style={styles.handRaisedPill}>
                       <Hand size={11} color={colors.accent} />

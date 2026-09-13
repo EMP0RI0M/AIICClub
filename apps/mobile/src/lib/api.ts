@@ -91,8 +91,7 @@ export async function api<T>(path: string, options: CustomRequestInit = {}): Pro
 
     if (!res.ok) {
       const errMessage =
-        data?.error || data?.message || `Request failed with status ${res.status}`;
-      console.warn(`[API ERROR ${res.status}] ${url}:`, errMessage);
+        data?.error || data?.message || "Unable to complete request. Please try again.";
       const err = new Error(errMessage);
       (err as any).status = res.status;
       throw err;
@@ -102,11 +101,9 @@ export async function api<T>(path: string, options: CustomRequestInit = {}): Pro
   } catch (err: any) {
     clearTimeout(timer);
     if (err.name === "AbortError") {
-      console.error(`[API TIMEOUT] ${url}`);
-      throw new Error(`Request to ${path} timed out. Please check your network connection.`);
+      throw new Error("Connection timed out. Retrying in background...");
     }
-    console.error(`[API NETWORK ERROR] ${url}:`, err.message || err);
-    throw err;
+    throw new Error(err.message || "Network connection error");
   }
 }
 
@@ -593,5 +590,35 @@ export async function removeTeamMember(teamId: string, userId: string) {
       action: "remove_member",
       userId,
     }),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// 12. DEDICATED THREADS (SEPARATE FROM INLINE REPLIES)
+// ─────────────────────────────────────────────────────────────
+
+export async function fetchChannelThreads(channelId: string) {
+  return api<{ threads: any[] }>(`/channels/${channelId}/threads`);
+}
+
+export async function fetchThreadForMessage(channelId: string, messageId: string) {
+  return api<{ thread: any; parentMessage: any }>(`/threads/by-message/${messageId}`);
+}
+
+export async function createThread(channelId: string, parentMessageId: string, title?: string) {
+  return api<{ thread: any; parentMessage: any }>("/threads", {
+    method: "POST",
+    body: JSON.stringify({ channelId, parentMessageId, title }),
+  });
+}
+
+export async function fetchThreadMessages(threadId: string) {
+  return api<{ messages: any[] }>(`/threads/${threadId}/messages`);
+}
+
+export async function sendThreadMessage(threadId: string, content: string) {
+  return api<{ message: any }>(`/threads/${threadId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
   });
 }

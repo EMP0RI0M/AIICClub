@@ -130,7 +130,7 @@ export interface LiquidGlassCardProps extends ViewProps {
 export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
   glowIntensity = "sm",
   shadowIntensity = "sm",
-  borderRadius = 20,
+  borderRadius = 14,
   blurIntensity = "sm",
   draggable = false,
   style,
@@ -141,8 +141,8 @@ export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
     typeof borderRadius === "number"
       ? borderRadius
       : typeof borderRadius === "string" && borderRadius.endsWith("px")
-      ? parseInt(borderRadius, 10) || 20
-      : 20;
+      ? parseInt(borderRadius, 10) || 14
+      : 14;
 
   const calculatedBlur =
     typeof blurIntensity === "number"
@@ -152,26 +152,26 @@ export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
       : blurIntensity === "sm"
       ? 20
       : blurIntensity === "md"
-      ? 35
-      : 50;
+      ? 30
+      : 40;
 
   const glowBorderColor =
     glowIntensity === "none"
-      ? "rgba(255, 255, 255, 0.10)"
+      ? "rgba(255, 255, 255, 0.06)"
       : glowIntensity === "sm"
-      ? "rgba(255, 255, 255, 0.18)"
+      ? "rgba(255, 255, 255, 0.08)"
       : glowIntensity === "md"
-      ? "rgba(232, 163, 61, 0.35)"
-      : "rgba(232, 163, 61, 0.55)";
+      ? "rgba(232, 163, 61, 0.22)"
+      : "rgba(232, 163, 61, 0.35)";
 
   const shadowElevation =
     shadowIntensity === "none"
       ? 0
       : shadowIntensity === "sm"
-      ? 4
+      ? 2
       : shadowIntensity === "md"
-      ? 8
-      : 14;
+      ? 4
+      : 6;
 
   return (
     <View
@@ -196,11 +196,11 @@ export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
       {/* Specular sheen gradient */}
       <LinearGradient
         colors={[
-          "rgba(255, 255, 255, 0.16)",
-          "rgba(255, 255, 255, 0.03)",
+          "rgba(255, 255, 255, 0.10)",
+          "rgba(255, 255, 255, 0.01)",
           glowIntensity === "md" || glowIntensity === "lg"
-            ? "rgba(232, 163, 61, 0.08)"
-            : "rgba(0, 0, 0, 0.04)",
+            ? "rgba(232, 163, 61, 0.05)"
+            : "rgba(0, 0, 0, 0.02)",
         ]}
         style={StyleSheet.absoluteFillObject}
         start={{ x: 0, y: 0 }}
@@ -208,7 +208,7 @@ export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
       />
       {/* Top specular reflection edge highlight */}
       <LinearGradient
-        colors={["rgba(255, 255, 255, 0.32)", "rgba(255, 255, 255, 0)"]}
+        colors={["rgba(255, 255, 255, 0.22)", "rgba(255, 255, 255, 0)"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.topSpecular}
@@ -222,24 +222,24 @@ const styles = StyleSheet.create({
   glassWrapper: {
     position: "relative",
     overflow: "hidden",
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.16)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 2,
   },
   liquidGlassBase: {
     position: "relative",
     overflow: "hidden",
-    backgroundColor: "rgba(18, 22, 30, 0.68)",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
     borderWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
   },
   topSpecular: {
     position: "absolute",
@@ -251,14 +251,14 @@ const styles = StyleSheet.create({
   containerRoot: {
     position: "relative",
     overflow: "hidden",
-    borderRadius: 24,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 2,
   },
   blurView: {
     borderRadius: "inherit" as any,

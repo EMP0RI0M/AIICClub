@@ -13,9 +13,14 @@ import {
   SafeAreaView,
   ActivityIndicator,
 } from "react-native";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius } from "../../theme/tokens";
 import { NativeHaptics } from "../../lib/haptics";
 import { parseMessageAttachments, AttachmentCard } from "./AttachmentCard";
+import { RichMarkdown, ReasoningTrace } from "./RichMarkdown";
+import { formatAvatarUrl } from "../../lib/avatar";
+import { useChatStore } from "../../stores/chat-store";
 import {
   X,
   MessagesSquare,
@@ -26,21 +31,23 @@ import {
   Share2,
 } from "lucide-react-native";
 
-export interface ThreadMessage {
+export interface ThreadStarterMessage {
   id: string;
-  user: {
+  user?: {
     id: string;
     displayName: string;
     avatarUrl?: string | null;
     roleColor?: string;
   };
-  content: string;
-  createdAt: string;
-  replyTo?: {
+  author?: {
     id: string;
-    authorName: string;
-    text?: string;
+    name: string;
+    avatar?: string | null;
   };
+  content?: string;
+  text?: string;
+  createdAt?: string;
+  at?: string;
   reactions?: Array<{
     emoji: string;
     count: number;
@@ -50,33 +57,58 @@ export interface ThreadMessage {
 
 interface MobileThreadModalProps {
   visible: boolean;
-  parentMessage: ThreadMessage | null;
-  allMessages: ThreadMessage[];
+  parentMessage: ThreadStarterMessage | null;
+  channelId: string;
   currentUserId?: string;
+  currentUser?: any;
   onClose: () => void;
-  onSendReply: (content: string, replyToId: string) => Promise<void>;
   onToggleReaction?: (messageId: string, emoji: string) => void;
 }
 
 export function MobileThreadModal({
   visible,
   parentMessage,
-  allMessages,
+  channelId,
   currentUserId,
+  currentUser,
   onClose,
-  onSendReply,
   onToggleReaction,
 }: MobileThreadModalProps) {
   const [replyText, setReplyText] = useState("");
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
+  const {
+    messages,
+    threadMessages,
+    isLoadingThread,
+    sendChannelMessageAction,
+  } = useChatStore();
+
   if (!parentMessage) return null;
 
-  // Filter replies that belong to this parent message
-  const replies = allMessages.filter(
-    (m) => m.replyTo?.id === parentMessage.id && m.id !== parentMessage.id
-  );
+  // Combine thread replies from channel messages and threadMessages store
+  const channelMsgs = messages[channelId] || [];
+  const channelReplies = channelMsgs
+    .filter((m) => m.replyTo?.id === parentMessage.id && m.id !== parentMessage.id)
+    .map((m) => ({
+      id: m.id,
+      threadId: parentMessage.id,
+      content: m.text,
+      author: {
+        id: m.author?.id || "unknown",
+        name: m.author?.name || "Member",
+        avatar: m.author?.avatar || null,
+      },
+      createdAt: m.at,
+    }));
+
+  const rawThreadReplies = threadMessages[parentMessage.id] || [];
+  const allRepliesMap = new Map<string, any>();
+  channelReplies.forEach((r) => allRepliesMap.set(r.id, r));
+  rawThreadReplies.forEach((r) => allRepliesMap.set(r.id, r));
+  const isolatedReplies = Array.from(allRepliesMap.values());
 
   const handleSend = async () => {
     const trimmed = replyText.trim();
@@ -85,18 +117,31 @@ export function MobileThreadModal({
     NativeHaptics.medium();
     setSending(true);
     try {
-      await onSendReply(trimmed, parentMessage.id);
+      await sendChannelMessageAction(channelId, trimmed, parentMessage.id);
       setReplyText("");
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      }, 150);
+    } catch (err) {
+      console.warn("[MobileThreadModal] send error:", err);
     } finally {
       setSending(false);
     }
   };
 
-  const { cleanText: parentCleanText, attachments: parentAttachments } =
-    parseMessageAttachments(parentMessage.content || "");
+  const parentAuthorName =
+    parentMessage.user?.displayName || parentMessage.author?.name || "Member";
+  const parentAuthorAvatar = formatAvatarUrl(
+    parentMessage.user?.avatarUrl || parentMessage.author?.avatar
+  );
+  const parentText = parentMessage.content || parentMessage.text || "";
+  const parentCreatedAt = parentMessage.createdAt || parentMessage.at || "";
+
+  const {
+    cleanText: parentCleanText,
+    reasoningText: parentReasoningText,
+    attachments: parentAttachments,
+  } = parseMessageAttachments(parentText);
 
   return (
     <Modal
@@ -139,7 +184,7 @@ export function MobileThreadModal({
         >
           <FlatList
             ref={flatListRef}
-            data={replies}
+            data={isolatedReplies}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.feedContent}
             showsVerticalScrollIndicator={false}
@@ -148,17 +193,15 @@ export function MobileThreadModal({
                 {/* Parent Message Glass Card */}
                 <View style={styles.parentCard}>
                   <View style={styles.parentHeader}>
-                    {parentMessage.user?.avatarUrl ? (
+                    {parentAuthorAvatar ? (
                       <Image
-                        source={{ uri: parentMessage.user.avatarUrl }}
+                        source={{ uri: parentAuthorAvatar }}
                         style={styles.avatar}
                       />
                     ) : (
                       <View style={styles.avatarFallback}>
                         <Text style={styles.avatarLetter}>
-                          {(parentMessage.user?.displayName || "U")
-                            .charAt(0)
-                            .toUpperCase()}
+                          {parentAuthorName.charAt(0).toUpperCase()}
                         </Text>
                       </View>
                     )}
@@ -173,11 +216,11 @@ export function MobileThreadModal({
                           },
                         ]}
                       >
-                        {parentMessage.user?.displayName || "Member"}
+                        {parentAuthorName}
                       </Text>
                       <Text style={styles.timestamp}>
-                        {parentMessage.createdAt
-                          ? new Date(parentMessage.createdAt).toLocaleTimeString([], {
+                        {parentCreatedAt
+                          ? new Date(parentCreatedAt).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
                             })
@@ -187,9 +230,10 @@ export function MobileThreadModal({
                   </View>
 
                   {parentCleanText ? (
-                    <Text style={styles.parentContentText}>
-                      {parentCleanText}
-                    </Text>
+                    <RichMarkdown
+                      content={parentCleanText}
+                      textColor={colors.textPrimary}
+                    />
                   ) : null}
 
                   {parentAttachments.map((att, idx) => (
@@ -224,39 +268,48 @@ export function MobileThreadModal({
                   <View style={styles.separatorLine} />
                   <View style={styles.replyCountPill}>
                     <Text style={styles.replyCountText}>
-                      {replies.length} {replies.length === 1 ? "Reply" : "Replies"}
+                      {isolatedReplies.length} {isolatedReplies.length === 1 ? "Thread Message" : "Thread Messages"}
                     </Text>
                   </View>
                   <View style={styles.separatorLine} />
                 </View>
 
-                {replies.length === 0 && (
+                {isLoadingThread && isolatedReplies.length === 0 && (
+                  <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                    <ActivityIndicator size="small" color={colors.accent} />
+                  </View>
+                )}
+
+                {!isLoadingThread && isolatedReplies.length === 0 && (
                   <View style={styles.emptyReplies}>
                     <Text style={styles.emptyRepliesText}>
-                      No replies in this thread yet.
+                      No messages in this thread yet.
                     </Text>
                     <Text style={styles.emptyRepliesSub}>
-                      Send a message below to start the thread discussion.
+                      Send a message below to discuss this topic in an isolated thread.
                     </Text>
                   </View>
                 )}
               </View>
             )}
             renderItem={({ item }) => {
-              const { cleanText, attachments } = parseMessageAttachments(
+              const { cleanText, reasoningText, attachments } = parseMessageAttachments(
                 item.content || ""
               );
+              const authorName = item.author?.name || "Member";
+              const authorAvatar = formatAvatarUrl(item.author?.avatar);
+
               return (
                 <View style={styles.replyRow}>
-                  {item.user?.avatarUrl ? (
+                  {authorAvatar ? (
                     <Image
-                      source={{ uri: item.user.avatarUrl }}
+                      source={{ uri: authorAvatar }}
                       style={styles.replyAvatar}
                     />
                   ) : (
                     <View style={styles.replyAvatarFallback}>
                       <Text style={styles.avatarLetterSmall}>
-                        {(item.user?.displayName || "U").charAt(0).toUpperCase()}
+                        {authorName.charAt(0).toUpperCase()}
                       </Text>
                     </View>
                   )}
@@ -266,12 +319,11 @@ export function MobileThreadModal({
                         style={[
                           styles.replyDisplayName,
                           {
-                            color:
-                              item.user?.roleColor || colors.textPrimary,
+                            color: colors.textPrimary,
                           },
                         ]}
                       >
-                        {item.user?.displayName || "Member"}
+                        {authorName}
                       </Text>
                       <Text style={styles.timestamp}>
                         {item.createdAt
@@ -284,34 +336,15 @@ export function MobileThreadModal({
                     </View>
 
                     {cleanText ? (
-                      <Text style={styles.replyText}>{cleanText}</Text>
+                      <RichMarkdown
+                        content={cleanText}
+                        textColor={colors.textPrimary}
+                      />
                     ) : null}
 
                     {attachments.map((att, idx) => (
                       <AttachmentCard key={idx} attachment={att} />
                     ))}
-
-                    {/* Reactions */}
-                    {item.reactions && item.reactions.length > 0 && (
-                      <View style={styles.reactionsRow}>
-                        {item.reactions.map((r: any) => (
-                          <Pressable
-                            key={r.emoji}
-                            onPress={() =>
-                              onToggleReaction?.(item.id, r.emoji)
-                            }
-                            style={[
-                              styles.reactionBadge,
-                              r.reacted && styles.reactionBadgeActive,
-                            ]}
-                          >
-                            <Text style={styles.reactionText}>
-                              {r.emoji} {r.count}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    )}
                   </View>
                 </View>
               );

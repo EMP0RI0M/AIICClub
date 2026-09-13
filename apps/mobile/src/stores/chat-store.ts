@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ChatMessage } from "../lib/types";
+import { ChatMessage, ThreadSummary, ThreadMessage } from "../lib/types";
 import { getSupabaseClient } from "../lib/supabase";
 import {
   fetchChannelMessages,
@@ -13,6 +13,10 @@ import {
   removeDMReaction,
   addMessageReaction,
   removeMessageReaction,
+  fetchThreadForMessage,
+  createThread,
+  fetchThreadMessages,
+  sendThreadMessage,
 } from "../lib/api";
 import { offlineManager } from "../lib/offline-manager";
 import { notificationService } from "../lib/notifications";
@@ -21,14 +25,19 @@ import { NativeHaptics } from "../lib/haptics";
 interface ChatState {
   messages: Record<string, ChatMessage[]>;
   dmMessages: Record<string, ChatMessage[]>;
+  threads: Record<string, ThreadSummary>;
+  threadMessages: Record<string, ThreadMessage[]>;
   activeChannelSubscription: any | null;
   activeDMSubscription: any | null;
+  activeThreadSubscription: any | null;
   channelPollTimer: any | null;
   dmPollTimer: any | null;
+  threadPollTimer: any | null;
   typingUsers: Record<string, string[]>;
   isLoadingMessages: boolean;
+  isLoadingThread: boolean;
 
-  // Actions
+  // Channel & DM Actions
   loadChannelMessages: (channelId: string) => Promise<void>;
   sendChannelMessageAction: (channelId: string, content: string, replyToId?: string) => Promise<void>;
   deleteChannelMessageAction: (channelId: string, messageId: string) => Promise<void>;
@@ -39,8 +48,16 @@ interface ChatState {
   toggleDMReaction: (dmId: string, messageId: string, emoji: string) => Promise<void>;
   toggleReaction: (channelId: string, messageId: string, emoji: string) => Promise<void>;
 
+  // Dedicated Thread Actions
+  getOrCreateThreadAction: (channelId: string, parentMessageId: string) => Promise<ThreadSummary | null>;
+  loadThreadMessagesAction: (threadId: string) => Promise<void>;
+  sendThreadMessageAction: (threadId: string, channelId: string, content: string, currentUser?: any) => Promise<void>;
+  subscribeToThread: (threadId: string) => void;
+  unsubscribeFromThread: () => void;
+
   addMessage: (channelId: string, message: ChatMessage) => void;
   addDMMessage: (dmId: string, message: ChatMessage) => void;
+  addThreadMessage: (threadId: string, message: ThreadMessage) => void;
   subscribeToChannel: (channelId: string) => void;
   unsubscribeFromChannel: () => void;
   subscribeToDM: (dmId: string) => void;
@@ -50,10 +67,17 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: {},
   dmMessages: {},
+  threads: {},
+  threadMessages: {},
   activeChannelSubscription: null,
   activeDMSubscription: null,
+  activeThreadSubscription: null,
+  channelPollTimer: null,
+  dmPollTimer: null,
+  threadPollTimer: null,
   typingUsers: {},
   isLoadingMessages: false,
+  isLoadingThread: false,
 
   loadChannelMessages: async (channelId: string) => {
     // 1. Instant hydration from offline cache if available
@@ -79,7 +103,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
         at: m.createdAt,
         text: m.content,
-        replyTo: m.replyTo ? { id: m.replyTo.id, authorName: m.replyTo.author?.displayName || "User", text: m.replyTo.content } : undefined,
+        replyTo: m.replyTo
+          ? {
+              id: m.replyTo.id,
+              authorName:
+                m.replyTo.author?.displayName ||
+                m.replyTo.author?.username ||
+                m.replyTo.author?.name ||
+                m.replyTo.authorName ||
+                "Member",
+              text: m.replyTo.content || m.replyTo.text || "",
+              authorId: m.replyTo.author?.id || m.replyTo.authorId,
+            }
+          : undefined,
         reactions: m.reactions || [],
         pinned: m.pinned || false,
       }));
@@ -103,6 +139,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   sendChannelMessageAction: async (channelId: string, content: string, replyToId?: string) => {
     NativeHaptics.medium();
 
+    // Find parent message if replying
+    const parentMsg = replyToId
+      ? (get().messages[channelId] || []).find((x) => x.id === replyToId)
+      : null;
+
     // Optimistic temporary message
     const tempId = `temp_${Date.now()}`;
     const optimisticMsg: ChatMessage = {
@@ -114,6 +155,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       },
       at: new Date().toISOString(),
       text: content,
+      replyTo: parentMsg
+        ? {
+            id: parentMsg.id,
+            authorName: parentMsg.author.name,
+            text: parentMsg.text,
+            authorId: parentMsg.author.id,
+          }
+        : undefined,
       reactions: [],
     };
     get().addMessage(channelId, optimisticMsg);
@@ -125,12 +174,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const finalMsg: ChatMessage = {
           id: m.id,
           author: {
-            id: m.author?.id || m.authorId,
+            id: m.author?.id || m.authorId || "me",
             name: m.author?.displayName || m.author?.username || "Me",
             avatar: m.author?.avatarUrl || null,
           },
           at: m.createdAt,
           text: m.content,
+          replyTo: m.replyTo
+            ? {
+                id: m.replyTo.id,
+                authorName:
+                  m.replyTo.author?.displayName ||
+                  m.replyTo.author?.username ||
+                  m.replyTo.authorName ||
+                  parentMsg?.author.name ||
+                  "Member",
+                text: m.replyTo.content || m.replyTo.text || parentMsg?.text || "",
+                authorId: m.replyTo.author?.id || m.replyTo.authorId || parentMsg?.author.id,
+              }
+            : parentMsg
+            ? {
+                id: parentMsg.id,
+                authorName: parentMsg.author.name,
+                text: parentMsg.text,
+                authorId: parentMsg.author.id,
+              }
+            : undefined,
           reactions: [],
         };
         // Replace temp msg with real message
@@ -491,9 +560,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
 
-  channelPollTimer: null,
-  dmPollTimer: null,
-
   subscribeToChannel: (channelId: string) => {
     get().unsubscribeFromChannel();
     try {
@@ -619,7 +685,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 at: m.createdAt,
                 text: m.content,
                 replyTo: m.replyTo
-                  ? { id: m.replyTo.id, authorName: m.replyTo.author?.displayName || "User", text: m.replyTo.content }
+                  ? {
+                      id: m.replyTo.id,
+                      authorName:
+                        m.replyTo.author?.displayName ||
+                        m.replyTo.author?.username ||
+                        m.replyTo.authorName ||
+                        "Member",
+                      text: m.replyTo.content || m.replyTo.text || "",
+                      authorId: m.replyTo.author?.id || m.replyTo.authorId,
+                    }
                   : undefined,
                 reactions: m.reactions || [],
                 pinned: m.pinned || false,
@@ -781,6 +856,234 @@ export const useChatStore = create<ChatState>((set, get) => ({
         supabase.removeChannel(activeDMSubscription);
       } catch {}
       set({ activeDMSubscription: null, dmPollTimer: null });
+    }
+  },
+
+  // ─── DEDICATED THREAD ACTIONS ──────────────────────────────────────────
+
+  getOrCreateThreadAction: async (channelId: string, parentMessageId: string) => {
+    set({ isLoadingThread: true });
+    try {
+      const res = await fetchThreadForMessage(channelId, parentMessageId);
+      if (res?.thread) {
+        set((state) => ({
+          threads: {
+            ...state.threads,
+            [res.thread.id]: res.thread,
+            [parentMessageId]: res.thread,
+          },
+          isLoadingThread: false,
+        }));
+        return res.thread;
+      }
+
+      // Fallback: explicit creation
+      const created = await createThread(channelId, parentMessageId);
+      if (created?.thread) {
+        set((state) => ({
+          threads: {
+            ...state.threads,
+            [created.thread.id]: created.thread,
+            [parentMessageId]: created.thread,
+          },
+          isLoadingThread: false,
+        }));
+        return created.thread;
+      }
+    } catch (e) {
+      console.warn("[ChatStore] getOrCreateThreadAction error:", e);
+    } finally {
+      set({ isLoadingThread: false });
+    }
+    return null;
+  },
+
+  loadThreadMessagesAction: async (threadId: string) => {
+    set({ isLoadingThread: true });
+    try {
+      const res = await fetchThreadMessages(threadId);
+      const formatted: ThreadMessage[] = (res.messages || []).map((m: any) => ({
+        id: m.id,
+        threadId: m.threadId || threadId,
+        content: m.content,
+        author: {
+          id: m.author?.id || m.authorId || "unknown",
+          name: m.author?.displayName || m.author?.username || "Member",
+          avatar: m.author?.avatarUrl || null,
+        },
+        createdAt: m.createdAt,
+      }));
+
+      set((state) => ({
+        threadMessages: {
+          ...state.threadMessages,
+          [threadId]: formatted,
+        },
+        isLoadingThread: false,
+      }));
+    } catch (e) {
+      console.warn("[ChatStore] loadThreadMessagesAction error:", e);
+      set({ isLoadingThread: false });
+    }
+  },
+
+  sendThreadMessageAction: async (threadId: string, channelId: string, content: string, currentUser?: any) => {
+    NativeHaptics.medium();
+
+    const tempId = `temp_th_${Date.now()}`;
+    const optimisticMsg: ThreadMessage = {
+      id: tempId,
+      threadId,
+      content,
+      author: {
+        id: currentUser?.id || "me",
+        name: currentUser?.displayName || currentUser?.username || "Me",
+        avatar: currentUser?.avatarUrl || null,
+      },
+      createdAt: new Date().toISOString(),
+    };
+
+    // Optimistically append to thread
+    set((state) => ({
+      threadMessages: {
+        ...state.threadMessages,
+        [threadId]: [...(state.threadMessages[threadId] || []), optimisticMsg],
+      },
+    }));
+
+    try {
+      const res = await sendThreadMessage(threadId, content);
+      if (res?.message) {
+        const confirmed: ThreadMessage = {
+          id: res.message.id,
+          threadId: res.message.threadId || threadId,
+          content: res.message.content,
+          author: {
+            id: res.message.author?.id || currentUser?.id || "me",
+            name: res.message.author?.displayName || currentUser?.displayName || "Me",
+            avatar: res.message.author?.avatarUrl || currentUser?.avatarUrl || null,
+          },
+          createdAt: res.message.createdAt || new Date().toISOString(),
+        };
+
+        set((state) => ({
+          threadMessages: {
+            ...state.threadMessages,
+            [threadId]: (state.threadMessages[threadId] || []).map((m) =>
+              m.id === tempId ? confirmed : m
+            ),
+          },
+        }));
+
+        // Update channel parent message reply counter if cached
+        const currentMsgs = get().messages[channelId] || [];
+        const thread = get().threads[threadId];
+        if (thread?.parentMessageId) {
+          set((state) => ({
+            messages: {
+              ...state.messages,
+              [channelId]: currentMsgs.map((m) =>
+                m.id === thread.parentMessageId
+                  ? { ...m, threadReplyCount: (m.threadReplyCount || 0) + 1 }
+                  : m
+              ),
+            },
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn("[ChatStore] sendThreadMessageAction error:", e);
+    }
+  },
+
+  addThreadMessage: (threadId: string, message: ThreadMessage) => {
+    set((state) => {
+      const current = state.threadMessages[threadId] || [];
+      if (current.some((m) => m.id === message.id)) return state;
+      return {
+        threadMessages: {
+          ...state.threadMessages,
+          [threadId]: [...current, message],
+        },
+      };
+    });
+  },
+
+  subscribeToThread: (threadId: string) => {
+    get().unsubscribeFromThread();
+    try {
+      const supabase = getSupabaseClient();
+      const channel = supabase.channel(`thread:${threadId}`, {
+        config: { broadcast: { self: false } },
+      });
+
+      channel
+        .on("broadcast", { event: "new_thread_message" }, ({ payload }: { payload: any }) => {
+          const raw = payload?.message || payload;
+          if (raw && (raw.id || raw.content)) {
+            const formatted: ThreadMessage = {
+              id: raw.id,
+              threadId: raw.threadId || threadId,
+              content: raw.content,
+              author: {
+                id: raw.author?.id || raw.authorId || "unknown",
+                name: raw.author?.displayName || raw.author?.username || "Member",
+                avatar: raw.author?.avatarUrl || null,
+              },
+              createdAt: raw.createdAt || new Date().toISOString(),
+            };
+            get().addThreadMessage(threadId, formatted);
+          }
+        })
+        .subscribe();
+
+      // Polling fallback
+      const pollTimer = setInterval(() => {
+        fetchThreadMessages(threadId)
+          .then((res) => {
+            if (res.messages && res.messages.length > 0) {
+              const formatted: ThreadMessage[] = res.messages.map((m: any) => ({
+                id: m.id,
+                threadId: m.threadId || threadId,
+                content: m.content,
+                author: {
+                  id: m.author?.id || m.authorId || "unknown",
+                  name: m.author?.displayName || m.author?.username || "Member",
+                  avatar: m.author?.avatarUrl || null,
+                },
+                createdAt: m.createdAt,
+              }));
+
+              const current = get().threadMessages[threadId] || [];
+              if (
+                current.length !== formatted.length ||
+                (formatted.length > 0 && current[current.length - 1]?.id !== formatted[formatted.length - 1]?.id)
+              ) {
+                set((state) => ({
+                  threadMessages: {
+                    ...state.threadMessages,
+                    [threadId]: formatted,
+                  },
+                }));
+              }
+            }
+          })
+          .catch(() => {});
+      }, 2500);
+
+      set({ activeThreadSubscription: channel, threadPollTimer: pollTimer });
+    } catch {}
+  },
+
+  unsubscribeFromThread: () => {
+    const { activeThreadSubscription, threadPollTimer } = get();
+    if (threadPollTimer) clearInterval(threadPollTimer);
+    if (activeThreadSubscription) {
+      try {
+        const supabase = getSupabaseClient();
+        supabase.removeChannel(activeThreadSubscription);
+      } catch {}
+      set({ activeThreadSubscription: null, threadPollTimer: null });
     }
   },
 }));

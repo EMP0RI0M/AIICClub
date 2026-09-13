@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,10 @@ import {
   ScrollView,
   Image,
   Linking,
+  Platform,
 } from "react-native";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   X,
   Shield,
@@ -22,6 +25,7 @@ import {
   BookOpen,
 } from "lucide-react-native";
 import { colors } from "@/theme/tokens";
+import { formatAvatarUrl } from "../../lib/avatar";
 
 export interface UserProfileData {
   id: string;
@@ -43,22 +47,30 @@ export interface UserProfileData {
   email?: string | null;
 }
 
+interface UserProfileModalProps {
+  visible: boolean;
+  user: UserProfileData | null;
+  onClose: () => void;
+  onMessage?: () => void;
+  onVoiceCall?: () => void;
+  onVideoCall?: () => void;
+  onCall?: (video: boolean) => void;
+}
+
 export function UserProfileModal({
   visible,
-  onClose,
   user,
+  onClose,
   onMessage,
+  onVoiceCall,
+  onVideoCall,
   onCall,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  user: UserProfileData | null;
-  onMessage?: () => void;
-  onCall?: (video: boolean) => void;
-}) {
+}: UserProfileModalProps) {
+  const [avatarError, setAvatarError] = useState(false);
   if (!user) return null;
 
-  const avatar = user.avatarUrl || user.avatar;
+  const rawAvatar = user.avatarUrl || user.avatar;
+  const avatar = formatAvatarUrl(rawAvatar);
   const roleKey = (user.role || "member").toLowerCase();
   const roleDisplay =
     user.roleName ||
@@ -77,6 +89,9 @@ export function UserProfileModal({
     }
   };
 
+  const handleVoiceCall = onVoiceCall || (onCall ? () => onCall(false) : undefined);
+  const handleVideoCall = onVideoCall || (onCall ? () => onCall(true) : undefined);
+
   return (
     <Modal
       visible={visible}
@@ -85,9 +100,22 @@ export function UserProfileModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          <BlurView intensity={Platform.OS === "ios" ? 25 : 15} tint="dark" style={StyleSheet.absoluteFill} />
+        </Pressable>
 
         <View style={styles.sheet}>
+          <BlurView intensity={Platform.OS === "ios" ? 45 : 30} tint="dark" style={StyleSheet.absoluteFill} />
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.09)", "rgba(255, 255, 255, 0.02)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          {/* Subtle Ambient Refraction Orbs */}
+          <View style={styles.glowAmber} pointerEvents="none" />
+          <View style={styles.glowTeal} pointerEvents="none" />
+
           {/* Header Bar */}
           <View style={styles.sheetHeader}>
             <View style={styles.dragPill} />
@@ -103,9 +131,17 @@ export function UserProfileModal({
           >
             {/* Profile Banner & Identity Header */}
             <View style={styles.identityCard}>
+              <LinearGradient
+                colors={["rgba(232, 163, 61, 0.08)", "rgba(255, 255, 255, 0.02)"]}
+                style={StyleSheet.absoluteFill}
+              />
               <View style={styles.avatarWrap}>
-                {avatar ? (
-                  <Image source={{ uri: avatar }} style={styles.avatarImg} />
+                {avatar && !avatarError ? (
+                  <Image
+                    source={{ uri: avatar }}
+                    style={styles.avatarImg}
+                    onError={() => setAvatarError(true)}
+                  />
                 ) : (
                   <View style={styles.avatarFallback}>
                     <Text style={styles.avatarLetter}>
@@ -267,7 +303,7 @@ export function UserProfileModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
+    backgroundColor: "rgba(0,0,0,0.55)",
     justifyContent: "flex-end",
   },
   backdrop: {
@@ -278,13 +314,34 @@ const styles = StyleSheet.create({
     right: 0,
   },
   sheet: {
-    height: "82%",
-    backgroundColor: "#0D0F17",
+    height: "84%",
+    backgroundColor: "rgba(10, 11, 16, 0.78)",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderTopWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
     paddingTop: 12,
+    overflow: "hidden",
+  },
+  glowAmber: {
+    position: "absolute",
+    top: -40,
+    right: -40,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: "rgba(232, 163, 61, 0.15)",
+  },
+  glowTeal: {
+    position: "absolute",
+    bottom: 80,
+    left: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(45, 212, 191, 0.1)",
   },
   sheetHeader: {
     flexDirection: "row",
@@ -297,7 +354,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
     alignSelf: "center",
     marginLeft: 18,
   },
@@ -305,7 +362,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -319,11 +378,12 @@ const styles = StyleSheet.create({
   },
   identityCard: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: 22,
     padding: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
+    overflow: "hidden",
   },
   avatarWrap: {
     position: "relative",
