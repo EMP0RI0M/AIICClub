@@ -393,7 +393,7 @@ export function MobileThreadModal({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#050505",
+    backgroundColor: "rgba(5, 6, 10, 0.96)",
   },
   header: {
     flexDirection: "row",
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: radius.full,
-    backgroundColor: "#0d0d10",
+    backgroundColor: "rgba(18, 18, 26, 0.85)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     marginHorizontal: 8,

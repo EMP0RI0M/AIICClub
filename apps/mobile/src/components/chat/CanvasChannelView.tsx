@@ -676,7 +676,7 @@ export function CanvasChannelView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#08090E",
+    backgroundColor: "transparent",
   },
   header: {
     flexDirection: "row",

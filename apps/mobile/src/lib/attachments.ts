@@ -1,4 +1,4 @@
-export type AttachmentKind = "image" | "video" | "document" | "file" | "gif" | "audio";
+export type AttachmentKind = "image" | "video" | "document" | "file" | "gif" | "sticker" | "audio";
 
 export interface SharedAttachment {
   url: string;
@@ -75,7 +75,9 @@ export function parseAttachmentContent(content: string): SharedAttachment | null
 
     const mime = (parsed.mimeType || parsed.type || "").toLowerCase();
     let kind: AttachmentKind = "file";
-    if (parsed.kind === "gif" || mime === "image/gif" || parsed.url.includes(".gif")) {
+    if (parsed.kind === "sticker") {
+      kind = "sticker";
+    } else if (parsed.kind === "gif" || mime === "image/gif" || parsed.url.includes(".gif")) {
       kind = "gif";
     } else if (parsed.kind === "image" || mime.startsWith("image/") || parsed.url.match(/\.(png|jpe?g|webp|avif|bmp)($|\?)/i)) {
       kind = "image";

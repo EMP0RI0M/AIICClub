@@ -1110,10 +1110,10 @@ export function MobileAdminView({ initialData }: { initialData?: any }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#050505",
+    backgroundColor: "transparent",
   },
   header: {
-    backgroundColor: "rgba(10, 10, 12, 0.98)",
+    backgroundColor: "rgba(18, 24, 34, 0.58)",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
     paddingTop: 12,
@@ -1626,7 +1626,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalSheetCard: {
-    backgroundColor: "#11121A",
+    backgroundColor: "rgba(16, 18, 26, 0.97)",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: 1,

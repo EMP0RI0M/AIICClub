@@ -181,7 +181,7 @@ export default function ProjectsListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
   },
   header: {
     paddingHorizontal: 16,

@@ -230,6 +230,23 @@ export function CreateChannelModal({
             </Pressable>
           </View>
 
+          <View style={styles.creationModeRow}>
+            <Pressable
+              onPress={() => setIsCustomCategory(false)}
+              style={[styles.creationModeOption, !isCustomCategory && styles.creationModeOptionActive]}
+            >
+              <Plus size={15} color={!isCustomCategory ? theme.colors.accent : colors.textMuted} />
+              <Text style={[styles.creationModeText, !isCustomCategory && { color: theme.colors.accent }]}>Create Channel</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setIsCustomCategory(true)}
+              style={[styles.creationModeOption, isCustomCategory && styles.creationModeOptionActive]}
+            >
+              <FolderPlus size={15} color={isCustomCategory ? theme.colors.accent : colors.textMuted} />
+              <Text style={[styles.creationModeText, isCustomCategory && { color: theme.colors.accent }]}>Create Category</Text>
+            </Pressable>
+          </View>
+
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -460,7 +477,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     height: "72%",
-    backgroundColor: "rgba(12, 14, 22, 0.95)",
+    backgroundColor: "rgba(12, 14, 22, 0.52)",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     borderTopWidth: 1,
@@ -481,6 +498,33 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
+  },
+  creationModeRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  creationModeOption: {
+    flex: 1,
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.045)",
+  },
+  creationModeOptionActive: {
+    backgroundColor: "rgba(45, 212, 191, 0.10)",
+    borderColor: "rgba(45, 212, 191, 0.28)",
+  },
+  creationModeText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
   },
   headerBadge: {
     flexDirection: "row",

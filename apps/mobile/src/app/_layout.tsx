@@ -1,28 +1,27 @@
-import React, { useEffect } from "react";
-import { Stack, useRouter, useSegments } from "expo-router";
+import React, { useEffect, useRef } from "react";
+import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { View, ActivityIndicator, StyleSheet, LogBox } from "react-native";
+import { View, ActivityIndicator, StyleSheet } from "react-native";
 import * as Linking from "expo-linking";
 import { useAuthStore } from "../stores/auth-store";
 import { colors } from "../theme/tokens";
 import { NotificationBanner } from "../components/ui/NotificationBanner";
 import { IncomingCallModal } from "../components/call/IncomingCallModal";
 import { globalCallSignaling } from "../lib/call-signaling";
-
-// Suppress runtime debug warning overlays from floating over mobile preview
-LogBox.ignoreAllLogs(true);
-
 import { WallpaperBackground } from "../components/theme/WallpaperBackground";
 
 export default function RootLayout() {
   const { user, isAuthenticated, isRestoring, restoreSession, handleOAuthCallback } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
+  const routerMounted = Boolean(rootNavigationState?.key);
+  const redirectIssued = useRef(false);
 
   useEffect(() => {
     restoreSession();
-  }, []);
+  }, [restoreSession]);
 
   // Global Realtime Call Signaling for incoming calls anywhere in the app
   useEffect(() => {
@@ -79,26 +78,19 @@ export default function RootLayout() {
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [handleOAuthCallback, router, routerMounted]);
 
   useEffect(() => {
-    if (isRestoring) return;
+    if (isRestoring || !routerMounted || !segments[0]) return;
 
     const inAppGroup = segments[0] === "(app)";
 
-    if (isAuthenticated && !inAppGroup) {
+    if (isAuthenticated && !inAppGroup && !redirectIssued.current) {
       // User is authenticated, ensure they are inside the main app
+      redirectIssued.current = true;
       router.replace("/(app)/spaces/space-aiic-main/c-general");
     }
-  }, [isAuthenticated, isRestoring, segments]);
-
-  if (isRestoring) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.accent} />
-      </View>
-    );
-  }
+  }, [isAuthenticated, isRestoring, routerMounted, router, segments]);
 
   return (
     <SafeAreaProvider>
@@ -118,16 +110,23 @@ export default function RootLayout() {
           <Stack.Screen name="(app)" options={{ headerShown: false }} />
           <Stack.Screen name="(admin)" options={{ headerShown: false }} />
         </Stack>
+        {isRestoring && (
+          <View style={styles.loadingOverlay} pointerEvents="auto">
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        )}
       </WallpaperBackground>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.background,
+    opacity: 0.96,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 100,
   },
 });

@@ -198,6 +198,14 @@ export async function fetchChannelMessages(
   );
 }
 
+export async function markChannelRead(channelId: string) {
+  return api<{ success: boolean }>(`/channels/${channelId}/read`, { method: "POST" });
+}
+
+export async function markDMRead(conversationId: string) {
+  return api<{ success: boolean }>(`/dms/${conversationId}/read`, { method: "POST" });
+}
+
 export async function sendChannelMessage(
   channelId: string,
   content: string,
@@ -680,4 +688,3 @@ export async function declineDMCall(conversationId: string) {
     method: "POST",
   });
 }
-

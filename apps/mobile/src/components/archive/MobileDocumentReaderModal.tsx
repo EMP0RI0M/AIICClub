@@ -305,7 +305,7 @@ export function MobileDocumentReaderModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B0C10",
+    backgroundColor: "rgba(10, 11, 15, 0.97)",
   },
   header: {
     flexDirection: "row",

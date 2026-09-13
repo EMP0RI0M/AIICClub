@@ -673,7 +673,7 @@ function SubmitArchiveModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#080A0F",
+    backgroundColor: "transparent",
   },
   ambientGlowAmber: {
     position: "absolute",
@@ -838,7 +838,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.10)",
-    backgroundColor: "rgba(18, 22, 30, 0.72)",
+    backgroundColor: "rgba(18, 22, 30, 0.42)",
     gap: 8,
   },
   cardTop: {

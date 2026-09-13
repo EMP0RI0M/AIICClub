@@ -869,7 +869,7 @@ export default function DMsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07090E",
+    backgroundColor: "transparent",
   },
   ambientGlowAmber: {
     position: "absolute",

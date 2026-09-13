@@ -26,6 +26,7 @@
         "backgroundColor": "#0A0B11"
       },
       "package": "org.aiic.mobile",
+      "softwareKeyboardLayoutMode": "resize",
       "intentFilters": [
         {
           "action": "VIEW",

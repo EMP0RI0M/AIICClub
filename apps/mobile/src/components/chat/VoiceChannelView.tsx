@@ -393,7 +393,7 @@ export function VoiceChannelView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
   },
   header: {
     flexDirection: "row",
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    backgroundColor: "rgba(28, 30, 42, 0.58)",
     alignItems: "center",
     justifyContent: "center",
   },

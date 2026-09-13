@@ -137,6 +137,38 @@ const SYMBOL_MAP: Record<string, string> = {
   "\\#": "#",
 };
 
+function splitTableRow(line: string): string[] {
+  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+}
+
+function isTableSeparator(line: string): boolean {
+  const cells = splitTableRow(line);
+  return cells.length >= 2 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function MarkdownTable({ rows, textColor, fontSize }: { rows: string[][]; textColor?: string; fontSize: number }) {
+  const columnCount = Math.max(...rows.map((row) => row.length));
+  return (
+    <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.tableScroll}>
+      <View style={styles.table}>
+        {rows.map((row, rowIndex) => (
+          <View key={`table-row-${rowIndex}`} style={[styles.tableRow, rowIndex === 0 && styles.tableHeaderRow]}>
+            {Array.from({ length: columnCount }).map((_, columnIndex) => (
+              <View key={`table-cell-${rowIndex}-${columnIndex}`} style={styles.tableCell}>
+                <InlineText
+                  text={row[columnIndex] || ""}
+                  textColor={textColor}
+                  fontSize={fontSize * 0.92}
+                />
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
 const SUPERSCRIPTS: Record<string, string> = {
   "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
   "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
@@ -493,6 +525,28 @@ export function RichMarkdown({
   while (i < lines.length) {
     const line = lines[i];
 
+    // GitHub-style Markdown table: header row, separator row, then body rows.
+    const headerCells = line.includes("|") ? splitTableRow(line) : [];
+    const separatorCells = i + 1 < lines.length && lines[i + 1].includes("|") ? splitTableRow(lines[i + 1]) : [];
+    if (headerCells.length >= 2 && separatorCells.length === headerCells.length && isTableSeparator(lines[i + 1])) {
+      const tableRows = [splitTableRow(line)];
+      i += 2;
+      while (
+        i < lines.length &&
+        tableRows.length < 50 &&
+        lines[i].includes("|") &&
+        lines[i].trim().length > 0 &&
+        splitTableRow(lines[i]).length === headerCells.length
+      ) {
+        tableRows.push(splitTableRow(lines[i]));
+        i++;
+      }
+      blocks.push(
+        <MarkdownTable key={`table-${i}`} rows={tableRows} textColor={textColor} fontSize={fontSize} />
+      );
+      continue;
+    }
+
     // Fenced code block ```lang
     if (line.trim().startsWith("```")) {
       const lang = line.trim().slice(3).trim();
@@ -676,11 +730,44 @@ const styles = StyleSheet.create({
   container: {
     gap: 3,
   },
+  tableScroll: {
+    maxWidth: "100%",
+    maxHeight: 280,
+    marginVertical: 5,
+  },
+  table: {
+    minWidth: 360,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  tableRow: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.025)",
+  },
+  tableHeaderRow: {
+    borderTopWidth: 0,
+    backgroundColor: "rgba(45,212,191,0.10)",
+  },
+  tableCell: {
+    width: 150,
+    minHeight: 38,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRightWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
   paragraph: {
     marginVertical: 1.5,
   },
   baseText: {
     color: colors.textPrimary,
+    flexShrink: 1,
+    minWidth: 0,
     fontFamily: Platform.OS === "ios" ? "System" : "Roboto",
   },
   boldText: {
@@ -696,6 +783,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     color: colors.accent,
+    flexShrink: 1,
     textDecorationLine: "underline",
   },
   inlineCodePill: {

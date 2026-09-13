@@ -23,7 +23,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "../../../../stores/auth-store";
 import { useWorkspaceStore } from "../../../../stores/workspace-store";
 import { useChatStore } from "../../../../stores/chat-store";
-import { api, searchUsers, publishAnnouncement, fetchUserProfile, fetchOrgMembers } from "../../../../lib/api";
+import { api, searchUsers, publishAnnouncement, fetchUserProfile, fetchOrgMembers, fetchChannelMessages } from "../../../../lib/api";
 import { NativeHaptics } from "../../../../lib/haptics";
 import { notificationService } from "../../../../lib/notifications";
 import { AttachmentCard, parseMessageAttachments } from "../../../../components/chat/AttachmentCard";
@@ -62,6 +62,9 @@ import { ExpressionSheet, type ExpressionTab } from "@/components/chat/Expressio
 import { WallpaperBackground } from "@/components/theme/WallpaperBackground";
 import { ThemeCustomizerModal } from "@/components/theme/ThemeCustomizerModal";
 import { LiquidUserDock } from "@/components/workspace/LiquidUserDock";
+import { GlassBackButton } from "@/components/ui/GlassBackButton";
+import { RoundBackButton } from "@/components/ui/RoundBackButton";
+import { RoundIconButton } from "@/components/ui/RoundIconButton";
 import { SpaceMembersSheet, type SpaceMemberItem } from "@/components/workspace/SpaceMembersSheet";
 import { useThemeStore } from "@/stores/theme-store";
 import { useVoiceRecorder } from "../../../../lib/voice-recorder";
@@ -100,6 +103,7 @@ import {
   Sparkles,
   Smile,
   Paperclip,
+  Camera,
   Trash2,
   CornerUpLeft,
   Layers,
@@ -113,6 +117,8 @@ import {
   MoreHorizontal,
   Copy,
   RefreshCw,
+  Pin,
+  AtSign,
 } from "lucide-react-native";
 import * as Clipboard from "expo-clipboard";
 
@@ -255,7 +261,7 @@ function SpaceRail({
               hitSlop={4}
             >
               <MessageSquare
-                size={26}
+                size={24}
                 color={currentSection === "dm" ? theme.colors.accent : colors.textMuted}
               />
             </Pressable>
@@ -333,7 +339,7 @@ function SpaceRail({
               ]}
               hitSlop={4}
             >
-              <Plus size={26} color={theme.colors.accent} />
+              <Plus size={24} color={theme.colors.accent} />
             </Pressable>
           </View>
         </ScrollView>
@@ -360,7 +366,7 @@ function SpaceRail({
               ]}
               hitSlop={4}
             >
-              <Bell size={24} color={currentSection === "notices" ? theme.colors.accent : colors.textMuted} />
+              <Bell size={22} color={currentSection === "notices" ? theme.colors.accent : colors.textMuted} />
             </Pressable>
           </View>
 
@@ -382,7 +388,7 @@ function SpaceRail({
               ]}
               hitSlop={4}
             >
-              <Archive size={24} color={currentSection === "archive" ? theme.colors.accent : colors.textMuted} />
+              <Archive size={22} color={currentSection === "archive" ? theme.colors.accent : colors.textMuted} />
             </Pressable>
           </View>
 
@@ -405,7 +411,7 @@ function SpaceRail({
                 ]}
                 hitSlop={4}
               >
-                <Settings size={24} color={currentSection === "admin" ? theme.colors.accent : colors.textMuted} />
+                <Settings size={22} color={currentSection === "admin" ? theme.colors.accent : colors.textMuted} />
               </Pressable>
             </View>
           )}
@@ -599,7 +605,7 @@ function SelectedSpaceView({
       <View style={styles.spaceHeaderCardWrap}>
         <BlurView intensity={35} tint="dark" style={styles.spaceHeaderGlassCard}>
           <LinearGradient
-            colors={["rgba(25, 30, 42, 0.78)", "rgba(14, 18, 26, 0.88)"]}
+            colors={["rgba(58, 68, 88, 0.46)", "rgba(28, 36, 52, 0.58)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={styles.spaceHeaderGlassGradient}
@@ -657,7 +663,7 @@ function SelectedSpaceView({
                 <Text style={styles.noticeTitle} numberOfLines={1}>
                   {notice.title || "Announcement"}
                 </Text>
-                <ChevronRight size={14} color={colors.textMuted} />
+                <ChevronRight size={14} color={colors.textMuted} style={styles.noticeChevron} />
               </Pressable>
             ) : null}
           </LinearGradient>
@@ -696,7 +702,6 @@ function SelectedSpaceView({
                     setInitialCategoryForCreate(category);
                     setShowCreateChannel(true);
                   }}
-                  style={styles.categoryAddBtn}
                   hitSlop={8}
                 >
                   <Plus size={14} color={colors.textMuted} />
@@ -799,6 +804,8 @@ function SelectedSpaceView({
 
 function ChannelRouter({
   channel,
+  availableChannels,
+  onSelectChannel,
   messages,
   onBack,
   onSend,
@@ -809,6 +816,8 @@ function ChannelRouter({
   isAdmin,
 }: {
   channel: Channel;
+  availableChannels: Channel[];
+  onSelectChannel: (channelId: string) => void;
   messages: Message[];
   onBack: () => void;
   onSend: (content: string, replyToId?: string) => Promise<void>;
@@ -843,6 +852,8 @@ function ChannelRouter({
   return (
     <TextChannelScreen
       channel={channel}
+      availableChannels={availableChannels}
+      onSelectChannel={onSelectChannel}
       messages={messages}
       onBack={onBack}
       onSend={onSend}
@@ -861,6 +872,8 @@ function ChannelRouter({
 
 function TextChannelScreen({
   channel,
+  availableChannels,
+  onSelectChannel,
   messages,
   onBack,
   onSend,
@@ -871,6 +884,8 @@ function TextChannelScreen({
   isAdmin,
 }: {
   channel: Channel;
+  availableChannels: Channel[];
+  onSelectChannel: (channelId: string) => void;
   messages: Message[];
   onBack: () => void;
   onSend: (content: string, replyToId?: string) => Promise<void>;
@@ -880,6 +895,7 @@ function TextChannelScreen({
   currentUserId?: string;
   isAdmin?: boolean;
 }) {
+  const theme = useAppTheme();
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [activeThreadMessage, setActiveThreadMessage] = useState<Message | null>(null);
   const isSpecialized =
@@ -893,6 +909,90 @@ function TextChannelScreen({
   const [activeTab, setActiveTab] = useState<"tool" | "chat">(
     isSpecialized ? "tool" : "chat"
   );
+  const [showChannelMembers, setShowChannelMembers] = useState(false);
+  const [channelMembers, setChannelMembers] = useState<SpaceMemberItem[]>([]);
+  const [channelOptionsOpen, setChannelOptionsOpen] = useState(false);
+  const [channelPickerOpen, setChannelPickerOpen] = useState(false);
+  const [channelThemeOpen, setChannelThemeOpen] = useState(false);
+  const [channelTool, setChannelTool] = useState<"pins" | "search" | "mentions" | "insight" | null>(null);
+  const [channelSearch, setChannelSearch] = useState("");
+  const [channelSearchResults, setChannelSearchResults] = useState<any[]>([]);
+  const [channelPins, setChannelPins] = useState<any[]>([]);
+  const [channelInsight, setChannelInsight] = useState("");
+  const [channelToolLoading, setChannelToolLoading] = useState(false);
+  const [channelNotifications, setChannelNotifications] = useState(false);
+
+  const openChannelTool = async (tool: "pins" | "search" | "mentions" | "insight") => {
+    setChannelOptionsOpen(false);
+    setChannelTool(tool);
+    if (tool === "pins") {
+      setChannelToolLoading(true);
+      try {
+        const result = await api<{ pins: any[] }>(`/channels/${channel.id}/pins`);
+        setChannelPins(result.pins || []);
+      } catch (error) {
+        notificationService.show({ title: "Pinned messages", body: error instanceof Error ? error.message : "Unable to load pinned messages.", type: "warning" });
+      } finally {
+        setChannelToolLoading(false);
+      }
+    }
+    if (tool === "insight") {
+      setChannelToolLoading(true);
+      try {
+        const history = await fetchChannelMessages(channel.id, 100);
+        const previous = (history.messages || []).slice().reverse();
+        const usable = previous
+          .map((message: any) => String(message.content || "").replace(/\s+/g, " ").trim())
+          .filter(Boolean);
+        if (!usable.length) {
+          setChannelInsight("There are no messages to summarize yet.");
+        } else {
+          const recent = usable.slice(-8);
+          const topics = Array.from(new Set(
+            recent.join(" ").toLowerCase().match(/\b[a-z][a-z0-9-]{4,}\b/g) || []
+          )).slice(0, 6);
+          setChannelInsight(
+            `This channel has ${usable.length} messages. The latest discussion focuses on ${topics.length ? topics.join(", ") : "the recent conversation"}. Recent context: ${recent.slice(-3).join(" • ")}`
+          );
+        }
+      } catch (error) {
+        setChannelInsight(error instanceof Error ? error.message : "Unable to analyze this channel right now.");
+      } finally {
+        setChannelToolLoading(false);
+      }
+    }
+  };
+
+  const runChannelSearch = async () => {
+    const query = channelSearch.trim();
+    if (query.length < 2) return;
+    setChannelToolLoading(true);
+    try {
+      const result = await api<{ results: any[] }>(`/channels/${channel.id}/messages/search?q=${encodeURIComponent(query)}`);
+      setChannelSearchResults(result.results || []);
+    } catch (error) {
+      notificationService.show({ title: "Channel search", body: error instanceof Error ? error.message : "Unable to search this channel.", type: "warning" });
+    } finally {
+      setChannelToolLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrgMembers(channel.serverId)
+      .then((res) => {
+        const members = (res?.members || []).map((member: any) => ({
+          id: member.id,
+          name: member.displayName || member.username || "Member",
+          avatar: member.avatar || member.avatarUrl || null,
+          role: member.role || "Member",
+          roleColor: member.roleColor,
+          presence: member.presence || member.status || "offline",
+          statusText: member.statusText,
+        }));
+        setChannelMembers(members);
+      })
+      .catch(() => setChannelMembers([]));
+  }, [channel.serverId]);
 
   return (
     <KeyboardAvoidingView
@@ -905,48 +1005,38 @@ function TextChannelScreen({
       <View style={styles.ambientGlowTeal} pointerEvents="none" />
       <View style={styles.ambientGlowPurple} pointerEvents="none" />
 
-      {/* Curved Liquid Glass Header */}
-      {/* Dynamic Curvy Floating Header Capsule (Matching DM Screen) */}
-      <View style={styles.headerCapsuleWrap}>
-        <BlurView intensity={35} tint="dark" style={styles.headerCapsule}>
-          <LinearGradient
-            colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
-            style={StyleSheet.absoluteFillObject}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+      {/* Floating liquid-glass channel header */}
+      <View style={[styles.headerCapsuleWrap, styles.channelHeaderWrap]}>
+        <View style={[styles.headerCapsule, styles.channelHeaderCapsule]}>
+          {/* Back */}
+          <GlassBackButton
+            onPress={onBack}
+            size={48}
+            iconSize={23}
+            style={{ borderRadius: 24 }}
           />
-          <Pressable onPress={onBack} hitSlop={12} style={styles.headerBackBtn}>
-            <ChevronLeft size={20} color={colors.textPrimary} />
+
+          {/* Channel pill */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Channel ${channel.name}`}
+            onPress={() => setChannelPickerOpen(true)}
+            style={({ pressed }) => [
+              styles.channelHeaderPill,
+              pressed && styles.channelHeaderPillPressed,
+            ]}
+          >
+            <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <View style={styles.channelPillHighlight} />
+            <Hash size={24} color={colors.accentTeal} />
+            <Text style={styles.channelHeaderName} numberOfLines={1}>
+              {channel.name}
+            </Text>
+            <ChevronDown size={20} color="#F0EEF5" />
           </Pressable>
 
-          <View style={styles.headerCenter}>
-            <View style={styles.headerAvatarBadge}>
-              {channel.type === "github" ? (
-                <Github size={16} color={colors.accentTeal} />
-              ) : channel.type === "board" || channel.type === "project" ? (
-                <Kanban size={16} color={colors.accentWarm} />
-              ) : channel.type === "docs" ? (
-                <FileText size={16} color={colors.info} />
-              ) : channel.type === "incident" ? (
-                <AlertTriangle size={16} color={colors.danger} />
-              ) : channel.type === "canvas" ? (
-                <Layers size={16} color={colors.accent} />
-              ) : (
-                <Hash size={16} color={colors.accent} />
-              )}
-            </View>
-            <View style={{ minWidth: 0, flex: 1 }}>
-              <Text style={styles.headerName} numberOfLines={1}>
-                {channel.name}
-              </Text>
-              <Text style={styles.headerSub} numberOfLines={1}>
-                {channel.topic || "AIIC · SPACE CHANNEL"}
-              </Text>
-            </View>
-          </View>
-
-          {/* Specialized Channel View Switcher (Tool ⟷ Chat) */}
-          {isSpecialized && (
+          {/* Specialized channel tab switcher intentionally hidden. */}
+          {false && isSpecialized && (
             <View style={styles.channelViewToggleWrap}>
               <Pressable
                 onPress={() => setActiveTab("tool")}
@@ -993,29 +1083,159 @@ function TextChannelScreen({
             </View>
           )}
 
+          {/* Right actions */}
           <View style={styles.channelCapsuleActions}>
-            <Pressable
-              style={styles.iconBtn}
+            {/* Refresh */}
+            <RoundIconButton
               onPress={() => {
                 NativeHaptics.light();
-                useChatStore.getState().loadChannelMessages(channel.id);
+                setShowChannelMembers(true);
               }}
+              size={46}
               hitSlop={6}
             >
-              <RotateCw size={15} color={colors.textSecondary} />
-            </Pressable>
-            <Pressable
-              style={styles.iconBtn}
+              <Users size={18} color={colors.textSecondary} />
+            </RoundIconButton>
+
+            {/* More options */}
+            <RoundIconButton
               onPress={() => {
                 NativeHaptics.light();
+                setChannelOptionsOpen(true);
               }}
+              size={46}
               hitSlop={6}
             >
-              <MoreHorizontal size={16} color={colors.textSecondary} />
-            </Pressable>
+              <MoreHorizontal size={18} color={colors.textSecondary} />
+            </RoundIconButton>
           </View>
-        </BlurView>
+        </View>
       </View>
+
+      <SpaceMembersSheet
+        visible={showChannelMembers}
+        onClose={() => setShowChannelMembers(false)}
+        spaceName="Space Members"
+        members={channelMembers}
+      />
+
+      <Modal visible={channelPickerOpen} transparent animationType="fade" onRequestClose={() => setChannelPickerOpen(false)}>
+        <Pressable style={styles.channelOptionsBackdrop} onPress={() => setChannelPickerOpen(false)}>
+          <Pressable
+            style={[styles.channelPickerSheet, { backgroundColor: `${theme.colors.surface}E8`, borderColor: theme.colors.accentBorder }]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.channelOptionsHandle} />
+            <Text style={styles.channelOptionsTitle}>Channels</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {availableChannels.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={[styles.channelPickerRow, item.id === channel.id && { backgroundColor: theme.colors.accentSoft }]}
+                  onPress={() => {
+                    setChannelPickerOpen(false);
+                    if (item.id !== channel.id) onSelectChannel(item.id);
+                  }}
+                >
+                  <Hash size={19} color={item.id === channel.id ? theme.colors.accent : colors.textMuted} />
+                  <Text style={[styles.channelPickerText, item.id === channel.id && { color: theme.colors.accent }]} numberOfLines={1}>{item.name}</Text>
+                  {item.id === channel.id && <Text style={[styles.channelPickerCurrent, { color: theme.colors.accent }]}>Current</Text>}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={channelOptionsOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setChannelOptionsOpen(false)}
+      >
+        <Pressable style={styles.channelOptionsBackdrop} onPress={() => setChannelOptionsOpen(false)}>
+          <Pressable
+            style={[styles.channelOptionsSheet, { backgroundColor: `${theme.colors.surface}A6`, borderColor: theme.colors.accentBorder }]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.channelOptionsHandle} />
+            <Text style={styles.channelOptionsTitle}>#{channel.name}</Text>
+            {[
+              { label: "Notifications", icon: Bell, onPress: () => {
+                setChannelNotifications((enabled) => {
+                  const next = !enabled;
+                  notificationService.show({ title: "Channel notifications", body: next ? `Notifications enabled for #${channel.name}.` : `Notifications muted for #${channel.name}.`, type: "success" });
+                  return next;
+                });
+                setChannelOptionsOpen(false);
+              } },
+              { label: "Pinned Messages", icon: Pin, onPress: () => openChannelTool("pins") },
+              { label: "Search Channel", icon: Search, onPress: () => openChannelTool("search") },
+              { label: "Mentions", icon: AtSign, onPress: () => openChannelTool("mentions") },
+              { label: "AI Insight", icon: Sparkles, onPress: () => openChannelTool("insight") },
+            ].map(({ label, icon: Icon, onPress }) => (
+              <Pressable
+                key={label}
+                style={[styles.channelOptionRow, { backgroundColor: theme.colors.accentSoft }]}
+                onPress={onPress}
+              >
+                <Icon size={19} color={theme.colors.accent} />
+                <Text style={styles.channelOptionText}>{label}{label === "Notifications" && (channelNotifications ? " · On" : " · Off")}</Text>
+                <ChevronRight size={17} color={colors.textMuted} />
+              </Pressable>
+            ))}
+            <Pressable
+              style={[styles.channelOptionRow, { backgroundColor: theme.colors.accentSoft }]}
+              onPress={() => {
+                setChannelOptionsOpen(false);
+                setChannelThemeOpen(true);
+              }}
+            >
+              <Palette size={19} color={theme.colors.accent} />
+              <Text style={styles.channelOptionText}>Theme</Text>
+              <ChevronRight size={17} color={colors.textMuted} />
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <ThemeCustomizerModal
+        visible={channelThemeOpen}
+        onClose={() => setChannelThemeOpen(false)}
+      />
+
+      <Modal visible={channelTool !== null} transparent animationType="fade" onRequestClose={() => setChannelTool(null)}>
+        <Pressable style={styles.channelOptionsBackdrop} onPress={() => setChannelTool(null)}>
+          <Pressable
+            style={[styles.channelToolSheet, { backgroundColor: `${theme.colors.surface}E8`, borderColor: theme.colors.accentBorder }]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.channelOptionsHandle} />
+            <View style={styles.channelToolHeader}>
+              <Text style={styles.channelOptionsTitle}>
+                {channelTool === "pins" ? "Pinned Messages" : channelTool === "search" ? "Search Channel" : channelTool === "mentions" ? "Mentions" : "AI Insight"}
+              </Text>
+              <Pressable onPress={() => setChannelTool(null)}><Text style={[styles.channelToolClose, { color: theme.colors.accent }]}>Done</Text></Pressable>
+            </View>
+
+            {channelTool === "search" && (
+              <View>
+                <View style={[styles.channelSearchRow, { borderColor: theme.colors.accentBorder }]}>
+                  <Search size={18} color={theme.colors.accent} />
+                  <TextInput value={channelSearch} onChangeText={setChannelSearch} onSubmitEditing={runChannelSearch} placeholder="Search messages" placeholderTextColor={colors.textMuted} style={styles.channelSearchInput} returnKeyType="search" />
+                  <Pressable onPress={runChannelSearch}><Text style={[styles.channelToolAction, { color: theme.colors.accent }]}>Search</Text></Pressable>
+                </View>
+                <ScrollView style={styles.channelToolList} keyboardShouldPersistTaps="handled">
+                  {channelToolLoading ? <ActivityIndicator color={theme.colors.accent} /> : channelSearchResults.length ? channelSearchResults.map((item) => <View key={item.id} style={[styles.channelToolItem, { borderColor: theme.colors.accentBorder }]}><Text style={styles.channelToolMeta}>{item.author?.displayName || item.author?.username || "Member"}</Text><Text style={styles.channelToolBody}>{item.content}</Text></View>) : <Text style={styles.channelToolEmpty}>Search for at least two characters to find messages.</Text>}
+                </ScrollView>
+              </View>
+            )}
+            {channelTool === "pins" && <ScrollView style={styles.channelToolList}>{channelToolLoading ? <ActivityIndicator color={theme.colors.accent} /> : channelPins.length ? channelPins.map((item) => <View key={item.id} style={[styles.channelToolItem, { borderColor: theme.colors.accentBorder }]}><Text style={styles.channelToolMeta}>{item.message?.author?.displayName || "Member"}</Text><Text style={styles.channelToolBody}>{item.message?.content || "Pinned message"}</Text></View>) : <Text style={styles.channelToolEmpty}>No messages are pinned in this channel.</Text>}</ScrollView>}
+            {channelTool === "mentions" && <ScrollView style={styles.channelToolList}>{messages.filter((item) => /(^|\s)@[\w-]+/.test(item.content)).map((item) => <View key={item.id} style={[styles.channelToolItem, { borderColor: theme.colors.accentBorder }]}><Text style={styles.channelToolMeta}>{item.user.displayName}</Text><Text style={styles.channelToolBody}>{item.content}</Text></View>)}{!messages.some((item) => /(^|\s)@[\w-]+/.test(item.content)) && <Text style={styles.channelToolEmpty}>No mentions were found in the loaded messages.</Text>}</ScrollView>}
+            {channelTool === "insight" && <ScrollView style={styles.channelToolList}>{channelToolLoading ? <ActivityIndicator color={theme.colors.accent} /> : <Text style={styles.channelInsightText}>{channelInsight}</Text>}</ScrollView>}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Render Specialized Tool View or Chat Stream */}
       {isSpecialized && activeTab === "tool" ? (
@@ -1253,10 +1473,12 @@ function NativeMessageList({
   currentUserId?: string;
   isAdmin?: boolean;
 }) {
+  const theme = useAppTheme();
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [heartPoppingId, setHeartPoppingId] = useState<string | null>(null);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const lastTapTime = useRef<{ [msgId: string]: number }>({});
   const flatListRef = useRef<FlatList<Message>>(null);
 
@@ -1311,6 +1533,12 @@ function NativeMessageList({
         style={styles.messages}
         contentContainerStyle={styles.messageContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+          const distanceFromLatest = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+          setShowJumpToLatest(distanceFromLatest > 180);
+        }}
         onScrollToIndexFailed={(info) => {
           flatListRef.current?.scrollToOffset({
             offset: info.averageItemLength * info.index,
@@ -1319,6 +1547,7 @@ function NativeMessageList({
         }}
         renderItem={({ item, index }) => {
           const { cleanText, attachments } = parseMessageAttachments(item.content || "");
+          const stickerOnly = attachments.length === 1 && attachments[0].kind === "sticker" && !cleanText;
           const isBot = Boolean(
             item.user?.displayName?.toLowerCase().includes("bot") ||
             item.user?.displayName?.toLowerCase().includes("ai") ||
@@ -1375,11 +1604,11 @@ function NativeMessageList({
                 {item.replyTo && (
                   <Pressable
                     onPress={() => item.replyTo?.id && handleJumpToMessage(item.replyTo.id)}
-                    style={styles.messageReplyHeader}
+                    style={[styles.messageReplyHeader, { borderLeftColor: theme.colors.accent, backgroundColor: theme.colors.accentSoft }]}
                     hitSlop={4}
                   >
-                    <CornerUpLeft size={12} color={colors.accent} />
-                    <Text style={styles.messageReplyAuthor}>{replyAuthorName}:</Text>
+                    <CornerUpLeft size={12} color={theme.colors.accent} />
+                    <Text style={[styles.messageReplyAuthor, { color: theme.colors.accent }]}>{replyAuthorName}:</Text>
                     <Text style={styles.messageReplySnippet} numberOfLines={1}>
                       {parseMessageAttachments(item.replyTo.text || "").cleanText || "Attachment"}
                     </Text>
@@ -1450,14 +1679,6 @@ function NativeMessageList({
                           </View>
                         )}
 
-                        <Text style={styles.timestamp}>
-                          {item.createdAt
-                            ? new Date(item.createdAt).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : ""}
-                        </Text>
                       </View>
                     )}
 
@@ -1472,6 +1693,7 @@ function NativeMessageList({
                       }}
                       style={({ pressed }) => [
                         styles.visionGlassBubble,
+                        stickerOnly && styles.stickerOnlyBubble,
                         isOwnMessage
                           ? styles.visionGlassBubbleOwn
                           : isBot
@@ -1575,6 +1797,20 @@ function NativeMessageList({
           );
         }}
       />
+
+      {showJumpToLatest && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Jump to latest messages"
+          onPress={() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+            NativeHaptics.light();
+          }}
+          style={[styles.jumpToLatestButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.accentBorder }]}
+        >
+          <ChevronDown size={20} color={theme.colors.accent} />
+        </Pressable>
+      )}
 
       {/* Message Action & Reaction Modal */}
       <Modal visible={actionMenuOpen} transparent animationType="fade" onRequestClose={() => setActionMenuOpen(false)}>
@@ -1788,7 +2024,7 @@ function MessageComposer({
         url: stickerUrl,
         name: title || "Sticker",
         mimeType: "image/webp",
-        kind: "image",
+        kind: "sticker",
       });
       await onSend(attPayload);
     } catch (err) {
@@ -1841,8 +2077,8 @@ function MessageComposer({
   return (
     <View style={styles.composerWrapper}>
       {replyingTo && (
-        <View style={styles.replyBanner}>
-          <CornerUpLeft size={13} color={colors.accent} />
+        <View style={[styles.replyBanner, { borderColor: theme.colors.accentBorder, backgroundColor: theme.colors.accentSoft }]}>
+          <CornerUpLeft size={13} color={theme.colors.accent} />
           <Text style={styles.replyBannerText} numberOfLines={1}>
             Replying to <Text style={{ fontWeight: "700", color: colors.textPrimary }}>{replyingTo.user.displayName}</Text>: {replyingTo.content}
           </Text>
@@ -1877,7 +2113,11 @@ function MessageComposer({
 
       {/* Floating Liquid Glass Composer Bar (Matching DM Screen) */}
       <View style={styles.composerRow}>
-        <BlurView intensity={35} tint="dark" style={styles.composerPill}>
+        <BlurView
+          intensity={35}
+          tint="dark"
+          style={[styles.composerPill, { borderColor: theme.colors.accentBorder }]}
+        >
           <LinearGradient
             colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
             style={StyleSheet.absoluteFillObject}
@@ -1924,15 +2164,15 @@ function MessageComposer({
                 style={styles.pillIconBtn}
                 hitSlop={8}
               >
-                <Smile size={21} color="#A0A4B8" />
+                <Smile size={21} color={theme.colors.textMuted} />
               </Pressable>
 
               <TextInput
                 value={text}
                 onChangeText={setText}
                 placeholder={`Message #${channelName}...`}
-                placeholderTextColor="rgba(255, 255, 255, 0.45)"
-                style={styles.composerInput}
+                placeholderTextColor={theme.colors.textMuted}
+                style={[styles.composerInput, { color: theme.colors.textPrimary }]}
                 multiline
               />
 
@@ -1945,7 +2185,18 @@ function MessageComposer({
                 style={styles.pillIconBtn}
                 hitSlop={8}
               >
-                <Paperclip size={20} color="#A0A4B8" />
+                <Paperclip size={20} color={theme.colors.textMuted} />
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  NativeHaptics.light();
+                  setAttachSheetOpen(true);
+                }}
+                style={styles.pillIconBtn}
+                hitSlop={8}
+              >
+                <Camera size={20} color={theme.colors.textMuted} />
               </Pressable>
 
               {/* GIF / Expression badge button inside right of pill */}
@@ -1985,6 +2236,7 @@ function MessageComposer({
           disabled={sending}
           style={[
             styles.detachedActionButton,
+            { backgroundColor: `${theme.colors.surface}CC`, borderColor: theme.colors.accentBorder },
             hasContent && [styles.detachedActionButtonActive, { backgroundColor: theme.colors.accent }],
             isRecording && styles.detachedActionButtonRecording,
           ]}
@@ -2354,6 +2606,7 @@ export default function AIICDiscordApp() {
     loadSpaces,
     loadChannelsForSpace,
     setActiveSpace,
+    setActiveChannel,
     dms,
     loadDMs,
   } = useWorkspaceStore();
@@ -2416,8 +2669,14 @@ export default function AIICDiscordApp() {
 
   useEffect(() => {
     loadSpaces();
-    loadDMs(user?.id);
-  }, []);
+  }, [loadSpaces]);
+
+  // Auth restoration can finish after the shell mounts. Reload DMs once the
+  // real user id is available so the participant mapping does not fall back
+  // to an empty/anonymous list.
+  useEffect(() => {
+    if (user?.id) loadDMs(user.id);
+  }, [user?.id, loadDMs]);
 
   const servers: Server[] = useMemo(() => {
     return spaces.map((s) => ({
@@ -2457,6 +2716,7 @@ export default function AIICDiscordApp() {
 
   useEffect(() => {
     if (!selectedChannelId) return;
+    setActiveChannel(selectedChannelId);
     soundService.setActiveScreen("channel", selectedChannelId);
     loadChannelMessages(selectedChannelId);
     subscribeToChannel(selectedChannelId);
@@ -2465,7 +2725,7 @@ export default function AIICDiscordApp() {
       soundService.setActiveScreen("none", null);
       unsubscribeFromChannel();
     };
-  }, [selectedChannelId]);
+  }, [selectedChannelId, setActiveChannel]);
 
   const channelMessages: Message[] = useMemo(() => {
     if (!selectedChannelId) return [];
@@ -2554,40 +2814,42 @@ export default function AIICDiscordApp() {
         {/* =================================================
             LEVEL 1: DISCORD LEFT SPACE / SERVER RAIL
             ================================================= */}
-        <SpaceRail
-          servers={servers}
-          selectedServerId={selectedServerId}
-          onSelectServer={(id) => {
-            setSelectedServerId(id);
-            setActiveSpace(id);
-            setSelectedChannelId(null);
-            setCurrentSection("space");
-          }}
-          onDM={() => {
-            setCurrentSection("dm");
-            setSelectedChannelId(null);
-          }}
-          currentSection={currentSection}
-          isAdmin={isAdmin}
-          onNotice={() => {
-            setCurrentSection("notices");
-            setSelectedChannelId(null);
-          }}
-          onArchive={() => {
-            setCurrentSection("archive");
-            setSelectedChannelId(null);
-          }}
-          onAdmin={() => {
-            setCurrentSection("admin");
-            setSelectedChannelId(null);
-          }}
-          currentUser={user}
-          onOpenProfile={() => {
-            setCurrentSection("profile");
-            setSelectedChannelId(null);
-          }}
-          onCreateSpace={() => setCreateSpaceModalOpen(true)}
-        />
+        {!(currentSection === "space" && selectedServer && selectedChannel) && (
+          <SpaceRail
+            servers={servers}
+            selectedServerId={selectedServerId}
+            onSelectServer={(id) => {
+              setSelectedServerId(id);
+              setActiveSpace(id);
+              setSelectedChannelId(null);
+              setCurrentSection("space");
+            }}
+            onDM={() => {
+              setCurrentSection("dm");
+              setSelectedChannelId(null);
+            }}
+            currentSection={currentSection}
+            isAdmin={isAdmin}
+            onNotice={() => {
+              setCurrentSection("notices");
+              setSelectedChannelId(null);
+            }}
+            onArchive={() => {
+              setCurrentSection("archive");
+              setSelectedChannelId(null);
+            }}
+            onAdmin={() => {
+              setCurrentSection("admin");
+              setSelectedChannelId(null);
+            }}
+            currentUser={user}
+            onOpenProfile={() => {
+              setCurrentSection("profile");
+              setSelectedChannelId(null);
+            }}
+            onCreateSpace={() => setCreateSpaceModalOpen(true)}
+          />
+        )}
 
         {/* =================================================
             LEVEL 2: MAIN CONTENT & CHAT STREAM
@@ -2598,6 +2860,8 @@ export default function AIICDiscordApp() {
               /* DEDICATED TYPE-SPECIFIC CHANNEL ROUTER */
               <ChannelRouter
                 channel={selectedChannel}
+                availableChannels={channels}
+                onSelectChannel={(channelId) => setSelectedChannelId(channelId)}
                 messages={channelMessages}
                 onBack={() => setSelectedChannelId(null)}
                 onSend={sendMessage}
@@ -2637,34 +2901,31 @@ export default function AIICDiscordApp() {
           {/* DEDICATED FUNCTIONAL DMs (FULL CURVED GLASS DESIGN) */}
           {currentSection === "dm" && (
             <View style={styles.page}>
-              {/* Top Curved Glass Header Capsule */}
-              <View style={styles.headerCapsuleWrap}>
-                <BlurView intensity={30} tint="dark" style={styles.headerCapsule}>
-                  <LinearGradient
-                    colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
-                    style={StyleSheet.absoluteFillObject}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  />
-                  <View style={styles.headerLeft}>
-                    <View style={[styles.headerIconOrb, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
-                      <MessageSquare size={16} color={theme.colors.accent} />
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.headerTitle} numberOfLines={1}>Direct Messages</Text>
-                      <Text style={[styles.headerSub, { color: theme.colors.accent }]} numberOfLines={1}>ENCRYPTED PEER COMM</Text>
-                    </View>
-                  </View>
-
+              {/* Floating Direct Messages header: separate glass modules */}
+              <View style={[styles.headerCapsuleWrap, styles.dmListHeaderWrap]}>
+                <View style={styles.headerCapsule}>
                   <Pressable
-                    onPress={() => router.push("/(app)/dms" as any)}
-                    style={[styles.createBtn, { backgroundColor: theme.colors.accent }]}
-                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel="Direct Messages"
+                    style={styles.dmHeaderPill}
                   >
-                    <UserPlus size={14} color={theme.colors.accentText} />
-                    <Text style={[styles.createBtnText, { color: theme.colors.accentText }]}>Add Friend</Text>
+                    <BlurView intensity={34} tint="dark" style={StyleSheet.absoluteFillObject} />
+                    <View style={styles.channelPillHighlight} />
+                    <MessageSquare size={20} color={theme.colors.accent} />
+                    <Text style={styles.dmHeaderTitle} numberOfLines={1}>Direct Messages</Text>
+                    <ChevronDown size={20} color="#F0EEF5" />
                   </Pressable>
-                </BlurView>
+
+                  <View style={styles.dmHeaderActions}>
+                    <RoundIconButton
+                      onPress={() => router.push("/(app)/dms" as any)}
+                      size={48}
+                      hitSlop={6}
+                    >
+                      <UserPlus size={21} color={theme.colors.accent} />
+                    </RoundIconButton>
+                  </View>
+                </View>
               </View>
 
               <FlatList
@@ -2676,7 +2937,7 @@ export default function AIICDiscordApp() {
                     style={styles.dmRow}
                     onPress={() => router.push(`/(app)/dms/${item.id}` as any)}
                   >
-                    <Avatar name={item.name} presence={item.presence} size={46} url={(item as any).avatar || (item as any).avatarUrl} />
+                    <Avatar name={item.name} presence={item.presence} size={42} url={(item as any).avatar || (item as any).avatarUrl} />
                     <View style={styles.dmInfo}>
                       <View style={styles.dmTop}>
                         <Text style={styles.dmName} numberOfLines={1}>
@@ -2878,9 +3139,9 @@ const styles = StyleSheet.create({
   },
 
   rail: {
-    width: 76,
+    width: 68,
     height: "100%",
-    backgroundColor: "rgba(14, 18, 26, 0.65)",
+    backgroundColor: "rgba(27, 34, 48, 0.58)",
     borderWidth: 1,
     borderRadius: 36,
     borderColor: "rgba(255, 255, 255, 0.12)",
@@ -2902,7 +3163,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    opacity: 0.15,
+    opacity: 0.24,
   },
 
   railGroupTop: {
@@ -2911,12 +3172,12 @@ const styles = StyleSheet.create({
   },
 
   dmButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "rgba(255, 255, 255, 0.075)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.10)",
   },
@@ -2932,10 +3193,10 @@ const styles = StyleSheet.create({
   },
 
   railDivider: {
-    width: 36,
+    width: 32,
     height: 1,
     backgroundColor: "rgba(255, 255, 255, 0.08)",
-    marginVertical: 14,
+    marginVertical: 10,
   },
 
   railItemWrapper: {
@@ -2967,9 +3228,9 @@ const styles = StyleSheet.create({
   },
 
   addSpaceBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.15)",
@@ -2981,19 +3242,19 @@ const styles = StyleSheet.create({
   spaceList: {
     alignItems: "center",
     paddingBottom: 6,
-    gap: 12,
+    gap: 9,
   },
 
   spaceButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(255, 255, 255, 0.065)",
   },
 
   activeSpace: {
@@ -3008,15 +3269,15 @@ const styles = StyleSheet.create({
   },
 
   spaceImage: {
-    width: 54,
-    height: 54,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 17,
   },
 
   spaceFallback: {
-    width: 54,
-    height: 54,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255, 255, 255, 0.06)",
@@ -3053,18 +3314,18 @@ const styles = StyleSheet.create({
 
   utilityArea: {
     marginTop: "auto",
-    gap: 12,
+    gap: 9,
     alignItems: "center",
     width: "100%",
   },
 
   utilityButton: {
-    width: 58,
-    height: 54,
-    borderRadius: 20,
+    width: 52,
+    height: 48,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(255, 255, 255, 0.065)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
   },
@@ -3075,9 +3336,9 @@ const styles = StyleSheet.create({
   },
 
   userDockAvatarBtn: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
@@ -3093,15 +3354,15 @@ const styles = StyleSheet.create({
   },
 
   dockAvatarImg: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
   },
 
   dockAvatarFallback: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
@@ -3141,7 +3402,7 @@ const styles = StyleSheet.create({
 
   spaceHeaderCardWrap: {
     marginHorizontal: 10,
-    marginTop: 6,
+    marginTop: 12,
     marginBottom: 8,
     borderRadius: 20,
     overflow: "hidden",
@@ -3306,9 +3567,16 @@ const styles = StyleSheet.create({
   },
 
   noticeTitle: {
+    flex: 1,
+    minWidth: 0,
+    marginHorizontal: 8,
     color: colors.textPrimary,
     fontSize: 13,
     fontWeight: "700",
+  },
+
+  noticeChevron: {
+    flexShrink: 0,
   },
 
   noticeMessage: {
@@ -3375,7 +3643,7 @@ const styles = StyleSheet.create({
   },
 
   categoryChevron: {
-    marginRight: 2,
+    marginRight: 20,
   },
 
   categoryTitle: {
@@ -3628,27 +3896,118 @@ const styles = StyleSheet.create({
   },
 
   headerCapsuleWrap: {
-    marginHorizontal: 12,
-    marginTop: 6,
-    borderRadius: 22,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
+    marginHorizontal: 16,
+    marginTop: 8,
   },
 
   headerCapsule: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 22,
+    gap: 10,
+    minWidth: 0,
+  },
+
+  channelHeaderWrap: {
+    marginTop: 4,
+  },
+
+  channelHeaderCapsule: {
+    minHeight: 52,
+  },
+
+  channelHeaderPill: {
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
+    marginHorizontal: 4,
+    height: 52,
+    paddingHorizontal: 16,
+    borderRadius: 26,
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255,255,255,0.085)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 7,
+  },
+
+  channelHeaderPillPressed: {
+    transform: [{ scale: 0.985 }],
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+
+  channelPillHighlight: {
+    position: "absolute",
+    top: 1,
+    left: 1,
+    right: 1,
+    height: "48%",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    backgroundColor: "rgba(255,255,255,0.045)",
+  },
+
+  channelHeaderName: {
+    color: "#F5F3F8",
+    fontSize: 18,
+    fontWeight: "600",
+    letterSpacing: -0.7,
+    zIndex: 2,
+    flex: 1,
+    flexShrink: 1,
+    marginLeft: 10,
+    marginRight: 10,
+  },
+
+  dmHeaderPill: {
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
+    height: 58,
+    paddingHorizontal: 15,
+    borderRadius: 29,
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.085)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 7,
+  },
+
+  dmHeaderTitle: {
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
+    marginLeft: 10,
+    marginRight: 10,
+    color: "#F5F3F8",
+    fontSize: 19,
+    fontWeight: "500",
+    letterSpacing: -0.5,
+  },
+
+  dmHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
+
+  dmListHeaderWrap: {
+    marginLeft: 2,
+    marginRight: 2,
   },
 
   headerBackBtn: {
@@ -3717,7 +4076,175 @@ const styles = StyleSheet.create({
 
   channelCapsuleActions: {
     flexDirection: "row",
-    gap: 6,
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
+
+  channelOptionsBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.38)",
+  },
+
+  channelOptionsSheet: {
+    margin: 12,
+    padding: 16,
+    borderRadius: 24,
+    gap: 8,
+    overflow: "hidden",
+    backgroundColor: "rgba(18, 24, 34, 0.62)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
+  },
+
+  channelPickerSheet: {
+    margin: 12,
+    padding: 16,
+    maxHeight: "72%",
+    borderRadius: 24,
+    overflow: "hidden",
+    borderWidth: 1,
+  },
+
+  channelPickerRow: {
+    minHeight: 48,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  channelPickerText: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+
+  channelPickerCurrent: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  channelOptionsTitle: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+
+  channelOptionsHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.24)",
+    marginBottom: 4,
+  },
+
+  channelOptionRow: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.045)",
+  },
+
+  channelOptionText: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  channelToolSheet: {
+    margin: 12,
+    padding: 16,
+    minHeight: 220,
+    maxHeight: "72%",
+    borderRadius: 24,
+    overflow: "hidden",
+    borderWidth: 1,
+  },
+
+  channelToolHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+
+  channelToolClose: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  channelSearchRow: {
+    minHeight: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+
+  channelSearchInput: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 15,
+    paddingVertical: 8,
+  },
+
+  channelToolAction: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  channelToolList: {
+    marginTop: 12,
+  },
+
+  channelToolItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+
+  channelToolMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginBottom: 3,
+  },
+
+  channelToolBody: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+
+  channelToolEmpty: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    paddingVertical: 18,
+  },
+
+  channelInsightText: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    lineHeight: 23,
+  },
+
+  headerActionDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    marginHorizontal: 2,
   },
 
   actionDeleteRow: {
@@ -3745,6 +4272,24 @@ const styles = StyleSheet.create({
   /* MESSAGES & COMPOSER */
   messages: {
     flex: 1,
+  },
+
+  jumpToLatestButton: {
+    position: "absolute",
+    left: "50%",
+    marginLeft: -22,
+    bottom: 92,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.24,
+    shadowRadius: 10,
+    elevation: 6,
   },
 
   messageContent: {
@@ -3873,6 +4418,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
     borderRadius: 16,
     maxWidth: "100%",
+  },
+
+  stickerOnlyBubble: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    padding: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
 
   visionGlassBubbleOther: {
@@ -4227,8 +4780,8 @@ const styles = StyleSheet.create({
   dmRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
-    borderRadius: 22,
+    padding: 10,
+    borderRadius: 28,
     backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",

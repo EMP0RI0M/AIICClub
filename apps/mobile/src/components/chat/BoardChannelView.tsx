@@ -279,7 +279,7 @@ export function BoardChannelView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B0E14",
+    backgroundColor: "transparent",
   },
   header: {
     flexDirection: "row",

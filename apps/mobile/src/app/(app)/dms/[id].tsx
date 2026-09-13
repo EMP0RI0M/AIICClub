@@ -33,6 +33,7 @@ import {
   Video,
   Smile,
   Paperclip,
+  Camera,
   X,
   Trash2,
   Mic,
@@ -44,6 +45,7 @@ import {
   Plus,
   CornerUpLeft,
   Palette,
+  MessageSquare,
 } from "lucide-react-native";
 import { AttachmentCard, parseMessageAttachments } from "../../../components/chat/AttachmentCard";
 import { encodeAttachmentContent } from "../../../lib/attachments";
@@ -59,6 +61,7 @@ import {
 } from "../../../components/chat/MobileMediaPickers";
 import { ExpressionSheet, type ExpressionTab } from "../../../components/chat/ExpressionSheet";
 import { WallpaperBackground } from "../../../components/theme/WallpaperBackground";
+import { GlassBackButton } from "../../../components/ui/GlassBackButton";
 import { ThemeCustomizerModal } from "../../../components/theme/ThemeCustomizerModal";
 import { useThemeStore } from "../../../stores/theme-store";
 import { useVoiceRecorder } from "../../../lib/voice-recorder";
@@ -266,6 +269,7 @@ export default function DMDetailScreen() {
   const [messageToReact, setMessageToReact] = useState<any | null>(null);
   const [giftModalOpen, setGiftModalOpen] = useState(false);
   const [themeStudioOpen, setThemeStudioOpen] = useState(false);
+  const [dmOptionsOpen, setDmOptionsOpen] = useState(false);
   const theme = useAppTheme();
   const themeAccent = theme.colors.accent;
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -397,7 +401,7 @@ export default function DMDetailScreen() {
         url: stickerUrl,
         name: title || "Sticker",
         mimeType: "image/webp",
-        kind: "image",
+        kind: "sticker",
       });
       await sendDMMessageAction(convoId, attPayload);
     } catch (err) {
@@ -488,8 +492,7 @@ export default function DMDetailScreen() {
   };
 
   return (
-    <WallpaperBackground>
-      <SafeAreaView edges={["top"]} style={styles.container}>
+    <SafeAreaView edges={["top"]} style={styles.container}>
         {/* Floating Copy Feedback Toast */}
         {copyToast && (
           <View style={styles.toastBanner}>
@@ -498,67 +501,34 @@ export default function DMDetailScreen() {
           </View>
         )}
 
-        {/* Top Header Capsule */}
+        {/* Individual DM conversation header: separate glass modules */}
         <View style={styles.headerCapsuleWrap}>
-          <BlurView intensity={28} tint="dark" style={styles.headerCapsule}>
-            <LinearGradient
-              colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
-              style={StyleSheet.absoluteFillObject}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
+          <View style={styles.headerCapsule}>
+            <GlassBackButton
+              fallbackRoute="/(app)/dms"
+              size={48}
+              iconSize={21}
+              style={{ borderRadius: 24 }}
             />
 
             <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => router.back()}
-            >
-              <ArrowLeft size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={styles.headerCenter}
-              onPress={async () => {
-                const profile = await fetchUserProfile((conversation as any).user_id || conversation.id).catch(() => null);
-                setSelectedUser(profile?.user || {
-                  id: (conversation as any).user_id || conversation.id,
-                  displayName: conversation.name,
-                  username: (conversation as any).username || conversation.name.toLowerCase().replace(/\s+/g, ""),
-                  avatarUrl: (conversation as any).avatarUrl || null,
-                  status: conversation.presence,
-                  role: (conversation as any).role || "member",
-                  roleName: (conversation as any).roleName,
-                  bio: (conversation as any).bio,
-                  classYear: (conversation as any).classYear,
-                  section: (conversation as any).section,
-                  githubUrl: (conversation as any).githubUrl,
-                  linkedinUrl: (conversation as any).linkedinUrl,
-                  websiteUrl: (conversation as any).websiteUrl,
-                  skills: (conversation as any).skills,
-                  interests: (conversation as any).interests,
-                });
-              }}
+              onPress={() => setDmOptionsOpen(true)}
             >
               <Avatar
                 name={conversation.name}
                 presence={conversation.presence}
-                size={32}
+                size={48}
                 url={(conversation as any)?.avatar || (conversation as any)?.avatarUrl}
               />
               <View style={{ minWidth: 0, flex: 1 }}>
                 <Text style={styles.headerName} numberOfLines={1}>
                   {conversation.name}
                 </Text>
-                <Text style={[styles.headerSub, { color: themeAccent }]}>AIIC · DIRECT MESSAGE</Text>
               </View>
             </TouchableOpacity>
 
             <View style={styles.headerActions}>
-              <TouchableOpacity
-                style={[styles.iconBtn, { backgroundColor: `${themeAccent}18`, borderColor: `${themeAccent}35` }]}
-                onPress={() => setThemeStudioOpen(true)}
-              >
-                <Palette size={15} color={themeAccent} />
-              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.iconBtn}
                 onPress={() => handleStartCall(false)}
@@ -572,12 +542,12 @@ export default function DMDetailScreen() {
                 <Video size={16} color={themeAccent} />
               </TouchableOpacity>
             </View>
-          </BlurView>
+          </View>
         </View>
 
       {/* Message Feed */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
         style={{ flex: 1 }}
       >
@@ -594,6 +564,7 @@ export default function DMDetailScreen() {
             renderItem={({ item }) => {
               const isMe = item.author.id === (user?.id || "u-anon") || item.author.id === "me";
               const { cleanText, attachments } = parseMessageAttachments(item.text || "");
+              const stickerOnly = attachments.length === 1 && attachments[0].kind === "sticker" && !cleanText;
               const hasReactions = item.reactions && item.reactions.length > 0;
               const isHighlighted = item.id === highlightedMessageId;
 
@@ -638,16 +609,16 @@ export default function DMDetailScreen() {
                         <Avatar name={item.author.name} size={28} url={item.author.avatar} />
                       </TouchableOpacity>
                     )}
-                    <View style={{ maxWidth: "80%", alignItems: isMe ? "flex-end" : "flex-start" }}>
-                      {/* Quoted reply header if message is a reply */}
+                    <View style={{ alignItems: isMe ? "flex-end" : "flex-start" }}>
+                      {/* Match channel-message reply layout: preview sits above the bubble. */}
                       {item.replyTo && (
                         <Pressable
                           onPress={() => item.replyTo?.id && handleJumpToMessage(item.replyTo.id)}
-                          style={styles.dmReplyHeader}
+                          style={[styles.dmReplyHeader, { borderLeftColor: themeAccent, backgroundColor: `${themeAccent}18` }]}
                           hitSlop={4}
                         >
-                          <CornerUpLeft size={11} color={colors.accent} />
-                          <Text style={styles.dmReplyAuthor}>{replyAuthorName}:</Text>
+                          <CornerUpLeft size={11} color={themeAccent} />
+                          <Text style={[styles.dmReplyAuthor, { color: themeAccent }]}>{replyAuthorName}:</Text>
                           <Text style={styles.dmReplySnippet} numberOfLines={1}>
                             {parseMessageAttachments(item.replyTo.text || "").cleanText || "Attachment"}
                           </Text>
@@ -663,7 +634,8 @@ export default function DMDetailScreen() {
                           setMessageActionOpen(true);
                         }}
                         style={[
-                          styles.bubbleGlassWrap,
+                        styles.bubbleGlassWrap,
+                        stickerOnly && styles.stickerOnlyBubble,
                           isMe ? styles.myBubbleGlassWrap : styles.theirBubbleGlassWrap,
                         ]}
                       >
@@ -783,9 +755,9 @@ export default function DMDetailScreen() {
 
         {/* Replying Preview Bar */}
         {replyingTo && (
-          <View style={styles.replyingBar}>
+          <View style={[styles.replyingBar, { borderColor: `${themeAccent}55`, backgroundColor: `${themeAccent}18` }]}>
             <View style={styles.replyingLeft}>
-              <CornerUpLeft size={13} color={colors.accent} />
+              <CornerUpLeft size={13} color={themeAccent} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.replyingAuthor}>
                   Replying to {(replyingTo.author?.id === user?.id || replyingTo.author?.id === "me") ? "yourself" : replyingTo.author?.name}
@@ -841,7 +813,11 @@ export default function DMDetailScreen() {
         {/* Floating Liquid Glass Composer Bar */}
         <View style={styles.composerWrapper}>
           <View style={styles.composerRow}>
-            <BlurView intensity={35} tint="dark" style={styles.composerPill}>
+            <BlurView
+              intensity={35}
+              tint="dark"
+              style={[styles.composerPill, { borderColor: theme.colors.accentBorder }]}
+            >
               <LinearGradient
                 colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
                 style={StyleSheet.absoluteFillObject}
@@ -888,13 +864,13 @@ export default function DMDetailScreen() {
                     }}
                     hitSlop={8}
                   >
-                    <Smile size={21} color="#A0A4B8" />
+                    <Smile size={21} color={theme.colors.textMuted} />
                   </TouchableOpacity>
 
                   <TextInput
-                    style={styles.composerInput}
+                    style={[styles.composerInput, { color: theme.colors.textPrimary }]}
                     placeholder={`Message ${conversation.name}...`}
-                    placeholderTextColor="rgba(255, 255, 255, 0.45)"
+                    placeholderTextColor={theme.colors.textMuted}
                     value={inputText}
                     onChangeText={(t) => {
                       setInputText(t);
@@ -914,7 +890,18 @@ export default function DMDetailScreen() {
                     }}
                     hitSlop={8}
                   >
-                    <Paperclip size={20} color="#A0A4B8" />
+                    <Paperclip size={20} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.pillIconBtn}
+                    onPress={() => {
+                      NativeHaptics.light();
+                      setAttachSheetOpen(true);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Camera size={20} color={theme.colors.textMuted} />
                   </TouchableOpacity>
 
                   {/* GIF / Expression Button */}
@@ -939,6 +926,7 @@ export default function DMDetailScreen() {
             <TouchableOpacity
               style={[
                 styles.detachedActionButton,
+                { backgroundColor: `${theme.colors.surface}CC`, borderColor: theme.colors.accentBorder },
                 (inputText.trim() || stagedAttachment) && styles.detachedActionButtonActive,
                 isRecording && styles.detachedActionButtonRecording,
               ]}
@@ -992,6 +980,67 @@ export default function DMDetailScreen() {
 
       {/* DM Message Options Modal (Delete, Copy, Edit, React) */}
       <Modal
+        visible={dmOptionsOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDmOptionsOpen(false)}
+      >
+        <Pressable style={styles.actionModalBackdrop} onPress={() => setDmOptionsOpen(false)}>
+          <View style={styles.dmOptionsSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.actionModalTitle}>{conversation.name}</Text>
+            <Pressable
+              style={styles.actionMenuRow}
+              onPress={() => {
+                setDmOptionsOpen(false);
+                setThemeStudioOpen(true);
+              }}
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: `${themeAccent}18` }]}>
+                <Palette size={17} color={themeAccent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.actionMenuText}>Theme</Text>
+                <Text style={styles.actionMenuSub}>Customize this conversation appearance</Text>
+              </View>
+            </Pressable>
+            <Pressable
+              style={styles.actionMenuRow}
+              onPress={async () => {
+                setDmOptionsOpen(false);
+                const profile = await fetchUserProfile((conversation as any).user_id || conversation.id).catch(() => null);
+                setSelectedUser(profile?.user || {
+                  id: (conversation as any).user_id || conversation.id,
+                  displayName: conversation.name,
+                  username: (conversation as any).username || conversation.name.toLowerCase().replace(/\s+/g, ""),
+                  avatarUrl: (conversation as any).avatarUrl || null,
+                  status: conversation.presence,
+                  role: (conversation as any).role || "member",
+                  roleName: (conversation as any).roleName,
+                  bio: (conversation as any).bio,
+                  classYear: (conversation as any).classYear,
+                  section: (conversation as any).section,
+                  githubUrl: (conversation as any).githubUrl,
+                  linkedinUrl: (conversation as any).linkedinUrl,
+                  websiteUrl: (conversation as any).websiteUrl,
+                  skills: (conversation as any).skills,
+                  interests: (conversation as any).interests,
+                });
+              }}
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: "rgba(56, 189, 248, 0.15)" }]}>
+                <MessageSquare size={17} color="#38bdf8" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.actionMenuText}>View Profile</Text>
+                <Text style={styles.actionMenuSub}>Open this person’s profile</Text>
+              </View>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal
         visible={messageActionOpen}
         transparent
         animationType="fade"
@@ -1033,6 +1082,19 @@ export default function DMDetailScreen() {
             <Text style={styles.actionModalTitle}>Message Options</Text>
 
             <View style={{ gap: 8 }}>
+              <Pressable
+                style={styles.actionMenuRow}
+                onPress={() => {
+                  if (selectedMessage) {
+                    setReplyingTo(selectedMessage);
+                  }
+                  setMessageActionOpen(false);
+                }}
+              >
+                <CornerUpLeft size={17} color={themeAccent} />
+                <Text style={[styles.actionMenuText, { color: themeAccent }]}>Reply to Message</Text>
+              </Pressable>
+
               {/* React Message Option */}
               <Pressable
                 style={styles.actionMenuRow}
@@ -1254,14 +1316,13 @@ export default function DMDetailScreen() {
         onClose={() => setThemeStudioOpen(false)}
       />
     </SafeAreaView>
-  </WallpaperBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07090E",
+    backgroundColor: "transparent",
   },
   ambientGlowAmber: {
     position: "absolute",
@@ -1292,7 +1353,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -1307,25 +1368,13 @@ const styles = StyleSheet.create({
   },
   headerCapsuleWrap: {
     marginHorizontal: 12,
-    marginTop: 6,
-    borderRadius: 22,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
+    marginTop: 8,
   },
   headerCapsule: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 22,
-    overflow: "hidden",
+    gap: 10,
+    minWidth: 0,
   },
   backBtn: {
     padding: 6,
@@ -1336,28 +1385,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     flex: 1,
-    marginLeft: 4,
+    minWidth: 0,
+    flexShrink: 1,
+    height: 52,
+    paddingHorizontal: 8,
+    borderRadius: 26,
+    overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.075)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.14)",
   },
   headerName: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: "700",
+    flexShrink: 1,
   },
   headerSub: {
     color: colors.accent,
-    fontSize: 9,
+    fontSize: 12,
     fontFamily: "monospace",
     fontWeight: "700",
     letterSpacing: 0.5,
   },
   headerActions: {
     flexDirection: "row",
-    gap: 6,
+    gap: 8,
+    flexShrink: 0,
   },
   iconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 48,
+    height: 48,
+    borderRadius: 20,
     backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
@@ -1371,13 +1430,13 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: 16,
-    paddingBottom: 24,
+    paddingBottom: 28,
   },
   messageBubbleWrap: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 8,
-    marginBottom: 10,
+    gap: 9,
+    marginBottom: 12,
   },
   myMessageWrap: {
     justifyContent: "flex-end",
@@ -1386,51 +1445,64 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   bubbleGlassWrap: {
-    borderRadius: 20,
+    minWidth: 0,
+    maxWidth: "100%",
+    borderRadius: 22,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  stickerOnlyBubble: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    padding: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   myBubbleGlassWrap: {
-    borderTopLeftRadius: 28,
+    borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
-    borderBottomRightRadius: 6,
-    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 5,
+    borderBottomLeftRadius: 22,
+    maxWidth: "78%",
   },
   theirBubbleGlassWrap: {
     borderTopLeftRadius: 22,
-    borderTopRightRadius: 28,
-    borderBottomRightRadius: 24,
-    borderBottomLeftRadius: 6,
+    borderTopRightRadius: 22,
+    borderBottomRightRadius: 22,
+    borderBottomLeftRadius: 5,
+    maxWidth: "82%",
   },
   bubbleInner: {
-    paddingHorizontal: 13,
-    paddingVertical: 9,
+    minWidth: 0,
+    maxWidth: "100%",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     overflow: "hidden",
-    borderWidth: 0.5,
+    borderWidth: 0,
   },
   myBubbleInner: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     borderBottomRightRadius: 4,
-    borderBottomLeftRadius: 22,
-    borderColor: "rgba(232, 163, 61, 0.18)",
+    borderBottomLeftRadius: 20,
+    borderColor: "rgba(232, 163, 61, 0.2)",
     backgroundColor: "transparent",
   },
   theirBubbleInner: {
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 24,
-    borderBottomRightRadius: 22,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
     borderBottomLeftRadius: 4,
-    borderColor: "rgba(255, 255, 255, 0.07)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     backgroundColor: "transparent",
   },
   bubbleText: {
     fontSize: 14.5,
-    lineHeight: 20,
+    lineHeight: 20.5,
   },
   myBubbleText: {
     color: "#FFFFFF",
@@ -1767,11 +1839,21 @@ const styles = StyleSheet.create({
   },
   actionModalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.32)",
     justifyContent: "flex-end",
   },
   actionModalSheet: {
-    backgroundColor: "#11131E",
+    backgroundColor: "rgba(17, 19, 30, 0.62)",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    padding: 16,
+    paddingBottom: 36,
+    gap: 12,
+  },
+  dmOptionsSheet: {
+    backgroundColor: "rgba(17, 19, 30, 0.48)",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,

@@ -34,7 +34,6 @@ import { ThemeCustomizerModal } from "@/components/theme/ThemeCustomizerModal";
 import { fetchCurrentProfile, updateProfile } from "@/lib/api";
 
 export type SettingsTab =
-  | "account"
   | "profile"
   | "privacy"
   | "notifications"
@@ -183,11 +182,6 @@ export default function UserSettingsScreen() {
               label="Public Profile"
               active={activeTab === "profile"}
               onPress={() => setActiveTab("profile")}
-            />
-            <NavPill
-              label="My Account"
-              active={activeTab === "account"}
-              onPress={() => setActiveTab("account")}
             />
             <NavPill
               label="Privacy"
@@ -349,30 +343,6 @@ export default function UserSettingsScreen() {
                   style={styles.input}
                 />
               </View>
-            </View>
-          )}
-
-          {activeTab === "account" && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Account Credentials</Text>
-              <Text style={styles.sectionSubtitle}>
-                Authentication details and active session management.
-              </Text>
-
-              <View style={styles.cardBox}>
-                <Text style={styles.cardBoxLabel}>EMAIL ADDRESS</Text>
-                <Text style={styles.cardBoxValue}>{user?.email || "No email linked"}</Text>
-              </View>
-
-              <View style={styles.cardBox}>
-                <Text style={styles.cardBoxLabel}>ACCOUNT ROLE</Text>
-                <Text style={styles.cardBoxValue}>{(user?.role || "MEMBER").toUpperCase()}</Text>
-              </View>
-
-              <Pressable onPress={handleLogout} style={styles.logoutBtn}>
-                <LogOut size={16} color={colors.danger} />
-                <Text style={styles.logoutBtnText}>Sign Out of AIIC</Text>
-              </Pressable>
             </View>
           )}
 
@@ -551,11 +521,11 @@ function NavPill({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#090C12",
+    backgroundColor: "transparent",
   },
   container: {
     flex: 1,
-    backgroundColor: "#090C12",
+    backgroundColor: "transparent",
   },
   header: {
     flexDirection: "row",

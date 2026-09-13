@@ -380,7 +380,7 @@ function DocEditorView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0A0B11",
+    backgroundColor: "transparent",
   },
   header: {
     flexDirection: "row",

@@ -18,6 +18,8 @@ import {
   createChannel as apiCreateChannel,
   createDMConversation as apiCreateDM,
   fetchChannelGitHub,
+  markChannelRead as apiMarkChannelRead,
+  markDMRead as apiMarkDMRead,
 } from "../lib/api";
 import { offlineManager } from "../lib/offline-manager";
 import { parseMessageAttachments } from "../components/chat/AttachmentCard";
@@ -319,12 +321,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }
       return { sections: nextSections };
     });
+    apiMarkChannelRead(channelId).catch((error) => {
+      console.warn("[WorkspaceStore] Could not persist channel read state:", error);
+    });
   },
 
   markDMAsRead: (dmId: string) => {
     set((state) => ({
       dms: state.dms.map((d) => (d.id === dmId ? { ...d, unreadCount: 0 } : d)),
     }));
+    apiMarkDMRead(dmId).catch((error) => {
+      console.warn("[WorkspaceStore] Could not persist DM read state:", error);
+    });
   },
 
   createSpaceAction: async (name: string, description?: string) => {

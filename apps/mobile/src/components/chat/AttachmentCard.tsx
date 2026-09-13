@@ -139,6 +139,7 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
       attachment.kind === "gif" ||
       attachment.mimeType?.startsWith("image/") ||
       Boolean(attachment.url?.match(/\.(jpeg|jpg|gif|png|webp|bmp|avif)($|\?)/i)));
+  const isSticker = attachment.kind === "sticker";
 
   const handleOpen = () => {
     if (isImage) {
@@ -149,6 +150,19 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
       Linking.openURL(attachment.url).catch(() => {});
     }
   };
+
+  if (isSticker && !imageError) {
+    return (
+      <TouchableOpacity activeOpacity={0.9} onPress={handleOpen} style={styles.stickerContainer}>
+        <Image
+          source={{ uri: attachment.url }}
+          style={styles.stickerPreview}
+          resizeMode="contain"
+          onError={() => setImageError(true)}
+        />
+      </TouchableOpacity>
+    );
+  }
 
   if (isImage && !imageError) {
     return (
@@ -251,22 +265,35 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     overflow: "hidden",
     marginTop: 6,
-    maxWidth: 280,
+    width: "100%",
+    maxWidth: "100%",
     backgroundColor: "rgba(10, 12, 18, 0.8)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
   },
+  stickerContainer: {
+    width: 150,
+    height: 150,
+    marginTop: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  stickerPreview: {
+    width: 150,
+    height: 150,
+  },
   imagePlaceholder: {
-    width: 280,
-    height: 160,
+    width: "100%",
+    aspectRatio: 1.75,
     alignItems: "center",
     justifyContent: "center",
     position: "absolute",
     zIndex: 1,
   },
   imagePreview: {
-    width: 280,
-    height: 160,
+    width: "100%",
+    aspectRatio: 1.75,
   },
   imageOverlay: {
     flexDirection: "row",
@@ -294,7 +321,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.08)",
     padding: 8,
     marginTop: 6,
-    maxWidth: 290,
+    width: "100%",
+    maxWidth: "100%",
     gap: 10,
   },
   videoThumbnailBox: {
@@ -340,7 +368,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.08)",
     padding: 9,
     marginTop: 6,
-    maxWidth: 290,
+    width: "100%",
+    maxWidth: "100%",
     gap: 10,
   },
   docIconWrap: {

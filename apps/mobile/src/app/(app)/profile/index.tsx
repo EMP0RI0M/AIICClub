@@ -21,7 +21,6 @@ import { useAuthStore } from "../../../stores/auth-store";
 import { fetchCurrentProfile, updateProfile } from "../../../lib/api";
 import {
   User as UserIcon,
-  Shield,
   Bell,
   Award,
   Archive,
@@ -355,20 +354,6 @@ export default function ProfileScreen() {
           </View>
         </GlassCard>
 
-        {/* Administration */}
-        <Text style={styles.sectionHeader}>ADMINISTRATION</Text>
-        <GlassCard style={styles.menuCard}>
-          <TouchableOpacity
-            style={[styles.menuItem, { borderBottomWidth: 0 }]}
-            onPress={() => router.push("/(app)/admin" as any)}
-          >
-            <View style={styles.menuItemLeft}>
-              <Shield size={18} color={colors.accentTeal} />
-              <Text style={styles.menuItemText}>Club Governance & Admin</Text>
-            </View>
-            <ChevronRight size={16} color={colors.textMuted} />
-          </TouchableOpacity>
-        </GlassCard>
 
         {/* Logout */}
         <Button
@@ -387,7 +372,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07090E",
+    backgroundColor: "transparent",
   },
   ambientGlowAmber: {
     position: "absolute",

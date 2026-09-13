@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheetContainer: {
-    backgroundColor: "#0d0e14",
+    backgroundColor: "rgba(14, 16, 22, 0.96)",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     borderTopWidth: 1,
@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
   },
   modalRoot: {
     flex: 1,
-    backgroundColor: "#050505",
+    backgroundColor: "rgba(5, 6, 10, 0.97)",
   },
   modalHeader: {
     flexDirection: "row",

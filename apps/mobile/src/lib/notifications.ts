@@ -1,4 +1,5 @@
 import { NativeHaptics } from "./haptics";
+import { soundService } from "./sound-service";
 
 export interface InAppNotification {
   id: string;
@@ -32,6 +33,7 @@ class NotificationService {
 
     this.activeNotification = notif;
     this.notify();
+    soundService.playMessagePing(`notification:${notif.id}`).catch(() => undefined);
 
     // Haptic dispatch based on type
     if (notif.type === "urgent") {

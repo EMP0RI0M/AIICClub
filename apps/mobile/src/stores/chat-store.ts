@@ -313,6 +313,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
         at: m.createdAt,
         text: m.content,
+        replyTo: m.replyTo
+          ? {
+              id: m.replyTo.id,
+              authorId: m.replyTo.authorId || m.replyTo.author?.id,
+              authorName: m.replyTo.authorName || m.replyTo.author?.displayName || m.replyTo.author?.username || "User",
+              text: m.replyTo.content || m.replyTo.text || "",
+            }
+          : undefined,
         reactions: m.reactions || [],
       }));
 
@@ -361,6 +369,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
           },
           at: m.createdAt,
           text: m.content,
+          replyTo: m.replyTo
+            ? {
+                id: m.replyTo.id,
+                authorId: m.replyTo.authorId || m.replyTo.author?.id,
+                authorName: m.replyTo.authorName || m.replyTo.author?.displayName || m.replyTo.author?.username || "User",
+                text: m.replyTo.content || m.replyTo.text || "",
+              }
+            : undefined,
           reactions: [],
         };
         set((state) => ({
@@ -618,6 +634,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const currentUserId = useAuthStore.getState().user?.id;
       if (message.author.id && message.author.id !== currentUserId && !message.id.startsWith("optimistic_")) {
         soundService.playMessagePing(message.id, { type: "channel", id: channelId }).catch(() => {});
+        const currentUser = useAuthStore.getState().user as any;
+        const mentionNames = [currentUser?.username, currentUser?.displayName, currentUser?.name]
+          .filter(Boolean)
+          .map((name) => String(name).replace(/^@/, "").trim().toLowerCase());
+        const messageText = String(message.text || "").toLowerCase();
+        if (mentionNames.some((name) => name.length > 1 && new RegExp(`(^|\\s)@${name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}\\b`, "i").test(messageText))) {
+          notificationService.show({
+            title: "You were mentioned",
+            body: `${message.author.name || "A member"} mentioned you in a channel.`,
+            type: "info",
+            channelId,
+          });
+        }
       }
       return {
         messages: {
@@ -631,6 +660,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state: ChatState) => {
       const existing = state.dmMessages[dmId] || [];
       if (existing.some((m) => m.id === message.id)) return state;
+      // Reconcile the persisted realtime row with its local optimistic copy.
+      // This prevents one outgoing DM from rendering twice.
+      const optimisticIndex = message.author.id !== "me"
+        ? existing.findIndex(
+            (m) => m.id.startsWith("temp_") && m.author.id === "me" && m.text === message.text
+          )
+        : -1;
+      if (optimisticIndex !== -1) {
+        const next = [...existing];
+        next[optimisticIndex] = message;
+        return { dmMessages: { ...state.dmMessages, [dmId]: next } };
+      }
       const currentUserId = useAuthStore.getState().user?.id;
       if (message.author.id && message.author.id !== currentUserId && !message.id.startsWith("optimistic_")) {
         soundService.playMessagePing(message.id, { type: "dm", id: dmId }).catch(() => {});
