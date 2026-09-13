@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Space_Grotesk } from "next/font/google";
 import { Titlebar, ThemeProvider, ThemeScript } from "@corvus/ui";
-import { AuthGuard } from "@/features/auth";
+import { AuthGuard, OAuthHashHandler } from "@/features/auth";
 import { BRAND_DESCRIPTION } from "@/shared/lib/brand";
 import "katex/dist/katex.min.css";
 import "./globals.css";
@@ -34,6 +34,7 @@ export default function RootLayout({
       <body className="flex h-dvh flex-col overflow-hidden aiic-ambient-canvas text-text-primary antialiased">
         <ThemeProvider defaultTheme="dark">
           <Titlebar />
+          <OAuthHashHandler />
           <main className="flex-1 min-h-0 flex flex-col">
             <AuthGuard>{children}</AuthGuard>
           </main>
