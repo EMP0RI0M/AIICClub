@@ -9,7 +9,11 @@ import {
   ActivityIndicator,
   Image,
   Alert,
+  Modal,
+  Pressable,
+  Platform,
 } from "react-native";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
@@ -19,13 +23,17 @@ import {
   Trash2,
   RotateCcw,
   Terminal,
-  FileCode2,
   FileText,
   Copy,
   Check,
-  ChevronLeft,
-  Sparkles,
   Code2,
+  MoreVertical,
+  Download,
+  Share2,
+  Sparkles,
+  Layers,
+  ChevronRight,
+  Info,
 } from "lucide-react-native";
 import { colors, radius, useAppTheme } from "../../theme/tokens";
 import { NativeHaptics } from "../../lib/haptics";
@@ -103,6 +111,8 @@ export function NotebookChannelView({
   const [execCounter, setExecCounter] = useState(1);
   const [isExecutingAll, setIsExecutingAll] = useState(false);
   const [copiedCellId, setCopiedCellId] = useState<string | null>(null);
+  const [notebookMenuOpen, setNotebookMenuOpen] = useState(false);
+  const [activeCellActionId, setActiveCellActionId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -220,6 +230,7 @@ export function NotebookChannelView({
     NativeHaptics.selection();
     const next = cells.map((c) => ({ ...c, output: undefined }));
     saveCells(next);
+    setNotebookMenuOpen(false);
     notificationService.show({
       title: "Notebook Outputs Cleared",
       body: "All execution outputs have been reset.",
@@ -227,82 +238,94 @@ export function NotebookChannelView({
     });
   };
 
+  const resetToSample = () => {
+    NativeHaptics.medium();
+    saveCells(DEFAULT_CELLS);
+    setNotebookMenuOpen(false);
+    notificationService.show({
+      title: "Notebook Reset",
+      body: "Restored sample data science cells.",
+      type: "info",
+    });
+  };
+
+  const copyFullNotebook = async () => {
+    NativeHaptics.selection();
+    const fullText = cells
+      .map((c, i) => `# --- Cell ${i + 1} (${c.type}) ---\n${c.content}`)
+      .join("\n\n");
+    await Clipboard.setStringAsync(fullText);
+    setNotebookMenuOpen(false);
+    notificationService.show({
+      title: "Notebook Copied",
+      body: "Full notebook content copied to clipboard.",
+      type: "success",
+    });
+  };
+
   return (
     <View style={styles.container}>
-      {/* Top Interactive Toolbar */}
-      <View style={styles.toolbar}>
-        <View style={styles.toolbarLeft}>
-          {onBack && (
-            <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-              <ChevronLeft size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
-          )}
-          <View style={styles.channelBadge}>
-            <Terminal size={14} color="#0ea5e9" />
-            <Text style={styles.channelTitle} numberOfLines={1}>
-              {channelName}
-            </Text>
-            <View style={styles.runtimeTag}>
-              <Text style={styles.runtimeText}>Py 3.12</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.toolbarRight}>
+      {/* ── Top Floating Action Controls (Transparent & Borderless) ── */}
+      <View style={styles.topBar}>
+        <View style={styles.topBarLeft}>
           <TouchableOpacity
             onPress={runAllCells}
             disabled={isExecutingAll}
-            style={[styles.actionBtn, styles.runAllBtn]}
+            style={styles.pillActionBtn}
+            activeOpacity={0.7}
           >
             {isExecutingAll ? (
-              <ActivityIndicator size="small" color="#0ea5e9" />
+              <ActivityIndicator size="small" color="#38bdf8" />
             ) : (
               <>
-                <Play size={12} color="#0ea5e9" fill="#0ea5e9" />
-                <Text style={styles.runAllText}>Run All</Text>
+                <Play size={11} color="#38bdf8" fill="#38bdf8" />
+                <Text style={styles.pillActionTextRun}>Run All</Text>
               </>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => addCell("code")}
-            style={styles.actionBtn}
+            style={styles.pillActionBtn}
+            activeOpacity={0.7}
           >
-            <Code2 size={12} color={colors.textSecondary} />
-            <Text style={styles.actionBtnText}>+Code</Text>
+            <Code2 size={12} color="rgba(255, 255, 255, 0.85)" />
+            <Text style={styles.pillActionText}>+Code</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => addCell("markdown")}
-            style={styles.actionBtn}
+            style={styles.pillActionBtn}
+            activeOpacity={0.7}
           >
-            <FileText size={12} color={colors.textSecondary} />
-            <Text style={styles.actionBtnText}>+MD</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={clearAllOutputs}
-            style={styles.iconActionBtn}
-          >
-            <RotateCcw size={13} color={colors.textMuted} />
+            <FileText size={12} color="rgba(255, 255, 255, 0.85)" />
+            <Text style={styles.pillActionText}>+MD</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Specialized Notebook 3-Dot Menu */}
+        <TouchableOpacity
+          onPress={() => {
+            NativeHaptics.light();
+            setNotebookMenuOpen(true);
+          }}
+          style={styles.menuIconBtn}
+          activeOpacity={0.7}
+        >
+          <MoreVertical size={18} color="rgba(255, 255, 255, 0.8)" />
+        </TouchableOpacity>
       </View>
 
-      {/* Cells List */}
+      {/* ── Cells List (Completely Transparent Liquid Glass) ── */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         {cells.map((cell, idx) => (
           <View key={cell.id} style={styles.cellCard}>
-            <LinearGradient
-              colors={["rgba(255, 255, 255, 0.03)", "rgba(10, 11, 17, 0.6)"]}
-              style={StyleSheet.absoluteFillObject}
-            />
-
-            {/* Cell Header */}
+            {/* Cell Top Meta & Run Bar */}
             <View style={styles.cellHeader}>
               <View style={styles.cellMeta}>
                 <Text style={styles.cellPrompt}>
@@ -325,11 +348,12 @@ export function NotebookChannelView({
                     <TouchableOpacity
                       onPress={() => copyCellCode(cell.id, cell.content)}
                       style={styles.cellMiniBtn}
+                      activeOpacity={0.7}
                     >
                       {copiedCellId === cell.id ? (
                         <Check size={12} color="#10b981" />
                       ) : (
-                        <Copy size={12} color={colors.textMuted} />
+                        <Copy size={12} color="rgba(255, 255, 255, 0.6)" />
                       )}
                     </TouchableOpacity>
 
@@ -337,11 +361,12 @@ export function NotebookChannelView({
                       onPress={() => runCell(cell.id)}
                       disabled={cell.running}
                       style={[styles.cellMiniBtn, styles.cellRunBtn]}
+                      activeOpacity={0.7}
                     >
                       {cell.running ? (
-                        <ActivityIndicator size="small" color="#0ea5e9" />
+                        <ActivityIndicator size="small" color="#38bdf8" />
                       ) : (
-                        <Play size={11} color="#0ea5e9" fill="#0ea5e9" />
+                        <Play size={10} color="#38bdf8" fill="#38bdf8" />
                       )}
                     </TouchableOpacity>
                   </>
@@ -350,13 +375,14 @@ export function NotebookChannelView({
                 <TouchableOpacity
                   onPress={() => deleteCell(cell.id)}
                   style={styles.cellMiniBtn}
+                  activeOpacity={0.7}
                 >
-                  <Trash2 size={12} color="rgba(239, 68, 68, 0.8)" />
+                  <Trash2 size={12} color="rgba(239, 68, 68, 0.85)" />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Cell Editor Input */}
+            {/* Cell Editor Input (Transparent Glass) */}
             <View style={styles.editorBox}>
               <TextInput
                 multiline
@@ -372,13 +398,13 @@ export function NotebookChannelView({
                     ? "# Write Python code..."
                     : "Write Markdown note..."
                 }
-                placeholderTextColor={colors.textFaint}
+                placeholderTextColor="rgba(255, 255, 255, 0.3)"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
             </View>
 
-            {/* Cell Output Display */}
+            {/* Cell Output Display (Transparent Glass Output) */}
             {cell.output && (
               <View style={styles.outputBox}>
                 <View style={styles.outputHeader}>
@@ -417,6 +443,98 @@ export function NotebookChannelView({
           </View>
         ))}
       </ScrollView>
+
+      {/* ── Specialized Notebook Three-Dot Bottom Sheet ── */}
+      <Modal
+        visible={notebookMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNotebookMenuOpen(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setNotebookMenuOpen(false)}
+        >
+          <Pressable
+            style={styles.modalSheet}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <BlurView
+              intensity={Platform.OS === "ios" ? 40 : 25}
+              tint="dark"
+              style={StyleSheet.absoluteFillObject}
+            />
+            <View style={styles.sheetHandle} />
+
+            <View style={styles.sheetHeader}>
+              <Terminal size={18} color="#38bdf8" />
+              <Text style={styles.sheetTitle}>Notebook Actions</Text>
+            </View>
+
+            <View style={styles.menuItemsList}>
+              <TouchableOpacity
+                onPress={runAllCells}
+                style={styles.menuItem}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.menuIconWrap, { backgroundColor: "rgba(14, 165, 233, 0.15)" }]}>
+                  <Play size={16} color="#38bdf8" />
+                </View>
+                <View style={styles.menuItemTextCol}>
+                  <Text style={styles.menuItemLabel}>Run All Cells</Text>
+                  <Text style={styles.menuItemDesc}>Execute all Python code sequentially</Text>
+                </View>
+                <ChevronRight size={16} color="rgba(255, 255, 255, 0.3)" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={clearAllOutputs}
+                style={styles.menuItem}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.menuIconWrap, { backgroundColor: "rgba(232, 163, 61, 0.15)" }]}>
+                  <RotateCcw size={16} color={colors.accent} />
+                </View>
+                <View style={styles.menuItemTextCol}>
+                  <Text style={styles.menuItemLabel}>Clear All Outputs</Text>
+                  <Text style={styles.menuItemDesc}>Reset terminal results and plots</Text>
+                </View>
+                <ChevronRight size={16} color="rgba(255, 255, 255, 0.3)" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={copyFullNotebook}
+                style={styles.menuItem}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.menuIconWrap, { backgroundColor: "rgba(255, 255, 255, 0.08)" }]}>
+                  <Copy size={16} color="rgba(255, 255, 255, 0.85)" />
+                </View>
+                <View style={styles.menuItemTextCol}>
+                  <Text style={styles.menuItemLabel}>Copy Full Code</Text>
+                  <Text style={styles.menuItemDesc}>Copy all notebook cells to clipboard</Text>
+                </View>
+                <ChevronRight size={16} color="rgba(255, 255, 255, 0.3)" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={resetToSample}
+                style={styles.menuItem}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.menuIconWrap, { backgroundColor: "rgba(168, 85, 247, 0.15)" }]}>
+                  <Sparkles size={16} color="#C084FC" />
+                </View>
+                <View style={styles.menuItemTextCol}>
+                  <Text style={styles.menuItemLabel}>Reset to Sample Code</Text>
+                  <Text style={styles.menuItemDesc}>Restore theoretical sine distribution</Text>
+                </View>
+                <ChevronRight size={16} color="rgba(255, 255, 255, 0.3)" />
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -424,105 +542,69 @@ export function NotebookChannelView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#07090E",
+    backgroundColor: "transparent",
   },
-  toolbar: {
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(11, 14, 23, 0.95)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "transparent",
   },
-  toolbarLeft: {
+  topBarLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    flex: 1,
   },
-  backBtn: {
-    padding: 4,
-  },
-  channelBadge: {
+  pillActionBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    flex: 1,
-  },
-  channelTitle: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "700",
-    maxWidth: 130,
-  },
-  runtimeTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: "rgba(14, 165, 233, 0.12)",
+    gap: 4.5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
-    borderColor: "rgba(14, 165, 233, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
-  runtimeText: {
+  pillActionText: {
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 11.5,
+    fontWeight: "700",
+    fontFamily: "monospace",
+  },
+  pillActionTextRun: {
     color: "#38bdf8",
-    fontSize: 9.5,
-    fontFamily: "monospace",
-    fontWeight: "700",
-  },
-  toolbarRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4.5,
-    borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-  },
-  runAllBtn: {
-    backgroundColor: "rgba(14, 165, 233, 0.15)",
-    borderColor: "rgba(14, 165, 233, 0.35)",
-  },
-  runAllText: {
-    color: "#38bdf8",
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: "700",
     fontFamily: "monospace",
   },
-  actionBtnText: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: "600",
-    fontFamily: "monospace",
-  },
-  iconActionBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+  menuIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
   scroll: {
     flex: 1,
+    backgroundColor: "transparent",
   },
   scrollContent: {
-    padding: 12,
-    gap: 12,
+    paddingHorizontal: 14,
+    paddingTop: 6,
     paddingBottom: 40,
+    gap: 12,
   },
   cellCard: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(12, 16, 26, 0.85)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(14, 17, 26, 0.4)",
     overflow: "hidden",
   },
   cellHeader: {
@@ -531,9 +613,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 12,
     paddingVertical: 7,
-    backgroundColor: "rgba(8, 11, 18, 0.9)",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.05)",
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
   cellMeta: {
     flexDirection: "row",
@@ -549,11 +631,11 @@ const styles = StyleSheet.create({
   cellTypePill: {
     paddingHorizontal: 5,
     paddingVertical: 1.5,
-    borderRadius: 4,
+    borderRadius: 5,
     backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   cellTypeText: {
-    color: colors.textMuted,
+    color: "rgba(255, 255, 255, 0.6)",
     fontSize: 8.5,
     fontFamily: "monospace",
     fontWeight: "600",
@@ -566,30 +648,31 @@ const styles = StyleSheet.create({
   cellMiniBtn: {
     padding: 5,
     borderRadius: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   cellRunBtn: {
-    backgroundColor: "rgba(14, 165, 233, 0.18)",
+    backgroundColor: "rgba(14, 165, 233, 0.2)",
   },
   editorBox: {
     padding: 12,
+    backgroundColor: "transparent",
   },
   codeInput: {
-    color: "#E2E8F0",
-    fontFamily: "monospace",
+    color: "#F1F5F9",
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     fontSize: 13,
     lineHeight: 19,
-    minHeight: 60,
+    minHeight: 55,
   },
   mdInput: {
-    color: "#CBD5E1",
+    color: "#E2E8F0",
     fontFamily: "System",
     fontSize: 13.5,
     lineHeight: 20,
   },
   outputBox: {
     padding: 12,
-    backgroundColor: "rgba(4, 5, 8, 0.85)",
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -604,13 +687,13 @@ const styles = StyleSheet.create({
   },
   stdoutText: {
     color: "#E2E8F0",
-    fontFamily: "monospace",
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     fontSize: 12,
     lineHeight: 18,
   },
   resultText: {
     color: "#38bdf8",
-    fontFamily: "monospace",
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     fontSize: 12,
     lineHeight: 18,
     marginTop: 4,
@@ -618,20 +701,20 @@ const styles = StyleSheet.create({
   errorBox: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    backgroundColor: "rgba(239, 68, 68, 0.12)",
     borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.3)",
+    borderColor: "rgba(239, 68, 68, 0.25)",
     marginBottom: 6,
   },
   errorText: {
     color: "#F87171",
-    fontFamily: "monospace",
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     fontSize: 11.5,
     lineHeight: 16,
   },
   imageContainer: {
     marginTop: 8,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
@@ -640,5 +723,75 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 220,
     backgroundColor: "#000",
+  },
+  // Specialized Three-Dot Modal Sheet
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(10, 13, 20, 0.85)",
+    paddingTop: 10,
+    paddingBottom: Platform.OS === "ios" ? 36 : 24,
+    paddingHorizontal: 16,
+    overflow: "hidden",
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  sheetTitle: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  menuItemsList: {
+    gap: 8,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  menuIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuItemTextCol: {
+    flex: 1,
+  },
+  menuItemLabel: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  menuItemDesc: {
+    color: "rgba(255, 255, 255, 0.5)",
+    fontSize: 11,
+    marginTop: 1,
   },
 });

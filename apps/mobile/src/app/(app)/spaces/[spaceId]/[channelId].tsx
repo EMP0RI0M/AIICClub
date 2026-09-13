@@ -1063,7 +1063,19 @@ function TextChannelScreen({
           >
             <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFillObject} />
             <View style={styles.channelPillHighlight} />
-            <Hash size={24} color={colors.accentTeal} />
+            {channelType === "notebook" || channel.name.toLowerCase().includes("notebook") || channel.name.toLowerCase().includes("jupyter") ? (
+              <Terminal size={22} color="#38bdf8" />
+            ) : channelType === "github" ? (
+              <Github size={22} color={colors.accent} />
+            ) : channelType === "docs" ? (
+              <FileText size={22} color={colors.accentTeal} />
+            ) : channelType === "board" || channelType === "project" ? (
+              <Kanban size={22} color="#F472B6" />
+            ) : channelType === "incident" ? (
+              <AlertTriangle size={22} color="#F87171" />
+            ) : (
+              <Hash size={24} color={colors.accentTeal} />
+            )}
             <Text style={styles.channelHeaderName} numberOfLines={1}>
               {channel.name}
             </Text>
