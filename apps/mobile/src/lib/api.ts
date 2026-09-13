@@ -356,6 +356,20 @@ export async function declineFriendRequest(requestId: string) {
   );
 }
 
+export async function cancelFriendRequest(requestId: string) {
+  return api<{ message: string }>(
+    `/friends/requests/${requestId}`,
+    { method: "DELETE" }
+  );
+}
+
+export async function removeFriend(friendId: string) {
+  return api<{ message: string }>(
+    `/friends/${friendId}`,
+    { method: "DELETE" }
+  );
+}
+
 export async function searchUsers(query: string) {
   return api<{ users: any[] }>(`/friends/search?query=${encodeURIComponent(query)}`);
 }

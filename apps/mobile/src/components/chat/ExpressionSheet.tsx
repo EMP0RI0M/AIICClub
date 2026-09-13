@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
+  Keyboard,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -1276,6 +1277,7 @@ export function ExpressionSheet({
 
   useEffect(() => {
     if (visible) {
+      Keyboard.dismiss();
       setActiveTab(initialTab);
       setSearch("");
       setSelectedCategory("Trending");
@@ -1661,19 +1663,19 @@ export function ExpressionSheet({
 const styles = StyleSheet.create({
   sheetBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
     justifyContent: "flex-end",
   },
   sheetContainer: {
-    height: Math.min(SCREEN_HEIGHT * 0.54, 460),
-    maxHeight: SCREEN_HEIGHT * 0.6,
+    height: 310,
+    maxHeight: 330,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.12)",
     overflow: "hidden",
     paddingTop: 8,
-    paddingBottom: Platform.OS === "ios" ? 28 : 14,
+    paddingBottom: Platform.OS === "ios" ? 14 : 8,
   },
   dragHandle: {
     width: 38,

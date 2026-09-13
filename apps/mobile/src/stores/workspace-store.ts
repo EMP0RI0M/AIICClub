@@ -232,15 +232,36 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const friendsList: FriendEntry[] = (res?.friends || []).map((f: any) => ({
         id: f.user.id,
         name: f.user.displayName || f.user.username,
+        username: f.user.username || undefined,
         avatar: f.user.avatarUrl || null,
         presence: f.user.status || "offline",
         status: f.user.bio || undefined,
       }));
 
+      const incoming: FriendEntry[] = (res?.pendingIncoming || []).map((r: any) => ({
+        id: r.user?.id || r.id,
+        name: r.user?.displayName || r.user?.username || "User",
+        username: r.user?.username,
+        avatar: r.user?.avatarUrl || null,
+        presence: r.user?.status || "offline",
+        pending: "incoming",
+        requestId: r.id,
+      }));
+
+      const outgoing: FriendEntry[] = (res?.pendingOutgoing || []).map((r: any) => ({
+        id: r.user?.id || r.id,
+        name: r.user?.displayName || r.user?.username || "User",
+        username: r.user?.username,
+        avatar: r.user?.avatarUrl || null,
+        presence: r.user?.status || "offline",
+        pending: "outgoing",
+        requestId: r.id,
+      }));
+
       set({
         friends: friendsList,
-        incomingRequests: res?.pendingIncoming || [],
-        outgoingRequests: res?.pendingOutgoing || [],
+        incomingRequests: incoming,
+        outgoingRequests: outgoing,
         isLoadingFriends: false,
       });
     } catch (err) {

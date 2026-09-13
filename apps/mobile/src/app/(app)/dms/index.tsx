@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,8 +7,8 @@ import {
   StyleSheet,
   TextInput,
   ActivityIndicator,
-  Modal,
   Alert,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,11 +19,13 @@ import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui/Button";
 import { useWorkspaceStore } from "../../../stores/workspace-store";
 import { useAuthStore } from "../../../stores/auth-store";
-import { DMSummary, FriendEntry } from "../../../lib/types";
+import { DMSummary, FriendEntry, Presence } from "../../../lib/types";
 import {
   sendFriendRequest,
   acceptFriendRequest,
   declineFriendRequest,
+  cancelFriendRequest,
+  removeFriend,
   searchUsers,
 } from "../../../lib/api";
 import {
@@ -36,7 +38,10 @@ import {
   Phone,
   UserPlus,
   Circle,
+  UserX,
+  Clock,
   Sparkles,
+  ShieldAlert,
 } from "lucide-react-native";
 
 export default function DMsScreen() {
@@ -58,11 +63,15 @@ export default function DMsScreen() {
   const [friendSubTab, setFriendSubTab] = useState<"online" | "all" | "pending" | "add">("online");
   const [search, setSearch] = useState("");
 
-  // Add friend search states
+  // Add friend direct input & live directory search
+  const [directUsername, setDirectUsername] = useState("");
   const [addSearchQuery, setAddSearchQuery] = useState("");
   const [addSearchResults, setAddSearchResults] = useState<any[]>([]);
   const [isSearchingAdd, setIsSearchingAdd] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  const searchDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadDMs(user?.id);
@@ -81,30 +90,49 @@ export default function DMsScreen() {
       ? onlineFriends
       : acceptedFriends;
 
-  const handleSearchUsersToAdd = async (q: string) => {
+  // Live search directory with debounce
+  const handleLiveSearchChange = (q: string) => {
     setAddSearchQuery(q);
-    if (!q.trim()) {
+    if (searchDebounceTimer.current) {
+      clearTimeout(searchDebounceTimer.current);
+    }
+
+    if (q.trim().length < 2) {
       setAddSearchResults([]);
+      setIsSearchingAdd(false);
+      setSearchError(null);
       return;
     }
+
     setIsSearchingAdd(true);
-    try {
-      const res = await searchUsers(q.trim());
-      setAddSearchResults(res?.users || []);
-    } catch {
-      setAddSearchResults([]);
-    } finally {
-      setIsSearchingAdd(false);
-    }
+    setSearchError(null);
+
+    searchDebounceTimer.current = setTimeout(async () => {
+      try {
+        const res = await searchUsers(q.trim());
+        setAddSearchResults(res?.users || []);
+      } catch (err: any) {
+        setSearchError(err?.message || "Could not search users.");
+        setAddSearchResults([]);
+      } finally {
+        setIsSearchingAdd(false);
+      }
+    }, 250);
   };
 
-  const handleSendFriendRequest = async (username: string) => {
-    setActionLoadingId(username);
+  const handleSendFriendRequest = async (target: string) => {
+    const trimmed = target.trim();
+    if (!trimmed) return;
+    setActionLoadingId(trimmed);
     try {
-      const res = await sendFriendRequest(username);
-      Alert.alert("Request Sent", res.message || `Friend request sent to @${username}`);
+      const res = await sendFriendRequest(trimmed);
+      Alert.alert("Friend Request", res.message || `Friend request sent to ${trimmed}`);
+      setDirectUsername("");
       await loadFriends();
-      handleSearchUsersToAdd(addSearchQuery);
+      if (addSearchQuery.trim().length >= 2) {
+        const updated = await searchUsers(addSearchQuery.trim());
+        setAddSearchResults(updated?.users || []);
+      }
     } catch (err: any) {
       Alert.alert("Error", err.message || "Could not send friend request.");
     } finally {
@@ -117,6 +145,10 @@ export default function DMsScreen() {
     try {
       await acceptFriendRequest(reqId);
       await loadFriends();
+      if (addSearchQuery.trim().length >= 2) {
+        const updated = await searchUsers(addSearchQuery.trim());
+        setAddSearchResults(updated?.users || []);
+      }
     } catch (err: any) {
       Alert.alert("Error", err.message || "Failed to accept request.");
     } finally {
@@ -136,6 +168,47 @@ export default function DMsScreen() {
     }
   };
 
+  const handleCancelRequest = async (reqId: string) => {
+    setActionLoadingId(reqId);
+    try {
+      await cancelFriendRequest(reqId);
+      await loadFriends();
+      if (addSearchQuery.trim().length >= 2) {
+        const updated = await searchUsers(addSearchQuery.trim());
+        setAddSearchResults(updated?.users || []);
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to cancel request.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleRemoveFriendAction = (friendId: string, friendName: string) => {
+    Alert.alert(
+      "Remove Friend",
+      `Are you sure you want to remove ${friendName} from your friends list?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            setActionLoadingId(friendId);
+            try {
+              await removeFriend(friendId);
+              await loadFriends();
+            } catch (err: any) {
+              Alert.alert("Error", err.message || "Failed to remove friend.");
+            } finally {
+              setActionLoadingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleStartDMWithFriend = async (friendId: string) => {
     try {
       const res = await createDMAction([friendId]);
@@ -147,9 +220,30 @@ export default function DMsScreen() {
     }
   };
 
+  const handleStartCall = (friendName: string) => {
+    Alert.alert("Audio / Video Call", `Initiating encrypted AIIC call with ${friendName}...`);
+  };
+
+  const getRelationLabel = (item: any) => {
+    const status = item.relationStatus || (item.pending ? (item.pending === "incoming" ? "incoming_request" : "outgoing_request") : undefined);
+    switch (status) {
+      case "friend":
+      case "friends":
+        return "Already friends";
+      case "incoming":
+      case "incoming_request":
+        return "Sent you a request";
+      case "outgoing":
+      case "outgoing_request":
+        return "Request pending";
+      default:
+        return "AIIC Member";
+    }
+  };
+
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
-      {/* Ambient Color Glows for Liquid Refraction */}
+      {/* Ambient Color Glows */}
       <View style={styles.ambientGlowAmber} pointerEvents="none" />
       <View style={styles.ambientGlowPurple} pointerEvents="none" />
 
@@ -216,22 +310,28 @@ export default function DMsScreen() {
                 style={StyleSheet.absoluteFillObject}
               />
             )}
-            <Text
-              style={[
-                styles.mainTabPillText,
-                topTab === "friends" && styles.mainTabPillTextActive,
-              ]}
-            >
-              Squad & Friends ({friends.length})
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text
+                style={[
+                  styles.mainTabPillText,
+                  topTab === "friends" && styles.mainTabPillTextActive,
+                ]}
+              >
+                Friends ({friends.length})
+              </Text>
+              {incomingRequests.length > 0 && (
+                <View style={styles.pendingPillDot} />
+              )}
+            </View>
           </TouchableOpacity>
         </BlurView>
       </View>
 
+      {/* ========================================================= */}
       {/* MESSAGES TAB CONTENT */}
+      {/* ========================================================= */}
       {topTab === "messages" && (
         <View style={{ flex: 1 }}>
-          {/* Curved Liquid Glass Search bar */}
           <View style={styles.searchBarWrap}>
             <BlurView intensity={25} tint="dark" style={styles.searchBar}>
               <LinearGradient
@@ -305,7 +405,7 @@ export default function DMsScreen() {
                   </View>
                   <Text style={styles.emptyTitle}>No Direct Messages</Text>
                   <Text style={styles.emptySubtitle}>
-                    Connect and start a liquid glass conversation with your team.
+                    Connect and start a liquid glass conversation with your squad.
                   </Text>
                   <Button
                     title="Find Friends"
@@ -323,7 +423,9 @@ export default function DMsScreen() {
         </View>
       )}
 
+      {/* ========================================================= */}
       {/* SQUAD & FRIENDS TAB CONTENT */}
+      {/* ========================================================= */}
       {topTab === "friends" && (
         <View style={{ flex: 1 }}>
           {/* Sub-tabs: Online / All / Pending / Add Friend */}
@@ -335,6 +437,7 @@ export default function DMsScreen() {
                 {
                   id: "pending",
                   label: `Pending (${incomingRequests.length + outgoingRequests.length})`,
+                  hasBadge: incomingRequests.length > 0,
                 },
                 { id: "add", label: "Add Friend" },
               ] as const
@@ -355,6 +458,9 @@ export default function DMsScreen() {
                 >
                   {st.label}
                 </Text>
+                {"hasBadge" in st && st.hasBadge && (
+                  <View style={styles.subTabDot} />
+                )}
               </TouchableOpacity>
             ))}
           </View>
@@ -375,14 +481,42 @@ export default function DMsScreen() {
                     <Avatar name={item.name} presence={item.presence} size={42} url={(item as any).avatar || (item as any).avatarUrl} />
                     <View style={styles.dmInfo}>
                       <Text style={styles.dmName}>{item.name}</Text>
-                      <Text style={styles.dmSnippet}>@{((item as any).username || item.name.toLowerCase().replace(/\s+/g, ""))}</Text>
+                      <Text style={styles.dmSnippet}>
+                        @{item.username || item.name.toLowerCase().replace(/\s+/g, "")}
+                        {item.status ? ` · ${item.status}` : ""}
+                      </Text>
                     </View>
-                    <TouchableOpacity
-                      style={styles.actionCircleBtn}
-                      onPress={() => handleStartDMWithFriend(item.id)}
-                    >
-                      <MessageSquare size={16} color={colors.accent} />
-                    </TouchableOpacity>
+
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      {/* Message Action */}
+                      <TouchableOpacity
+                        style={styles.actionCircleBtn}
+                        onPress={() => handleStartDMWithFriend(item.id)}
+                      >
+                        <MessageSquare size={15} color={colors.accent} />
+                      </TouchableOpacity>
+
+                      {/* Voice / Video Call Action */}
+                      <TouchableOpacity
+                        style={[styles.actionCircleBtn, { borderColor: "rgba(45, 212, 191, 0.25)", backgroundColor: "rgba(45, 212, 191, 0.1)" }]}
+                        onPress={() => handleStartCall(item.name)}
+                      >
+                        <Phone size={15} color={colors.accentTeal} />
+                      </TouchableOpacity>
+
+                      {/* Remove Friend Action */}
+                      <TouchableOpacity
+                        style={[styles.actionCircleBtn, { borderColor: "rgba(255, 77, 79, 0.2)", backgroundColor: "rgba(255, 77, 79, 0.08)" }]}
+                        onPress={() => handleRemoveFriendAction(item.id, item.name)}
+                        disabled={actionLoadingId === item.id}
+                      >
+                        {actionLoadingId === item.id ? (
+                          <ActivityIndicator size="small" color={colors.danger} />
+                        ) : (
+                          <UserX size={14} color={colors.danger} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </BlurView>
                 </View>
               )}
@@ -402,146 +536,303 @@ export default function DMsScreen() {
             />
           )}
 
-          {/* PENDING REQUESTS */}
+          {/* PENDING REQUESTS (INCOMING & OUTGOING) */}
           {friendSubTab === "pending" && (
-            <FlatList
-              data={[
-                ...incomingRequests.map((r) => ({ ...r, type: "incoming" })),
-                ...outgoingRequests.map((r) => ({ ...r, type: "outgoing" })),
-              ]}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.list}
-              renderItem={({ item }: { item: any }) => (
-                <View style={styles.dmRowWrap}>
-                  <BlurView intensity={25} tint="dark" style={styles.dmRow}>
-                    <LinearGradient
-                      colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
-                      style={StyleSheet.absoluteFillObject}
-                    />
-                    <Avatar
-                      name={
-                        item.type === "incoming"
-                          ? item.sender?.name || "User"
-                          : item.receiver?.name || "User"
-                      }
-                      size={42}
-                      url={
-                        item.type === "incoming"
-                          ? item.sender?.avatarUrl || item.sender?.avatar_url || item.sender?.avatar
-                          : item.receiver?.avatarUrl || item.receiver?.avatar_url || item.receiver?.avatar
-                      }
-                    />
-                    <View style={styles.dmInfo}>
-                      <Text style={styles.dmName}>
-                        {item.type === "incoming"
-                          ? item.sender?.name || "User"
-                          : item.receiver?.name || "User"}
-                      </Text>
-                      <Text style={styles.dmSnippet}>
-                        {item.type === "incoming"
-                          ? "Incoming Friend Request"
-                          : "Outgoing Friend Request"}
-                      </Text>
-                    </View>
+            <ScrollView contentContainerStyle={styles.list}>
+              {/* Received Requests Section */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeaderTitle}>
+                  RECEIVED REQUESTS ({incomingRequests.length})
+                </Text>
+              </View>
 
-                    {item.type === "incoming" && (
-                      <View style={{ flexDirection: "row", gap: 8 }}>
-                        <TouchableOpacity
-                          style={[styles.actionCircleBtn, { backgroundColor: "rgba(45, 212, 191, 0.15)", borderColor: "rgba(45, 212, 191, 0.3)" }]}
-                          onPress={() => handleAcceptRequest(item.id)}
-                          disabled={actionLoadingId === item.id}
-                        >
-                          <Check size={16} color={colors.accentTeal} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.actionCircleBtn, { backgroundColor: "rgba(255, 77, 79, 0.15)", borderColor: "rgba(255, 77, 79, 0.3)" }]}
-                          onPress={() => handleDeclineRequest(item.id)}
-                          disabled={actionLoadingId === item.id}
-                        >
-                          <X size={16} color={colors.danger} />
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </BlurView>
+              {incomingRequests.length === 0 ? (
+                <View style={styles.emptySectionBox}>
+                  <Text style={styles.emptySectionText}>No received friend requests.</Text>
                 </View>
+              ) : (
+                incomingRequests.map((req) => {
+                  const reqId = req.requestId || req.id;
+                  return (
+                    <View key={`in-${reqId}`} style={styles.dmRowWrap}>
+                      <BlurView intensity={25} tint="dark" style={styles.dmRow}>
+                        <LinearGradient
+                          colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
+                          style={StyleSheet.absoluteFillObject}
+                        />
+                        <Avatar name={req.name} size={42} url={req.avatar} />
+                        <View style={styles.dmInfo}>
+                          <Text style={styles.dmName}>{req.name}</Text>
+                          <Text style={styles.dmSnippet}>
+                            @{req.username || req.name.toLowerCase().replace(/\s+/g, "")} · Incoming request
+                          </Text>
+                        </View>
+
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <TouchableOpacity
+                            style={[styles.actionCapsuleBtn, { backgroundColor: "rgba(45, 212, 191, 0.18)", borderColor: "rgba(45, 212, 191, 0.4)" }]}
+                            onPress={() => handleAcceptRequest(reqId)}
+                            disabled={actionLoadingId === reqId}
+                          >
+                            {actionLoadingId === reqId ? (
+                              <ActivityIndicator size="small" color={colors.accentTeal} />
+                            ) : (
+                              <>
+                                <Check size={13} color={colors.accentTeal} />
+                                <Text style={[styles.actionCapsuleText, { color: colors.accentTeal }]}>Accept</Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.actionCapsuleBtn, { backgroundColor: "rgba(255, 77, 79, 0.14)", borderColor: "rgba(255, 77, 79, 0.3)" }]}
+                            onPress={() => handleDeclineRequest(reqId)}
+                            disabled={actionLoadingId === reqId}
+                          >
+                            <X size={13} color={colors.danger} />
+                            <Text style={[styles.actionCapsuleText, { color: colors.danger }]}>Decline</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </BlurView>
+                    </View>
+                  );
+                })
               )}
-              ListEmptyComponent={
-                <View style={styles.emptyState}>
-                  <Check size={32} color={colors.accentTeal} />
-                  <Text style={styles.emptyTitle}>All Caught Up</Text>
-                  <Text style={styles.emptySubtitle}>
-                    You have no pending friend requests.
-                  </Text>
+
+              {/* Sent Requests Section */}
+              <View style={[styles.sectionHeaderRow, { marginTop: 16 }]}>
+                <Text style={styles.sectionHeaderTitle}>
+                  SENT REQUESTS ({outgoingRequests.length})
+                </Text>
+              </View>
+
+              {outgoingRequests.length === 0 ? (
+                <View style={styles.emptySectionBox}>
+                  <Text style={styles.emptySectionText}>No outgoing friend requests.</Text>
                 </View>
-              }
-            />
+              ) : (
+                outgoingRequests.map((req) => {
+                  const reqId = req.requestId || req.id;
+                  return (
+                    <View key={`out-${reqId}`} style={styles.dmRowWrap}>
+                      <BlurView intensity={25} tint="dark" style={styles.dmRow}>
+                        <LinearGradient
+                          colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
+                          style={StyleSheet.absoluteFillObject}
+                        />
+                        <Avatar name={req.name} size={42} url={req.avatar} />
+                        <View style={styles.dmInfo}>
+                          <Text style={styles.dmName}>{req.name}</Text>
+                          <Text style={styles.dmSnippet}>
+                            @{req.username || req.name.toLowerCase().replace(/\s+/g, "")} · Pending response
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity
+                          style={[styles.actionCapsuleBtn, { backgroundColor: "rgba(255, 255, 255, 0.05)", borderColor: "rgba(255, 255, 255, 0.12)" }]}
+                          onPress={() => handleCancelRequest(reqId)}
+                          disabled={actionLoadingId === reqId}
+                        >
+                          {actionLoadingId === reqId ? (
+                            <ActivityIndicator size="small" color={colors.textMuted} />
+                          ) : (
+                            <>
+                              <X size={12} color={colors.textMuted} />
+                              <Text style={[styles.actionCapsuleText, { color: colors.textMuted }]}>Cancel</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </BlurView>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
           )}
 
-          {/* ADD FRIEND SEARCH */}
+          {/* ADD FRIEND TAB (FULL WEBSITE PARITY) */}
           {friendSubTab === "add" && (
-            <View style={{ flex: 1, padding: 14 }}>
-              <View style={styles.searchBarWrap}>
-                <BlurView intensity={25} tint="dark" style={styles.searchBar}>
-                  <Search size={15} color={colors.accent} />
-                  <TextInput
-                    placeholder="Search by username or display name..."
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    style={styles.searchInput}
-                    value={addSearchQuery}
-                    onChangeText={handleSearchUsersToAdd}
-                    autoCapitalize="none"
-                  />
-                  {isSearchingAdd && (
-                    <ActivityIndicator size="small" color={colors.accent} />
-                  )}
+            <ScrollView contentContainerStyle={{ padding: 14, gap: 16 }}>
+              {/* Header Box */}
+              <View style={styles.addFriendBanner}>
+                <BlurView intensity={25} tint="dark" style={styles.addFriendBannerInner}>
+                  <Text style={styles.addFriendBannerTitle}>
+                    ADD A FRIEND BY USERNAME OR ID
+                  </Text>
+                  <Text style={styles.addFriendBannerSubtitle}>
+                    Search for fellow AIIC engineers and club members to collaborate, voice call, and DM.
+                  </Text>
+
+                  {/* Direct Input */}
+                  <View style={styles.directInputRow}>
+                    <View style={styles.directInputWrapper}>
+                      <Search size={15} color="rgba(255, 255, 255, 0.4)" />
+                      <TextInput
+                        placeholder="Enter username (e.g. rafi, alex)..."
+                        placeholderTextColor="rgba(255, 255, 255, 0.35)"
+                        style={styles.directInput}
+                        value={directUsername}
+                        onChangeText={setDirectUsername}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        onSubmitEditing={() => handleSendFriendRequest(directUsername)}
+                      />
+                    </View>
+                    <TouchableOpacity
+                      style={[
+                        styles.directSendBtn,
+                        !directUsername.trim() && styles.directSendBtnDisabled,
+                      ]}
+                      onPress={() => handleSendFriendRequest(directUsername)}
+                      disabled={!directUsername.trim() || actionLoadingId === directUsername.trim()}
+                    >
+                      {actionLoadingId === directUsername.trim() ? (
+                        <ActivityIndicator size="small" color="#000" />
+                      ) : (
+                        <>
+                          <UserPlus size={14} color={directUsername.trim() ? "#000" : "rgba(255,255,255,0.4)"} />
+                          <Text
+                            style={[
+                              styles.directSendBtnText,
+                              !directUsername.trim() && { color: "rgba(255,255,255,0.4)" },
+                            ]}
+                          >
+                            Send
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 </BlurView>
               </View>
 
-              <FlatList
-                data={addSearchResults}
-                keyExtractor={(u) => u.id}
-                contentContainerStyle={{ paddingTop: 10, gap: 8 }}
-                renderItem={({ item }) => (
-                  <View style={styles.dmRowWrap}>
-                    <BlurView intensity={25} tint="dark" style={styles.dmRow}>
-                      <LinearGradient
-                        colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
-                        style={StyleSheet.absoluteFillObject}
-                      />
-                      <Avatar name={item.displayName} size={42} url={item.avatarUrl || item.avatar_url || item.avatar} />
-                      <View style={styles.dmInfo}>
-                        <Text style={styles.dmName}>{item.displayName}</Text>
-                        <Text style={styles.dmSnippet}>@{item.username}</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.sendRequestBtn}
-                        onPress={() => handleSendFriendRequest(item.username)}
-                        disabled={actionLoadingId === item.username}
-                      >
-                        {actionLoadingId === item.username ? (
-                          <ActivityIndicator size="small" color="#000" />
-                        ) : (
-                          <>
-                            <UserPlus size={14} color="#000" />
-                            <Text style={styles.sendRequestBtnText}>Add</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    </BlurView>
+              {/* Live Directory Search Card */}
+              <View style={styles.liveDirectoryBox}>
+                <BlurView intensity={25} tint="dark" style={styles.liveDirectoryInner}>
+                  <View style={styles.liveDirectoryHeader}>
+                    <Text style={styles.liveDirectoryTitle}>LIVE DIRECTORY SEARCH</Text>
+                    {isSearchingAdd && (
+                      <ActivityIndicator size="small" color={colors.accent} />
+                    )}
                   </View>
-                )}
-                ListEmptyComponent={
-                  addSearchQuery.trim().length > 0 && !isSearchingAdd ? (
-                    <View style={styles.emptyState}>
-                      <Text style={styles.emptyTitle}>No Members Found</Text>
-                      <Text style={styles.emptySubtitle}>
-                        Try searching with a different username.
-                      </Text>
+
+                  <View style={styles.liveSearchInputWrap}>
+                    <Search size={14} color={colors.accent} />
+                    <TextInput
+                      placeholder="Live search by name or username..."
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      style={styles.liveSearchInput}
+                      value={addSearchQuery}
+                      onChangeText={handleLiveSearchChange}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    {!!addSearchQuery && (
+                      <TouchableOpacity onPress={() => handleLiveSearchChange("")} hitSlop={6}>
+                        <X size={14} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Results List */}
+                  {searchError ? (
+                    <Text style={styles.searchErrorText}>{searchError}</Text>
+                  ) : addSearchQuery.trim().length < 2 ? (
+                    <Text style={styles.searchHintText}>
+                      Type at least 2 characters to search AIIC members.
+                    </Text>
+                  ) : addSearchResults.length === 0 && !isSearchingAdd ? (
+                    <Text style={styles.searchHintText}>
+                      No members found matching &quot;{addSearchQuery}&quot;.
+                    </Text>
+                  ) : (
+                    <View style={{ gap: 8, marginTop: 10 }}>
+                      {addSearchResults.map((userItem) => {
+                        const rel = userItem.relationStatus;
+                        const isActionLoading =
+                          actionLoadingId === userItem.username ||
+                          actionLoadingId === userItem.id ||
+                          actionLoadingId === userItem.pendingRequestId;
+
+                        return (
+                          <View key={userItem.id} style={styles.userCardRow}>
+                            <Avatar
+                              name={userItem.displayName || userItem.username}
+                              size={38}
+                              url={userItem.avatarUrl || userItem.avatar_url || userItem.avatar}
+                            />
+                            <View style={styles.dmInfo}>
+                              <Text style={styles.dmName}>
+                                {userItem.displayName || userItem.username}
+                              </Text>
+                              <Text style={styles.dmSnippet}>
+                                @{userItem.username} · {getRelationLabel(userItem)}
+                              </Text>
+                            </View>
+
+                            {/* Dynamic Relation Action */}
+                            {rel === "friend" || rel === "friends" ? (
+                              <View style={styles.statusBadgePill}>
+                                <Text style={styles.statusBadgeText}>Friends</Text>
+                              </View>
+                            ) : (rel === "incoming" || rel === "incoming_request") && userItem.pendingRequestId ? (
+                              <TouchableOpacity
+                                style={[styles.actionCapsuleBtn, { backgroundColor: "rgba(45, 212, 191, 0.2)", borderColor: "rgba(45, 212, 191, 0.4)" }]}
+                                onPress={() => handleAcceptRequest(userItem.pendingRequestId)}
+                                disabled={isActionLoading}
+                              >
+                                {isActionLoading ? (
+                                  <ActivityIndicator size="small" color={colors.accentTeal} />
+                                ) : (
+                                  <>
+                                    <Check size={12} color={colors.accentTeal} />
+                                    <Text style={[styles.actionCapsuleText, { color: colors.accentTeal }]}>Accept</Text>
+                                  </>
+                                )}
+                              </TouchableOpacity>
+                            ) : rel === "outgoing" || rel === "outgoing_request" ? (
+                              <TouchableOpacity
+                                style={[styles.actionCapsuleBtn, { backgroundColor: "rgba(255, 255, 255, 0.05)", borderColor: "rgba(255, 255, 255, 0.12)" }]}
+                                onPress={() => {
+                                  if (userItem.pendingRequestId) {
+                                    handleCancelRequest(userItem.pendingRequestId);
+                                  }
+                                }}
+                                disabled={isActionLoading || !userItem.pendingRequestId}
+                              >
+                                {isActionLoading ? (
+                                  <ActivityIndicator size="small" color={colors.textMuted} />
+                                ) : (
+                                  <>
+                                    <Clock size={11} color={colors.textMuted} />
+                                    <Text style={[styles.actionCapsuleText, { color: colors.textMuted }]}>Pending</Text>
+                                  </>
+                                )}
+                              </TouchableOpacity>
+                            ) : (
+                              <TouchableOpacity
+                                style={styles.sendRequestBtn}
+                                onPress={() => handleSendFriendRequest(userItem.username || userItem.id)}
+                                disabled={isActionLoading}
+                              >
+                                {isActionLoading ? (
+                                  <ActivityIndicator size="small" color="#000" />
+                                ) : (
+                                  <>
+                                    <UserPlus size={13} color="#000" />
+                                    <Text style={styles.sendRequestBtnText}>Add</Text>
+                                  </>
+                                )}
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      })}
                     </View>
-                  ) : null
-                }
-              />
-            </View>
+                  )}
+                </BlurView>
+              </View>
+            </ScrollView>
           )}
         </View>
       )}
@@ -665,6 +956,12 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: "800",
   },
+  pendingPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+  },
   searchBarWrap: {
     marginHorizontal: 14,
     marginTop: 10,
@@ -730,7 +1027,7 @@ const styles = StyleSheet.create({
   },
   dmSnippet: {
     color: "rgba(255, 255, 255, 0.55)",
-    fontSize: 12.5,
+    fontSize: 12,
   },
   unreadBadge: {
     backgroundColor: colors.accent,
@@ -751,6 +1048,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   subTabBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 16,
@@ -771,6 +1071,12 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: "800",
   },
+  subTabDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+  },
   actionCircleBtn: {
     width: 36,
     height: 36,
@@ -781,18 +1087,203 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  actionCapsuleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  actionCapsuleText: {
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: "monospace",
+  },
+  sectionHeaderRow: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  sectionHeaderTitle: {
+    fontSize: 11,
+    fontFamily: "monospace",
+    fontWeight: "800",
+    color: "rgba(255, 255, 255, 0.5)",
+    letterSpacing: 0.8,
+  },
+  emptySectionBox: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptySectionText: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.4)",
+    fontFamily: "monospace",
+  },
+  addFriendBanner: {
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  addFriendBannerInner: {
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(10, 10, 10, 0.6)",
+  },
+  addFriendBannerTitle: {
+    color: colors.accent,
+    fontSize: 12,
+    fontFamily: "monospace",
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+  addFriendBannerSubtitle: {
+    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 17,
+  },
+  directInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 14,
+  },
+  directInputWrapper: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 12,
+  },
+  directInput: {
+    flex: 1,
+    fontSize: 12.5,
+    fontFamily: "monospace",
+    color: "#FFF",
+  },
+  directSendBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    height: 42,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: colors.accent,
+    justifyContent: "center",
+  },
+  directSendBtnDisabled: {
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  directSendBtnText: {
+    color: "#000",
+    fontSize: 12,
+    fontFamily: "monospace",
+    fontWeight: "800",
+  },
+  liveDirectoryBox: {
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  liveDirectoryInner: {
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(10, 10, 10, 0.6)",
+  },
+  liveDirectoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  liveDirectoryTitle: {
+    color: "rgba(255, 255, 255, 0.5)",
+    fontSize: 11,
+    fontFamily: "monospace",
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+  liveSearchInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: 12,
+  },
+  liveSearchInput: {
+    flex: 1,
+    fontSize: 12.5,
+    color: "#FFF",
+  },
+  searchErrorText: {
+    fontSize: 12,
+    color: colors.danger,
+    paddingVertical: 14,
+    textAlign: "center",
+  },
+  searchHintText: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.4)",
+    paddingVertical: 14,
+    textAlign: "center",
+    fontFamily: "monospace",
+  },
+  userCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 10,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  statusBadgePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  statusBadgeText: {
+    fontSize: 10.5,
+    fontFamily: "monospace",
+    color: "rgba(255, 255, 255, 0.6)",
+    fontWeight: "700",
+  },
   sendRequestBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
     backgroundColor: colors.accent,
   },
   sendRequestBtnText: {
     color: "#000",
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: "800",
   },
   centerContainer: {

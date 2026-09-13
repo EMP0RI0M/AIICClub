@@ -2530,7 +2530,7 @@ export default function AIICDiscordApp() {
               <View style={styles.pageHeaderRow}>
                 <Text style={styles.pageTitle}>Direct Messages</Text>
                 <Pressable
-                  onPress={() => router.push("/(app)/dms/index" as any)}
+                  onPress={() => router.push("/(app)/dms" as any)}
                   style={styles.createBtn}
                 >
                   <Text style={styles.createBtnText}>+ Add Friend</Text>

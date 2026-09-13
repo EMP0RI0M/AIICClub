@@ -144,10 +144,12 @@ export interface DMSummary {
 export interface FriendEntry {
   id: string;
   name: string;
+  username?: string;
   avatar?: string | null;
   presence: Presence;
   status?: string;
   pending?: "incoming" | "outgoing";
+  requestId?: string;
 }
 
 export interface ThreadSummary {
