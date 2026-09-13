@@ -37,11 +37,11 @@ class NotificationService {
   /** Request native system notification permissions and retrieve Expo Push Token */
   async requestPermissions(): Promise<boolean> {
     try {
-      const existing = await Notifications.getPermissionsAsync();
-      let granted = existing.granted || (existing as any).status === "granted";
+      const existing: any = await Notifications.getPermissionsAsync();
+      let granted = Boolean(existing?.granted || existing?.status === "granted" || existing?.allowsAlert);
       if (!granted) {
-        const requested = await Notifications.requestPermissionsAsync();
-        granted = requested.granted || (requested as any).status === "granted";
+        const requested: any = await Notifications.requestPermissionsAsync();
+        granted = Boolean(requested?.granted || requested?.status === "granted" || requested?.allowsAlert);
       }
       if (!granted) {
         return false;
