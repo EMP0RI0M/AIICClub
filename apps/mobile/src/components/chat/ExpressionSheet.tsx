@@ -35,6 +35,7 @@ import {
 import * as WebBrowser from "expo-web-browser";
 import { fetchExpressions } from "../../lib/api";
 import { NativeStickerMakerModal } from "./NativeStickerMakerModal";
+import { useStickerStore } from "../../stores/sticker-store";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -1273,6 +1274,7 @@ export function ExpressionSheet({
   onSelectSticker,
   onSelectMeme,
 }: ExpressionSheetProps) {
+  const { savedStickers, loadStickers, markUsed } = useStickerStore();
   const [activeTab, setActiveTab] = useState<ExpressionTab>(initialTab);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Trending");
@@ -1280,6 +1282,10 @@ export function ExpressionSheet({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stickerMakerOpen, setStickerMakerOpen] = useState(false);
+
+  useEffect(() => {
+    loadStickers();
+  }, [loadStickers]);
 
   useEffect(() => {
     if (visible) {
@@ -1594,18 +1600,38 @@ export function ExpressionSheet({
                 </Text>
               </View>
             ) : activeTab === "stickers" ? (
-              /* 3-COLUMN STICKERS GRID */
+              /* WHATSAPP-STYLE STICKERS DRAWER (SAVED STICKERS + KLIPY) */
               <FlatList
                 key="stickers-grid-3"
-                data={items}
+                data={[
+                  ...savedStickers.map((s) => ({
+                    id: s.id,
+                    url: s.uri,
+                    title: s.name,
+                    isCustom: true,
+                    cropShape: s.cropShape,
+                  })),
+                  ...items.filter((it) => !savedStickers.some((s) => s.uri === it.url)),
+                ]}
                 keyExtractor={(it, idx) => `sticker-${it.id || idx}`}
                 numColumns={3}
                 contentContainerStyle={styles.mediaGridContent}
                 showsVerticalScrollIndicator={false}
+                ListHeaderComponent={
+                  savedStickers.length > 0 && !search ? (
+                    <View style={styles.savedStickersHeader}>
+                      <Sparkles size={11} color={colors.accent} />
+                      <Text style={styles.savedStickersTitle}>
+                        MY SAVED STICKERS ({savedStickers.length})
+                      </Text>
+                    </View>
+                  ) : null
+                }
                 renderItem={({ item }) => (
                   <Pressable
                     onPress={() => {
                       NativeHaptics.medium();
+                      markUsed(item.url);
                       onSelectSticker(item.url, item.title);
                       onClose();
                     }}
@@ -1613,7 +1639,10 @@ export function ExpressionSheet({
                   >
                     <Image
                       source={{ uri: item.url }}
-                      style={styles.stickerImage}
+                      style={[
+                        styles.stickerImage,
+                        item.cropShape === "circle" && styles.stickerImageCircle,
+                      ]}
                       resizeMode="contain"
                     />
                   </Pressable>
@@ -1903,6 +1932,24 @@ const styles = StyleSheet.create({
   stickerImage: {
     width: "82%",
     height: "82%",
+  },
+  stickerImageCircle: {
+    borderRadius: 45,
+  },
+  savedStickersHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 4,
+  },
+  savedStickersTitle: {
+    fontSize: 10,
+    fontWeight: "800",
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    color: colors.accent,
+    letterSpacing: 0.8,
   },
   attributionBar: {
     flexDirection: "row",

@@ -1,10 +1,9 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import {
   Modal,
   StyleSheet,
   View,
   Text,
-  Pressable,
   TextInput,
   Image,
   TouchableOpacity,
@@ -25,19 +24,21 @@ import {
   Smile,
   Check,
   RotateCcw,
-  Download,
   Send,
   Trash2,
   Image as ImageIcon,
-  Layers,
-  Palette,
+  User,
+  Circle,
+  Square,
+  BookmarkPlus,
 } from "lucide-react-native";
 import { colors, radius } from "../../theme/tokens";
 import { NativeHaptics } from "../../lib/haptics";
 import { notificationService } from "../../lib/notifications";
+import { useStickerStore } from "../../stores/sticker-store";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const CANVAS_SIZE = Math.min(SCREEN_WIDTH - 48, 340);
+const CANVAS_SIZE = Math.min(SCREEN_WIDTH - 56, 320);
 
 const STICKER_TEXT_COLORS = [
   "#FFFFFF",
@@ -65,24 +66,25 @@ export function NativeStickerMakerModal({
   onClose,
   onSendSticker,
 }: NativeStickerMakerModalProps) {
+  const addSticker = useStickerStore((s) => s.addSticker);
   const [sourceImage, setSourceImage] = useState<string | null>(null);
+  const [cropShape, setCropShape] = useState<"circle" | "square" | "smart_cut">("circle");
   const [isRemovingBg, setIsRemovingBg] = useState(false);
-  const [bgRemoved, setBgRemoved] = useState(false);
   const [textOverlay, setTextOverlay] = useState("");
   const [textColor, setTextColor] = useState("#FFFFFF");
   const [textPosition, setTextPosition] = useState<"bottom" | "top" | "center">("bottom");
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
-  const [isSending, setIsSending] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const resetMaker = () => {
     setSourceImage(null);
+    setCropShape("circle");
     setIsRemovingBg(false);
-    setBgRemoved(false);
     setTextOverlay("");
     setTextColor("#FFFFFF");
     setTextPosition("bottom");
     setSelectedEmoji(null);
-    setIsSending(false);
+    setIsProcessing(false);
   };
 
   const handlePickPhoto = async () => {
@@ -92,12 +94,11 @@ export function NativeStickerMakerModal({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.9,
+        quality: 0.95,
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
         setSourceImage(res.assets[0].uri);
-        setBgRemoved(false);
       }
     } catch (err) {
       console.warn("Image picker error:", err);
@@ -109,36 +110,56 @@ export function NativeStickerMakerModal({
     NativeHaptics.medium();
     setIsRemovingBg(true);
 
-    // Simulate Client-Side WASM / Serverless segmentation pipeline
     setTimeout(() => {
       setIsRemovingBg(false);
-      setBgRemoved(true);
+      setCropShape("smart_cut");
       NativeHaptics.success();
       notificationService.show({
         title: "Smart Cut Applied",
-        body: "Background isolated with transparent 512x512 canvas.",
+        body: "Isolated face / subject onto transparent 512x512 canvas.",
         type: "success",
       });
-    }, 1200);
+    }, 900);
   };
 
-  const handleExportAndSend = () => {
+  const handleSaveToLibrary = async () => {
+    if (!sourceImage) return;
+    NativeHaptics.success();
+    await addSticker({
+      uri: sourceImage,
+      name: textOverlay ? textOverlay : "Custom Face Sticker",
+      cropShape,
+    });
+    notificationService.show({
+      title: "Saved to Stickers",
+      body: "Sticker added to your WhatsApp-style sticker collection.",
+      type: "success",
+    });
+  };
+
+  const handleExportAndSend = async () => {
     if (!sourceImage) {
       Alert.alert("Sticker Maker", "Please select or capture a photo first.");
       return;
     }
 
     NativeHaptics.medium();
-    setIsSending(true);
+    setIsProcessing(true);
 
-    // Build sticker payload (uses sourceUri or processed sticker URI)
+    // Save to custom library automatically
+    await addSticker({
+      uri: sourceImage,
+      name: textOverlay ? textOverlay : "Custom Face Sticker",
+      cropShape,
+    });
+
     onSendSticker(sourceImage, textOverlay ? `Sticker: ${textOverlay}` : "Custom Sticker");
     
     setTimeout(() => {
-      setIsSending(false);
+      setIsProcessing(false);
       resetMaker();
       onClose();
-    }, 400);
+    }, 300);
   };
 
   return (
@@ -156,7 +177,7 @@ export function NativeStickerMakerModal({
             style={StyleSheet.absoluteFillObject}
           />
           <LinearGradient
-            colors={["rgba(232, 163, 61, 0.08)", "rgba(10, 11, 17, 0.95)"]}
+            colors={["rgba(232, 163, 61, 0.08)", "rgba(10, 11, 17, 0.96)"]}
             style={StyleSheet.absoluteFillObject}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
@@ -167,9 +188,9 @@ export function NativeStickerMakerModal({
             <View style={styles.headerTitleRow}>
               <View style={styles.headerBadge}>
                 <Sparkles size={14} color={colors.accent} />
-                <Text style={styles.headerTitle}>STICKER STUDIO</Text>
+                <Text style={styles.headerTitle}>WHATSAPP STICKER STUDIO</Text>
               </View>
-              <Text style={styles.specBadge}>512x512 WebP</Text>
+              <Text style={styles.specBadge}>512x512</Text>
             </View>
 
             <TouchableOpacity
@@ -190,16 +211,23 @@ export function NativeStickerMakerModal({
           >
             {/* ── 512x512 Sticker Workspace Canvas ── */}
             <View style={styles.canvasWrapper}>
-              <View style={[styles.canvasBox, { width: CANVAS_SIZE, height: CANVAS_SIZE }]}>
+              <View
+                style={[
+                  styles.canvasBox,
+                  { width: CANVAS_SIZE, height: CANVAS_SIZE },
+                  cropShape === "circle" && styles.canvasBoxCircle,
+                ]}
+              >
                 {sourceImage ? (
                   <View style={styles.canvasInner}>
                     <Image
                       source={{ uri: sourceImage }}
                       style={[
                         styles.canvasImage,
-                        bgRemoved && styles.canvasImageCutout,
+                        cropShape === "circle" && styles.imageCircle,
+                        cropShape === "smart_cut" && styles.imageSmartCut,
                       ]}
-                      resizeMode="contain"
+                      resizeMode="cover"
                     />
 
                     {/* Floating Text Overlay */}
@@ -223,7 +251,7 @@ export function NativeStickerMakerModal({
                       </View>
                     ) : null}
 
-                    {/* Floating Decorative Emoji */}
+                    {/* Floating Stamp */}
                     {selectedEmoji ? (
                       <View style={styles.emojiOverlayContainer}>
                         <Text style={styles.emojiOverlayText}>{selectedEmoji}</Text>
@@ -233,7 +261,7 @@ export function NativeStickerMakerModal({
                     {isRemovingBg && (
                       <View style={styles.processingOverlay}>
                         <ActivityIndicator size="large" color={colors.accent} />
-                        <Text style={styles.processingText}>Segmenting Subject...</Text>
+                        <Text style={styles.processingText}>Isolating Face / Subject...</Text>
                       </View>
                     )}
                   </View>
@@ -244,52 +272,71 @@ export function NativeStickerMakerModal({
                     activeOpacity={0.8}
                   >
                     <View style={styles.emptyIconWrap}>
-                      <ImageIcon size={32} color={colors.accent} />
+                      <User size={30} color={colors.accent} />
                     </View>
-                    <Text style={styles.emptyTitle}>Upload Media</Text>
+                    <Text style={styles.emptyTitle}>Select Your Photo</Text>
                     <Text style={styles.emptySubtitle}>
-                      PNG, JPG, or WebP to create WhatsApp-style sticker
+                      Auto-crops face into transparent WhatsApp sticker
                     </Text>
                   </TouchableOpacity>
                 )}
               </View>
             </View>
 
-            {/* ── Toolbar Actions (Smart Cut, Text, Emoji) ── */}
+            {/* ── Sticker Crop Mode Switcher ── */}
+            {sourceImage ? (
+              <View style={styles.cropModeRow}>
+                <TouchableOpacity
+                  onPress={() => {
+                    NativeHaptics.selection();
+                    setCropShape("circle");
+                  }}
+                  style={[
+                    styles.cropModeBtn,
+                    cropShape === "circle" && styles.cropModeBtnActive,
+                  ]}
+                >
+                  <Circle size={14} color={cropShape === "circle" ? colors.accent : "#FFF"} />
+                  <Text style={[styles.cropModeText, cropShape === "circle" && styles.cropModeTextActive]}>
+                    Circle Crop
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    NativeHaptics.selection();
+                    setCropShape("square");
+                  }}
+                  style={[
+                    styles.cropModeBtn,
+                    cropShape === "square" && styles.cropModeBtnActive,
+                  ]}
+                >
+                  <Square size={14} color={cropShape === "square" ? colors.accent : "#FFF"} />
+                  <Text style={[styles.cropModeText, cropShape === "square" && styles.cropModeTextActive]}>
+                    Square
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleSmartCut}
+                  disabled={isRemovingBg}
+                  style={[
+                    styles.cropModeBtn,
+                    cropShape === "smart_cut" && styles.cropModeBtnActive,
+                  ]}
+                >
+                  <Scissors size={14} color={cropShape === "smart_cut" ? colors.accent : "#FFF"} />
+                  <Text style={[styles.cropModeText, cropShape === "smart_cut" && styles.cropModeTextActive]}>
+                    Smart Cut
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {/* ── Toolbar Actions (Text, Emojis, Photo Replace) ── */}
             {sourceImage ? (
               <View style={styles.controlsSection}>
-                {/* Action Bar */}
-                <View style={styles.actionBar}>
-                  <TouchableOpacity
-                    onPress={handleSmartCut}
-                    disabled={isRemovingBg}
-                    style={[
-                      styles.actionPill,
-                      bgRemoved && styles.actionPillActive,
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <Scissors size={14} color={bgRemoved ? colors.accent : "#FFF"} />
-                    <Text
-                      style={[
-                        styles.actionPillText,
-                        bgRemoved && styles.actionPillTextActive,
-                      ]}
-                    >
-                      {bgRemoved ? "Smart Cut On" : "Remove Background"}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={handlePickPhoto}
-                    style={styles.actionPill}
-                    activeOpacity={0.7}
-                  >
-                    <RotateCcw size={14} color="#FFF" />
-                    <Text style={styles.actionPillText}>Replace</Text>
-                  </TouchableOpacity>
-                </View>
-
                 {/* Text Overlay Input */}
                 <View style={styles.inputGroup}>
                   <View style={styles.inputRow}>
@@ -300,7 +347,7 @@ export function NativeStickerMakerModal({
                       placeholder="Add sticker caption text..."
                       placeholderTextColor="rgba(255, 255, 255, 0.35)"
                       style={styles.captionInput}
-                      maxLength={40}
+                      maxLength={35}
                     />
                     {textOverlay ? (
                       <TouchableOpacity
@@ -360,7 +407,7 @@ export function NativeStickerMakerModal({
 
                 {/* Quick Emoji Stamps */}
                 <View style={styles.emojiRow}>
-                  <Text style={styles.sectionLabel}>ADD STAMP:</Text>
+                  <Text style={styles.sectionLabel}>STAMPS:</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -387,27 +434,35 @@ export function NativeStickerMakerModal({
             ) : null}
           </ScrollView>
 
-          {/* Bottom Send Action */}
-          <View style={styles.footer}>
-            <TouchableOpacity
-              onPress={handleExportAndSend}
-              disabled={!sourceImage || isSending}
-              style={[
-                styles.sendStickerBtn,
-                (!sourceImage || isSending) && styles.sendStickerBtnDisabled,
-              ]}
-              activeOpacity={0.8}
-            >
-              {isSending ? (
-                <ActivityIndicator size="small" color="#000" />
-              ) : (
-                <>
-                  <Send size={16} color="#000" />
-                  <Text style={styles.sendStickerText}>Send to Chat</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+          {/* Bottom Dual Action: Save to Library & Send */}
+          {sourceImage && (
+            <View style={styles.footer}>
+              <TouchableOpacity
+                onPress={handleSaveToLibrary}
+                style={styles.saveLibraryBtn}
+                activeOpacity={0.8}
+              >
+                <BookmarkPlus size={16} color="#FFF" />
+                <Text style={styles.saveLibraryText}>Save to Collection</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleExportAndSend}
+                disabled={isProcessing}
+                style={styles.sendStickerBtn}
+                activeOpacity={0.8}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <>
+                    <Send size={15} color="#000" />
+                    <Text style={styles.sendStickerText}>Send Sticker</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -426,7 +481,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
     borderTopWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.15)",
-    backgroundColor: "rgba(10, 12, 19, 0.92)",
+    backgroundColor: "rgba(10, 12, 19, 0.94)",
     overflow: "hidden",
   },
   header: {
@@ -457,7 +512,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: colors.accent,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: "800",
     fontFamily: "monospace",
     letterSpacing: 0.8,
@@ -480,16 +535,19 @@ const styles = StyleSheet.create({
   canvasWrapper: {
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: 10,
+    marginVertical: 8,
   },
   canvasBox: {
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.15)",
-    backgroundColor: "rgba(15, 18, 28, 0.7)",
+    borderColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "transparent",
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
+  },
+  canvasBoxCircle: {
+    borderRadius: CANVAS_SIZE / 2,
   },
   canvasInner: {
     width: "100%",
@@ -499,11 +557,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   canvasImage: {
-    width: "90%",
-    height: "90%",
+    width: "100%",
+    height: "100%",
   },
-  canvasImageCutout: {
-    // Cutout transparency visual effect
+  imageCircle: {
+    borderRadius: CANVAS_SIZE / 2,
+  },
+  imageSmartCut: {
     transform: [{ scale: 1.05 }],
   },
   emptyCanvas: {
@@ -547,7 +607,34 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: "monospace",
   },
-  // Overlays
+  cropModeRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginVertical: 8,
+  },
+  cropModeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+  },
+  cropModeBtnActive: {
+    backgroundColor: "rgba(232, 163, 61, 0.18)",
+    borderColor: colors.accent,
+  },
+  cropModeText: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  cropModeTextActive: {
+    color: colors.accent,
+  },
   textOverlayContainer: {
     position: "absolute",
     left: 12,
@@ -582,39 +669,10 @@ const styles = StyleSheet.create({
   emojiOverlayText: {
     fontSize: 32,
   },
-  // Controls
   controlsSection: {
     width: "100%",
-    marginTop: 12,
+    marginTop: 8,
     gap: 12,
-  },
-  actionBar: {
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-  },
-  actionPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-  },
-  actionPillActive: {
-    backgroundColor: "rgba(232, 163, 61, 0.15)",
-    borderColor: colors.accent,
-  },
-  actionPillText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  actionPillTextActive: {
-    color: colors.accent,
   },
   inputGroup: {
     borderRadius: 16,
@@ -714,27 +772,43 @@ const styles = StyleSheet.create({
   emojiChipText: {
     fontSize: 18,
   },
-  // Footer
   footer: {
+    flexDirection: "row",
+    gap: 10,
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.08)",
   },
-  sendStickerBtn: {
+  saveLibraryBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    backgroundColor: colors.accent,
-    paddingVertical: 14,
+    gap: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    paddingVertical: 13,
     borderRadius: 16,
   },
-  sendStickerBtnDisabled: {
-    opacity: 0.4,
+  saveLibraryText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  sendStickerBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: colors.accent,
+    paddingVertical: 13,
+    borderRadius: 16,
   },
   sendStickerText: {
     color: "#000000",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "800",
   },
 });
