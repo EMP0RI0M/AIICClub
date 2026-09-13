@@ -650,3 +650,34 @@ export async function sendThreadMessage(threadId: string, content: string) {
     body: JSON.stringify({ content }),
   });
 }
+
+// ─────────────────────────────────────────────────────────────
+// 13. DIRECT 1-ON-1 CALL API (MATCHING WEB BACKEND)
+// ─────────────────────────────────────────────────────────────
+
+export async function startDMCall(conversationId: string, video = false) {
+  return api<{ token: string; url: string; roomName: string }>(
+    `/dms/${conversationId}/call/start`,
+    { method: "POST", body: JSON.stringify({ video }) }
+  );
+}
+
+export async function joinDMCall(conversationId: string) {
+  return api<{ token: string; url: string; roomName: string }>(
+    `/dms/${conversationId}/call/join`,
+    { method: "POST" }
+  );
+}
+
+export async function leaveDMCall(conversationId: string) {
+  return api<{ message: string }>(`/dms/${conversationId}/call/leave`, {
+    method: "POST",
+  });
+}
+
+export async function declineDMCall(conversationId: string) {
+  return api<{ message: string }>(`/dms/${conversationId}/call/decline`, {
+    method: "POST",
+  });
+}
+

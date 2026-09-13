@@ -1,6 +1,12 @@
 import { Audio } from "expo-av";
 import { getSupabaseClient } from "./supabase";
-import { api } from "./api";
+import {
+  api,
+  startDMCall as apiStartDMCall,
+  joinDMCall as apiJoinDMCall,
+  leaveDMCall as apiLeaveDMCall,
+  declineDMCall as apiDeclineDMCall,
+} from "./api";
 
 export type CallState =
   | "idle"
@@ -149,9 +155,7 @@ class CallService {
       }
 
       // Notify backend join endpoint
-      await api(`/dms/${this.config.callId}/call/join`, {
-        method: "POST",
-      }).catch(() => null);
+      await apiJoinDMCall(this.config.callId).catch(() => null);
 
       // Transition to connected
       this.setState("connected");
@@ -166,6 +170,9 @@ class CallService {
    * Decline an incoming call
    */
   async declineCall(): Promise<void> {
+    if (this.config) {
+      void apiDeclineDMCall(this.config.callId).catch(() => null);
+    }
     if (this.realtimeChannel && this.config) {
       this.realtimeChannel.send({
         type: "broadcast",
@@ -262,13 +269,7 @@ class CallService {
       }
 
       // 2. Call backend start endpoint to trigger multi-channel signaling / LiveKit token
-      const res = await api<{ token: string; url: string; roomName: string }>(
-        `/dms/${config.callId}/call/start`,
-        {
-          method: "POST",
-          body: JSON.stringify({ video: Boolean(config.isVideo) }),
-        }
-      ).catch(() => null);
+      await apiStartDMCall(config.callId, Boolean(config.isVideo)).catch(() => null);
 
       // 3. Broadcast direct incoming_call signal on the DM channel
       if (this.realtimeChannel) {
@@ -306,6 +307,10 @@ class CallService {
    */
   async endCall(): Promise<void> {
     if (this.isCleanedUp) return;
+
+    if (this.config) {
+      void apiLeaveDMCall(this.config.callId).catch(() => null);
+    }
 
     if (this.realtimeChannel && this.config) {
       try {
