@@ -817,114 +817,115 @@ function TextChannelScreen({
       <View style={styles.ambientGlowPurple} pointerEvents="none" />
 
       {/* Curved Liquid Glass Header */}
-      <View style={styles.channelHeader}>
-        <BlurView intensity={Platform.OS === "ios" ? 30 : 20} tint="dark" style={StyleSheet.absoluteFill} />
-        <LinearGradient
-          colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.01)"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <Pressable onPress={onBack} hitSlop={14} style={styles.backBtn}>
-          <ChevronLeft size={22} color={colors.textPrimary} />
-        </Pressable>
+      {/* Dynamic Curvy Floating Header Capsule (Matching DM Screen) */}
+      <View style={styles.headerCapsuleWrap}>
+        <BlurView intensity={35} tint="dark" style={styles.headerCapsule}>
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
+            style={StyleSheet.absoluteFillObject}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
+          <Pressable onPress={onBack} hitSlop={12} style={styles.headerBackBtn}>
+            <ChevronLeft size={20} color={colors.textPrimary} />
+          </Pressable>
 
-        {channel.type === "github" ? (
-          <Github size={18} color={colors.accentTeal} />
-        ) : channel.type === "board" || channel.type === "project" ? (
-          <Kanban size={18} color={colors.accentWarm} />
-        ) : channel.type === "docs" ? (
-          <FileText size={18} color={colors.info} />
-        ) : channel.type === "incident" ? (
-          <AlertTriangle size={18} color={colors.danger} />
-        ) : channel.type === "canvas" ? (
-          <Layers size={18} color={colors.accent} />
-        ) : (
-          <Hash size={18} color={colors.textMuted} />
-        )}
+          <View style={styles.headerCenter}>
+            <View style={styles.headerAvatarBadge}>
+              {channel.type === "github" ? (
+                <Github size={16} color={colors.accentTeal} />
+              ) : channel.type === "board" || channel.type === "project" ? (
+                <Kanban size={16} color={colors.accentWarm} />
+              ) : channel.type === "docs" ? (
+                <FileText size={16} color={colors.info} />
+              ) : channel.type === "incident" ? (
+                <AlertTriangle size={16} color={colors.danger} />
+              ) : channel.type === "canvas" ? (
+                <Layers size={16} color={colors.accent} />
+              ) : (
+                <Hash size={16} color={colors.accent} />
+              )}
+            </View>
+            <View style={{ minWidth: 0, flex: 1 }}>
+              <Text style={styles.headerName} numberOfLines={1}>
+                {channel.name}
+              </Text>
+              <Text style={styles.headerSub} numberOfLines={1}>
+                {channel.topic || "AIIC · SPACE CHANNEL"}
+              </Text>
+            </View>
+          </View>
 
-        <View style={{ flex: 1, marginLeft: 6 }}>
-          <Text style={styles.channelHeaderName} numberOfLines={1}>
-            {channel.name}
-          </Text>
-          {channel.topic ? (
-            <Text style={styles.channelHeaderTopic} numberOfLines={1}>
-              {channel.topic}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* Specialized Channel View Switcher (Tool ⟷ Chat) */}
-        {isSpecialized && (
-          <View style={styles.channelViewToggleWrap}>
-            <Pressable
-              onPress={() => setActiveTab("tool")}
-              style={[
-                styles.channelViewToggleBtn,
-                activeTab === "tool" && styles.channelViewToggleBtnActive,
-              ]}
-            >
-              <Text
+          {/* Specialized Channel View Switcher (Tool ⟷ Chat) */}
+          {isSpecialized && (
+            <View style={styles.channelViewToggleWrap}>
+              <Pressable
+                onPress={() => setActiveTab("tool")}
                 style={[
-                  styles.channelViewToggleText,
-                  activeTab === "tool" && styles.channelViewToggleTextActive,
+                  styles.channelViewToggleBtn,
+                  activeTab === "tool" && styles.channelViewToggleBtnActive,
                 ]}
               >
-                {channel.type === "github"
-                  ? "HUB"
-                  : channel.type === "board" || channel.type === "project"
-                  ? "BOARD"
-                  : channel.type === "docs"
-                  ? "DOCS"
-                  : channel.type === "incident"
-                  ? "INCIDENT"
-                  : "CANVAS"}
-              </Text>
+                <Text
+                  style={[
+                    styles.channelViewToggleText,
+                    activeTab === "tool" && styles.channelViewToggleTextActive,
+                  ]}
+                >
+                  {channel.type === "github"
+                    ? "HUB"
+                    : channel.type === "board" || channel.type === "project"
+                    ? "BOARD"
+                    : channel.type === "docs"
+                    ? "DOCS"
+                    : channel.type === "incident"
+                    ? "INCIDENT"
+                    : "CANVAS"}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setActiveTab("chat")}
+                style={[
+                  styles.channelViewToggleBtn,
+                  activeTab === "chat" && styles.channelViewToggleBtnActive,
+                ]}
+              >
+                <MessageSquare size={13} color={activeTab === "chat" ? colors.accent : colors.textMuted} />
+                <Text
+                  style={[
+                    styles.channelViewToggleText,
+                    activeTab === "chat" && styles.channelViewToggleTextActive,
+                  ]}
+                >
+                  CHAT
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          <View style={styles.channelCapsuleActions}>
+            <Pressable
+              style={styles.iconBtn}
+              onPress={() => {
+                NativeHaptics.light();
+                useChatStore.getState().loadChannelMessages(channel.id);
+              }}
+              hitSlop={6}
+            >
+              <RotateCw size={15} color={colors.textSecondary} />
             </Pressable>
-
             <Pressable
-              onPress={() => setActiveTab("chat")}
-              style={[
-                styles.channelViewToggleBtn,
-                activeTab === "chat" && styles.channelViewToggleBtnActive,
-              ]}
+              style={styles.iconBtn}
+              onPress={() => {
+                NativeHaptics.light();
+              }}
+              hitSlop={6}
             >
-              <MessageSquare size={13} color={activeTab === "chat" ? colors.accent : colors.textMuted} />
-              <Text
-                style={[
-                  styles.channelViewToggleText,
-                  activeTab === "chat" && styles.channelViewToggleTextActive,
-                ]}
-              >
-                CHAT
-              </Text>
+              <MoreHorizontal size={16} color={colors.textSecondary} />
             </Pressable>
           </View>
-        )}
-
-        {/* Floating Liquid Glass Control Capsule (↻ •••) */}
-        <View style={styles.floatingHeaderCapsule}>
-          <Pressable
-            onPress={() => {
-              NativeHaptics.light();
-              useChatStore.getState().loadChannelMessages(channel.id);
-            }}
-            style={styles.floatingHeaderBtn}
-            hitSlop={6}
-          >
-            <RotateCw size={12} color={colors.textMuted} />
-          </Pressable>
-          <View style={styles.floatingHeaderDivider} />
-          <Pressable
-            onPress={() => {
-              NativeHaptics.light();
-            }}
-            style={styles.floatingHeaderBtn}
-            hitSlop={6}
-          >
-            <MoreHorizontal size={13} color={colors.textMuted} />
-          </Pressable>
-        </View>
+        </BlurView>
       </View>
 
       {/* Render Specialized Tool View or Chat Stream */}
@@ -1694,10 +1695,15 @@ function MessageComposer({
         </View>
       )}
 
-      {/* WhatsApp-Style Rounded Liquid Pill + Detached Floating Circle */}
+      {/* Floating Liquid Glass Composer Bar (Matching DM Screen) */}
       <View style={styles.composerRow}>
-        <View style={styles.composerPill}>
-          <BlurView intensity={Platform.OS === "ios" ? 25 : 15} tint="dark" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={35} tint="dark" style={styles.composerPill}>
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
+            style={StyleSheet.absoluteFillObject}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
           {/* Emoji button inside left of pill */}
           <Pressable
             onPress={() => {
@@ -1707,14 +1713,14 @@ function MessageComposer({
             style={styles.pillIconBtn}
             hitSlop={8}
           >
-            <Smile size={21} color="#86899E" />
+            <Smile size={21} color="#A0A4B8" />
           </Pressable>
 
           <TextInput
             value={text}
             onChangeText={setText}
-            placeholder={`Message #${channelName}`}
-            placeholderTextColor="#72768B"
+            placeholder={`Message #${channelName}...`}
+            placeholderTextColor="rgba(255, 255, 255, 0.45)"
             style={styles.composerInput}
             multiline
           />
@@ -1728,7 +1734,7 @@ function MessageComposer({
             style={styles.pillIconBtn}
             hitSlop={8}
           >
-            <Paperclip size={20} color="#86899E" />
+            <Paperclip size={20} color="#A0A4B8" />
           </Pressable>
 
           {/* GIF badge button inside right of pill */}
@@ -1744,9 +1750,9 @@ function MessageComposer({
               <Text style={styles.gifBadgeText}>GIF</Text>
             </View>
           </Pressable>
-        </View>
+        </BlurView>
 
-        {/* WhatsApp-Style Detached Floating Circle Button */}
+        {/* Detached Action Button */}
         <Pressable
           onPress={() => {
             if (hasContent) {
@@ -1767,14 +1773,6 @@ function MessageComposer({
           ]}
           hitSlop={6}
         >
-          {hasContent && (
-            <LinearGradient
-              colors={["#F59E0B", "#D97706"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-          )}
           {sending ? (
             <ActivityIndicator color="#000" size="small" />
           ) : hasContent ? (
@@ -3296,60 +3294,88 @@ const styles = StyleSheet.create({
     left: -80,
   },
 
-  channelHeader: {
-    height: 52,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    gap: 8,
+  headerCapsuleWrap: {
+    marginHorizontal: 12,
+    marginTop: 6,
+    borderRadius: 22,
     overflow: "hidden",
-    backgroundColor: "rgba(10, 12, 18, 0.40)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
 
-  floatingHeaderCapsule: {
+  headerCapsule: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 3,
-    gap: 2,
-    marginLeft: "auto",
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderRadius: 22,
+    overflow: "hidden",
   },
 
-  floatingHeaderBtn: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+  headerBackBtn: {
+    padding: 6,
+    borderRadius: 10,
+  },
+
+  headerCenter: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 10,
+    flex: 1,
+    marginLeft: 4,
   },
 
-  floatingHeaderDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    marginHorizontal: 1,
-  },
-
-  backBtn: {
+  headerAvatarBadge: {
     width: 32,
     height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.3)",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
-  channelHeaderName: {
+  headerName: {
     color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  headerSub: {
+    color: colors.accent,
+    fontSize: 9,
+    fontFamily: "monospace",
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+
+  channelCapsuleActions: {
+    flexDirection: "row",
+    gap: 6,
+  },
+
+  actionDeleteRow: {
+    backgroundColor: "rgba(255, 77, 79, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 77, 79, 0.20)",
+  },
+
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   channelHeaderTopic: {
@@ -3647,94 +3673,99 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.07)",
   },
 
+  composerWrapper: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    paddingBottom: Platform.OS === "ios" ? 10 : 8,
+    backgroundColor: "transparent",
+  },
+
   composerRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: 6,
   },
 
   composerPill: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 48,
     maxHeight: 120,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.16)",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 6,
     paddingVertical: 2,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
   },
 
   pillIconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  gifBadgeBtn: {
-    paddingHorizontal: 4,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  detachedActionButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-
-  detachedActionButtonActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-
-  actionDeleteRow: {
-    backgroundColor: "rgba(255, 77, 79, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 77, 79, 0.20)",
-  },
-
-  composerPlus: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
 
   composerInput: {
     flex: 1,
-    maxHeight: 100,
-    color: colors.textPrimary,
-    fontSize: 14,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    fontSize: 15,
+    color: "#FFFFFF",
+    lineHeight: 20,
+    paddingHorizontal: 6,
+    paddingVertical: Platform.OS === "ios" ? 8 : 6,
+    maxHeight: 110,
+    textAlignVertical: "center",
   },
 
-  sendButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.accent,
+  gifBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+
+  gifBadgeText: {
+    fontFamily: "monospace",
+    fontSize: 10,
+    color: colors.textPrimary,
+    fontWeight: "700",
+  },
+
+  gifBadgeBtn: {
+    paddingHorizontal: 4,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
   },
 
-  sendDisabled: {
-    opacity: 0.35,
+  detachedActionButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(23, 25, 36, 0.9)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
+  detachedActionButtonActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
 
   /* SUB PAGES */
@@ -4269,39 +4300,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.accent,
     fontFamily: "JetBrainsMono_700Bold",
-  },
-
-  composerActionBtn: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 4,
-  },
-
-  gifBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
-  },
-
-  gifBadgeText: {
-    fontFamily: "JetBrainsMono_700Bold",
-    fontSize: 10,
-    color: colors.textPrimary,
-    fontWeight: "bold",
-  },
-
-  composerWrapper: {
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
-    margin: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    overflow: "hidden",
   },
 
   replyBanner: {
