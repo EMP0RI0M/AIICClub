@@ -42,8 +42,7 @@ jobs:
 
       - name: 🚀 Expo Prebuild (Generate Native Android Project)
         run: |
-          cd apps/mobile
-          npx expo prebuild --platform android --clean
+          pnpm --filter @corvus/mobile exec expo prebuild --platform android --clean
         env:
           EXPO_PUBLIC_API_URL: "https://aiic-bbs.vercel.app/api"
           EXPO_PUBLIC_SUPABASE_URL: "https://tgbjgyhcfhqvwayvvwkl.supabase.co"
@@ -53,8 +52,9 @@ jobs:
         run: |
           cd apps/mobile/android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace --info -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m"
         env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=\"-Xmx4096m -XX:MaxMetaspaceSize=1024m\""
           EXPO_PUBLIC_API_URL: "https://aiic-bbs.vercel.app/api"
           EXPO_PUBLIC_SUPABASE_URL: "https://tgbjgyhcfhqvwayvvwkl.supabase.co"
           EXPO_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnYmpneWhjZmhxdndheXZ2d2tsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MTcwNjIsImV4cCI6MjEwMjI5MzA2Mn0.Cjj6oY9s7FwTywXlw-9h4Um01cBvfllKQqapobmYXNY"
