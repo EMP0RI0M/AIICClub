@@ -70,12 +70,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (isRestoring) return;
 
-    const inAuthGroup = segments[0] === "(auth)";
-    const onIndex = segments.length === 0 || segments[0] === undefined;
-    const onCallback = segments[0] === "auth";
+    const inAppGroup = segments[0] === "(app)";
 
-    if (isAuthenticated && (inAuthGroup || onIndex || onCallback)) {
-      // User is authenticated, route immediately to active space/channels
+    if (isAuthenticated && !inAppGroup) {
+      // User is authenticated, ensure they are inside the main app
       router.replace("/(app)/spaces/space-aiic-main/c-general");
     }
   }, [isAuthenticated, isRestoring, segments]);
