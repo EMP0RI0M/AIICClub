@@ -36,6 +36,7 @@ export interface CallSessionConfig {
   participant: CallParticipant;
   currentUser?: { id: string; name: string; avatarUrl?: string | null } | null;
   isVideo?: boolean;
+  autoAccept?: boolean;
 }
 
 export type CallStateListener = (state: CallState, error?: string | null) => void;
@@ -149,6 +150,8 @@ class CallService {
           this.cleanup("no_answer");
         }
       }, NO_ANSWER_TIMEOUT_MS);
+    } else if (config.autoAccept) {
+      this.setState("connecting");
     } else {
       this.setState("ringing");
     }
@@ -160,6 +163,8 @@ class CallService {
       // 3. If outgoing call, notify remote peer via API / Realtime
       if (config.direction === "outgoing") {
         await this.initiateOutgoingCall(config);
+      } else if (config.autoAccept) {
+        await this.acceptCall();
       }
     } catch (err: any) {
       console.warn("[CallService] startCall error:", err);

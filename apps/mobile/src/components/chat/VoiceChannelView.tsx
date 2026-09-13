@@ -29,6 +29,7 @@ import { Audio } from "expo-av";
 import { fetchVoiceParticipants, joinVoiceChannel, leaveVoiceChannel } from "../../lib/api";
 import { useAuthStore } from "../../stores/auth-store";
 import { NativeHaptics } from "../../lib/haptics";
+import { getSupabaseClient } from "../../lib/supabase";
 
 export interface VoiceParticipant {
   id: string;
@@ -90,7 +91,47 @@ export function VoiceChannelView({
       playThroughEarpieceAndroid: false,
     }).catch(() => {});
 
+    let supabaseChannel: any = null;
+
     if (channelId) {
+      try {
+        const supabase = getSupabaseClient();
+        supabaseChannel = supabase.channel(`channel:${channelId}`, {
+          config: { broadcast: { self: false } },
+        });
+
+        supabaseChannel
+          .on("broadcast", { event: "voice_state_update" }, ({ payload }: { payload: any }) => {
+            if (!payload?.userId) return;
+            setParticipants((prev) => {
+              const existingIdx = prev.findIndex((p) => p.id === payload.userId);
+              const updated: VoiceParticipant = {
+                id: payload.userId,
+                name: payload.displayName || payload.username || "Member",
+                avatar: payload.avatarUrl || null,
+                role: (isStage ? "listener" : "speaker") as "speaker" | "listener",
+                muted: Boolean(payload.isMuted),
+                deafened: Boolean(payload.isDeafened),
+                speaking: Boolean(payload.speaking),
+                raisedHand: Boolean(payload.raisedHand),
+              };
+              if (existingIdx >= 0) {
+                const next = [...prev];
+                next[existingIdx] = updated;
+                return next;
+              }
+              return [...prev, updated];
+            });
+          })
+          .on("broadcast", { event: "voice_state_leave" }, ({ payload }: { payload: any }) => {
+            if (!payload?.userId) return;
+            setParticipants((prev) => prev.filter((p) => p.id !== payload.userId));
+          })
+          .subscribe();
+      } catch (err) {
+        console.warn("[VoiceChannelView] realtime subscription error:", err);
+      }
+
       joinVoiceChannel(channelId)
         .then((res) => {
           const serverParticipants = (res.participants || []).map((p: any) => ({
@@ -98,25 +139,35 @@ export function VoiceChannelView({
             name: p.displayName || p.username || "Member",
             avatar: p.avatarUrl || null,
             role: (isStage ? "listener" : "speaker") as "speaker" | "listener",
-            muted: p.userId === currentUser.id ? isMuted : false,
+            muted: p.userId === currentUser.id ? isMuted : Boolean(p.isMuted),
+            deafened: p.userId === currentUser.id ? isDeafened : Boolean(p.isDeafened),
           }));
           setParticipants(serverParticipants.length ? serverParticipants : [meParticipant]);
           setConnected(true);
           setConnecting(false);
 
-          // The API persists shared presence and broadcasts changes. Polling
-          // is retained here as a reliable fallback for clients that are not
-          // subscribed to the Supabase channel yet.
           pollTimer = setInterval(() => {
-            fetchVoiceParticipants(channelId).then(({ participants: rows }) => {
-              setParticipants(rows.map((p) => ({
-                id: p.userId,
-                name: p.displayName || p.username || "Member",
-                avatar: p.avatarUrl || null,
-                role: (isStage ? "listener" : "speaker") as "speaker" | "listener",
-                muted: p.userId === currentUser.id ? isMuted : false,
-              })));
-            }).catch(() => {});
+            fetchVoiceParticipants(channelId)
+              .then(({ participants: rows }) => {
+                if (rows && rows.length > 0) {
+                  setParticipants((prev) => {
+                    const merged: VoiceParticipant[] = rows.map((p) => ({
+                      id: p.userId,
+                      name: p.displayName || p.username || "Member",
+                      avatar: p.avatarUrl || null,
+                      role: (isStage ? "listener" : "speaker") as "speaker" | "listener",
+                      muted: p.userId === currentUser.id ? isMuted : false,
+                      deafened: p.userId === currentUser.id ? isDeafened : false,
+                    }));
+                    // Keep self in list
+                    if (!merged.some((p) => p.id === currentUser.id)) {
+                      merged.push(meParticipant);
+                    }
+                    return merged;
+                  });
+                }
+              })
+              .catch(() => {});
           }, 3000);
         })
         .catch((err) => {
@@ -132,6 +183,12 @@ export function VoiceChannelView({
     }
     return () => {
       if (pollTimer) clearInterval(pollTimer);
+      if (supabaseChannel) {
+        try {
+          const supabase = getSupabaseClient();
+          supabase.removeChannel(supabaseChannel);
+        } catch {}
+      }
       if (channelId && currentUser) void leaveVoiceChannel(channelId).catch(() => {});
       Audio.setAudioModeAsync({
         allowsRecordingIOS: false,

@@ -31,13 +31,14 @@ import {
 
 export default function VoiceStageScreen() {
   const router = useRouter();
-  const { id, type, title, username, avatarUrl, direction } = useLocalSearchParams<{
+  const { id, type, title, username, avatarUrl, direction, accepted } = useLocalSearchParams<{
     id: string;
     type?: string;
     title?: string;
     username?: string;
     avatarUrl?: string;
     direction?: "incoming" | "outgoing";
+    accepted?: string;
   }>();
 
   const { user } = useAuthStore();
@@ -145,6 +146,7 @@ export default function VoiceStageScreen() {
         participant={participant}
         callId={id}
         direction={direction === "incoming" ? "incoming" : "outgoing"}
+        autoAccept={accepted === "true"}
         isVideo={type === "video"}
         currentUser={
           user

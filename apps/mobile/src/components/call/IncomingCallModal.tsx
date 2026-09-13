@@ -69,6 +69,7 @@ export function IncomingCallModal() {
         title: callerName,
         avatarUrl: avatarUrl || undefined,
         direction: "incoming",
+        accepted: "true",
       },
     } as any);
   };

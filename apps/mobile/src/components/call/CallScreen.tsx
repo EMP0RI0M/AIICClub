@@ -41,6 +41,7 @@ export interface CallScreenProps {
   onEnd: () => void;
   currentUser?: { id: string; name: string; avatarUrl?: string | null } | null;
   isVideo?: boolean;
+  autoAccept?: boolean;
 }
 
 export const CallScreen: React.FC<CallScreenProps> = ({
@@ -50,12 +51,13 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   onEnd,
   currentUser,
   isVideo = false,
+  autoAccept = false,
 }) => {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
 
   const [callState, setCallState] = useState<CallState>(
-    direction === "incoming" ? "ringing" : "calling"
+    autoAccept ? "connecting" : direction === "incoming" ? "ringing" : "calling"
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -172,6 +174,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
       participant,
       currentUser,
       isVideo,
+      autoAccept,
     });
 
     // Hardware Back Button Interception
@@ -184,7 +187,9 @@ export const CallScreen: React.FC<CallScreenProps> = ({
       unsubState();
       unsubQuality();
       backHandler.remove();
-      callService.cleanup();
+      if (callService.getState() === "ended" || callService.getState() === "failed" || callService.getState() === "no_answer") {
+        callService.cleanup();
+      }
     };
   }, [callId]);
 
