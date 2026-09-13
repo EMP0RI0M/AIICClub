@@ -192,6 +192,7 @@ interface ThemeState {
   ambientOrb1: string;
   ambientOrb2: string;
   wallpaperUrl: string;
+  customWallpaperLibrary: string[];
   overlayOpacity: number;
   isLoaded: boolean;
 
@@ -202,6 +203,8 @@ interface ThemeState {
   setGradientColors: (colors: [string, string, string]) => Promise<void>;
   setGradientDirection: (dir: GradientDirection) => Promise<void>;
   setWallpaperUrl: (url: string) => Promise<void>;
+  addCustomWallpaper: (url: string) => Promise<void>;
+  removeCustomWallpaper: (url: string) => Promise<void>;
   setWallpaperMode: (mode: WallpaperMode) => Promise<void>;
   setOverlayOpacity: (opacity: number) => Promise<void>;
   resetTheme: () => Promise<void>;
@@ -218,6 +221,7 @@ const DEFAULT_THEME = {
   ambientOrb1: "rgba(232, 163, 61, 0.08)",
   ambientOrb2: "rgba(168, 85, 247, 0.05)",
   wallpaperUrl: "",
+  customWallpaperLibrary: [] as string[],
   overlayOpacity: 0.35,
 };
 
@@ -230,7 +234,13 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        set({ ...parsed, isLoaded: true });
+        set({
+          ...parsed,
+          customWallpaperLibrary: Array.isArray(parsed.customWallpaperLibrary)
+            ? parsed.customWallpaperLibrary
+            : parsed.wallpaperUrl ? [parsed.wallpaperUrl] : [],
+          isLoaded: true,
+        });
         return;
       }
     } catch (e) {
@@ -292,9 +302,55 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   },
 
   setWallpaperUrl: async (wallpaperUrl: string) => {
+    const trimmed = wallpaperUrl.trim();
+    const currentLib = get().customWallpaperLibrary || [];
+    const newLib = trimmed && !currentLib.includes(trimmed)
+      ? [trimmed, ...currentLib]
+      : currentLib;
+
     const newState = {
-      wallpaperUrl,
-      wallpaperMode: (wallpaperUrl.trim() ? "image" : "gradient") as WallpaperMode,
+      wallpaperUrl: trimmed,
+      customWallpaperLibrary: newLib,
+      wallpaperMode: (trimmed ? "image" : "gradient") as WallpaperMode,
+    };
+    set(newState);
+    try {
+      const full = { ...get(), ...newState };
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(full));
+    } catch {}
+  },
+
+  addCustomWallpaper: async (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    const currentLib = get().customWallpaperLibrary || [];
+    const newLib = currentLib.includes(trimmed)
+      ? currentLib
+      : [trimmed, ...currentLib];
+
+    const newState = {
+      wallpaperUrl: trimmed,
+      customWallpaperLibrary: newLib,
+      wallpaperMode: "image" as WallpaperMode,
+    };
+    set(newState);
+    try {
+      const full = { ...get(), ...newState };
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(full));
+    } catch {}
+  },
+
+  removeCustomWallpaper: async (url: string) => {
+    const currentLib = get().customWallpaperLibrary || [];
+    const newLib = currentLib.filter((u) => u !== url);
+    const isCurrentActive = get().wallpaperUrl === url;
+
+    const newState = {
+      customWallpaperLibrary: newLib,
+      wallpaperUrl: isCurrentActive ? (newLib[0] || "") : get().wallpaperUrl,
+      wallpaperMode: isCurrentActive
+        ? (newLib[0] ? "image" : "gradient")
+        : get().wallpaperMode,
     };
     set(newState);
     try {

@@ -3,6 +3,7 @@ import {
   Modal,
   View,
   Text,
+  Image,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -25,6 +26,7 @@ import {
   Upload,
   Sliders,
   Trash2,
+  FolderHeart,
 } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import {
@@ -70,12 +72,15 @@ export function ThemeCustomizerModal({ visible, onClose }: ThemeCustomizerModalP
     gradientDirection,
     accentColor,
     wallpaperUrl,
+    customWallpaperLibrary = [],
     overlayOpacity,
     applyPreset,
     setAccentColor,
     setGradientColors,
     setGradientDirection,
     setWallpaperUrl,
+    addCustomWallpaper,
+    removeCustomWallpaper,
     setWallpaperMode,
     setOverlayOpacity,
     resetTheme,
@@ -129,6 +134,14 @@ export function ThemeCustomizerModal({ visible, onClose }: ThemeCustomizerModalP
     NativeHaptics.medium();
     setCustomInputUrl(url);
     setWallpaperUrl(url);
+  };
+
+  const handleDeleteLibraryWallpaper = (url: string) => {
+    NativeHaptics.medium();
+    removeCustomWallpaper(url);
+    if (customInputUrl === url) {
+      setCustomInputUrl("");
+    }
   };
 
   const handleClearWallpaper = () => {
@@ -319,7 +332,7 @@ export function ThemeCustomizerModal({ visible, onClose }: ThemeCustomizerModalP
             {/* SECTION 4: IMAGE WALLPAPERS & DEVICE UPLOAD */}
             <View style={[styles.sectionHeader, { marginTop: 20 }]}>
               <Text style={styles.sectionTitle}>4. WALLPAPER IMAGE & DEVICE UPLOAD</Text>
-              <Text style={styles.sectionHint}>Upload your own photo or pick curated glass backdrops</Text>
+              <Text style={styles.sectionHint}>Upload your own photo or pick from your saved library</Text>
             </View>
 
             {/* Quick Upload Action Button */}
@@ -345,7 +358,72 @@ export function ThemeCustomizerModal({ visible, onClose }: ThemeCustomizerModalP
               )}
             </View>
 
+            {/* SAVED WALLPAPERS LIBRARY */}
+            <View style={styles.libraryHeaderRow}>
+              <View style={styles.libraryHeaderLeft}>
+                <FolderHeart size={14} color={accentColor} />
+                <Text style={styles.libraryTitle}>Saved Wallpapers</Text>
+              </View>
+              <View style={[styles.libraryCountBadge, { backgroundColor: `${accentColor}20`, borderColor: `${accentColor}40` }]}>
+                <Text style={[styles.libraryCountText, { color: accentColor }]}>
+                  {customWallpaperLibrary.length} {customWallpaperLibrary.length === 1 ? "wallpaper" : "wallpapers"}
+                </Text>
+              </View>
+            </View>
+
+            {customWallpaperLibrary.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.libraryScroll}>
+                {customWallpaperLibrary.map((url, idx) => {
+                  const isActive = wallpaperUrl === url;
+                  return (
+                    <View key={`lib-${idx}-${url.slice(-10)}`} style={styles.libraryCardContainer}>
+                      <TouchableOpacity
+                        style={[
+                          styles.libraryCard,
+                          isActive && { borderColor: accentColor, borderWidth: 2.5 },
+                        ]}
+                        onPress={() => handleApplyWallpaperUrl(url)}
+                      >
+                        <Image
+                          source={{ uri: url }}
+                          style={styles.libraryCardImg}
+                          resizeMode="cover"
+                        />
+                        <LinearGradient
+                          colors={["transparent", "rgba(0, 0, 0, 0.65)"]}
+                          style={StyleSheet.absoluteFillObject}
+                        />
+                        {isActive && (
+                          <View style={[styles.activeCheckBadge, { backgroundColor: accentColor }]}>
+                            <Check size={11} color="#000" />
+                          </View>
+                        )}
+                        <Text style={styles.libraryCardLabel} numberOfLines={1}>
+                          Custom #{idx + 1}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.libraryDeleteBtn}
+                        onPress={() => handleDeleteLibraryWallpaper(url)}
+                        hitSlop={6}
+                      >
+                        <Trash2 size={11} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <View style={styles.libraryEmptyState}>
+                <ImageIcon size={18} color="rgba(255, 255, 255, 0.3)" />
+                <Text style={styles.libraryEmptyText}>No wallpapers in your library yet. Upload one above!</Text>
+              </View>
+            )}
+
             {/* Curated Previews */}
+            <View style={[styles.libraryHeaderRow, { marginTop: 12 }]}>
+              <Text style={styles.curatedHeaderTitle}>Curated Collections</Text>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetScroll}>
               {CURATED_WALLPAPERS.map((wp, idx) => (
                 <TouchableOpacity
@@ -713,6 +791,107 @@ const styles = StyleSheet.create({
   directionBtnText: {
     color: "rgba(255, 255, 255, 0.7)",
     fontSize: 11,
+  },
+  libraryHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  libraryHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  libraryTitle: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  libraryCountBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  libraryCountText: {
+    fontSize: 10,
+    fontFamily: "monospace",
+    fontWeight: "700",
+  },
+  libraryScroll: {
+    gap: 10,
+    paddingVertical: 4,
+  },
+  libraryCardContainer: {
+    position: "relative",
+    width: 90,
+    height: 120,
+  },
+  libraryCard: {
+    width: 90,
+    height: 120,
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    justifyContent: "flex-end",
+    padding: 6,
+  },
+  libraryCardImg: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
+  },
+  libraryCardLabel: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  activeCheckBadge: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  libraryDeleteBtn: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  libraryEmptyState: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    marginBottom: 8,
+  },
+  libraryEmptyText: {
+    color: "rgba(255, 255, 255, 0.5)",
+    fontSize: 11,
+    flex: 1,
+  },
+  curatedHeaderTitle: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 11,
+    fontWeight: "700",
   },
   curatedWpCard: {
     width: 120,
