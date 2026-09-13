@@ -1641,7 +1641,7 @@ export function ExpressionSheet({
                       source={{ uri: item.url }}
                       style={[
                         styles.stickerImage,
-                        item.cropShape === "circle" && styles.stickerImageCircle,
+                        (item as any).cropShape === "circle" && styles.stickerImageCircle,
                       ]}
                       resizeMode="contain"
                     />
