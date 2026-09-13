@@ -21,7 +21,7 @@ export function AIMessage({
   const [isOrbOpen, setIsOrbOpen] = useState(false);
 
   const toggleOrb = () => {
-    NativeHaptics.impactLight();
+    NativeHaptics.light();
     setIsOrbOpen(prev => !prev);
   };
 
