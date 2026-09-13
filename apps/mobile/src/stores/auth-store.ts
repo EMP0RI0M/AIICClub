@@ -7,9 +7,45 @@ import { NativeStorage } from "../lib/storage";
 import { api, setAuthToken } from "../lib/api";
 
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
-if (Platform.OS === "web") {
-  WebBrowser.maybeCompleteAuthSession();
+// Enable WebBrowser auto session completion across all platforms
+WebBrowser.maybeCompleteAuthSession();
+
+function parseAuthUrlParams(url: string): { [key: string]: string } {
+  const result: { [key: string]: string } = {};
+  if (!url) return result;
+
+  try {
+    const queryIndex = url.indexOf("?");
+    const hashIndex = url.indexOf("#");
+
+    const queryString =
+      queryIndex !== -1
+        ? hashIndex > queryIndex
+          ? url.substring(queryIndex + 1, hashIndex)
+          : url.substring(queryIndex + 1)
+        : "";
+
+    const hashString = hashIndex !== -1 ? url.substring(hashIndex + 1) : "";
+
+    for (const segment of [queryString, hashString]) {
+      if (!segment) continue;
+      const pairs = segment.split("&");
+      for (const pair of pairs) {
+        const eqIdx = pair.indexOf("=");
+        if (eqIdx !== -1) {
+          const key = decodeURIComponent(pair.substring(0, eqIdx).replace(/\+/g, " "));
+          const val = decodeURIComponent(pair.substring(eqIdx + 1).replace(/\+/g, " "));
+          if (key) result[key] = val;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[parseAuthUrlParams] Error parsing URL:", e);
+  }
+
+  return result;
 }
 
 export interface User {
@@ -113,30 +149,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     console.log("[AIIC OAuth] callback received:", url);
     try {
       const supabase = getSupabaseClient();
+      const params = parseAuthUrlParams(url);
 
-      // Check if URL has PKCE code (?code=XXXX) or implicit token fragment (#access_token=XXXX)
-      const { params, errorCode } = QueryParams.getQueryParams(url);
-      if (errorCode) {
-        throw new Error(errorCode);
+      if (params.error || params.error_description) {
+        throw new Error(params.error_description || params.error || "Authentication failed.");
       }
 
       if (params.code) {
         console.log("[AIIC OAuth] exchanging PKCE code for session");
-        const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
-        if (error) throw error;
-      } else if (params.access_token) {
+        const { error } = await supabase.auth.exchangeCodeForSession(params.code);
+        if (error) {
+          console.warn("[AIIC OAuth] PKCE exchange notice:", error.message);
+        }
+      }
+
+      if (params.access_token) {
         console.log("[AIIC OAuth] setting session from token");
         const { error } = await supabase.auth.setSession({
           access_token: params.access_token,
           refresh_token: params.refresh_token || "",
         });
-        if (error) throw error;
+        if (error) {
+          console.warn("[AIIC OAuth] setSession notice:", error.message);
+        }
       }
 
       // Verify established session
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData?.session) {
-        console.log("[AIIC OAuth] session established");
+        console.log("[AIIC OAuth] session established successfully");
         const accessToken = sessionData.session.access_token;
         setAuthToken(accessToken);
 
@@ -243,12 +284,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
 
-      // 2. Fallback to WebBrowser session (Works in Expo Go & Web)
+      // 2. Browser session with deep link callback
       try {
         WebBrowser.dismissAuthSession();
       } catch {}
 
-      const redirectTo = Linking.createURL("auth/callback");
+      const isStandalone = !Constants.appOwnership || (Constants.appOwnership as any) !== "expo";
+      const redirectTo =
+        Platform.OS === "web"
+          ? typeof window !== "undefined"
+            ? `${window.location.origin}/auth/callback`
+            : Linking.createURL("auth/callback")
+          : isStandalone
+          ? "aiic://auth/callback"
+          : Linking.createURL("auth/callback");
+
       console.log("[AIIC OAuth] redirect URI:", redirectTo);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -282,7 +332,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (result && result.type === "success" && result.url) {
         await get().handleOAuthCallback(result.url);
       } else {
-        // In case deep linking resumed outside WebBrowser return
+        // Check if session was completed in browser or deep-link arrived
         const { data: sessionData } = await supabase.auth.getSession();
         if (sessionData?.session) {
           const accessToken = sessionData.session.access_token;

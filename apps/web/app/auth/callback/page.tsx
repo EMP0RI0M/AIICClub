@@ -12,11 +12,31 @@ function AuthCallbackContent() {
     const restoreSession = useAuthStore((state) => state.restoreSession);
     const [error, setError] = useState<string | null>(null);
 
+    const [isMobileDevice, setIsMobileDevice] = useState(false);
+    const [deepLinkUrl, setDeepLinkUrl] = useState<string | null>(null);
+
     useEffect(() => {
         const providerError = searchParams.get("error");
         if (providerError) {
             setError("The authentication provider returned an error. Please try again.");
             return;
+        }
+
+        // Check if on mobile or if deep link target is indicated
+        const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "";
+        const isMobile = /android|iphone|ipad|ipod/i.test(userAgent);
+        setIsMobileDevice(isMobile);
+
+        if (typeof window !== "undefined") {
+            const hash = window.location.hash || "";
+            const search = window.location.search || "";
+            const fullTarget = `aiic://auth/callback${search}${hash}`;
+            setDeepLinkUrl(fullTarget);
+
+            // If user came via mobile browser OAuth redirect, attempt to deep link back to native app
+            if (isMobile && (hash.includes("access_token") || search.includes("code="))) {
+                window.location.href = fullTarget;
+            }
         }
 
         let cancelled = false;
@@ -79,7 +99,15 @@ function AuthCallbackContent() {
                                     </div>
                                 </div>
                                 <h1 className="text-heading font-bold text-text-primary mb-2">Finishing sign-in</h1>
-                                <p className="text-body text-text-muted">We&apos;re finishing your sign-in.</p>
+                                <p className="text-body text-text-muted mb-4">We&apos;re finishing your sign-in.</p>
+                                {isMobileDevice && deepLinkUrl && (
+                                    <a
+                                        href={deepLinkUrl}
+                                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-accent-violet text-on-accent rounded-[10px] font-medium text-sm transition-all duration-200 hover:shadow-[0_0_20px_rgba(232,163,61,0.35)] hover:bg-[#C9862B]"
+                                    >
+                                        Open in AIIC Mobile App
+                                    </a>
+                                )}
                             </>
                         )}
                     </div>
