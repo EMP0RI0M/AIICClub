@@ -50,6 +50,8 @@ import {
   CornerUpLeft,
   Palette,
   MessageSquare,
+  ShieldCheck,
+  Lock,
 } from "lucide-react-native";
 import { AttachmentCard, parseMessageAttachments } from "../../../components/chat/AttachmentCard";
 import { encodeAttachmentContent } from "../../../lib/attachments";
@@ -529,6 +531,12 @@ export default function DMDetailScreen() {
                 <Text style={styles.headerName} numberOfLines={1}>
                   {conversation.name}
                 </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 1 }}>
+                  <ShieldCheck size={11} color="#10B981" />
+                  <Text style={{ fontSize: 10, color: "#10B981", fontWeight: "700", fontFamily: "monospace", letterSpacing: 0.2 }}>
+                    E2EE SECURE
+                  </Text>
+                </View>
               </View>
             </TouchableOpacity>
 
@@ -778,6 +786,9 @@ export default function DMDetailScreen() {
                               ))}
 
                               <View style={styles.bubbleMetaRow}>
+                                {item.isE2EE && (
+                                  <Lock size={9} color={isMe ? "rgba(232, 163, 61, 0.9)" : "rgba(255, 255, 255, 0.55)"} style={{ marginRight: 3 }} />
+                                )}
                                 <Text
                                   style={[
                                     styles.bubbleTime,

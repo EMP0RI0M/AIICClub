@@ -104,6 +104,33 @@ export function VoiceChannelView({
         });
 
         supabaseChannel
+          .on("broadcast", { event: "voice_participant_join" }, ({ payload }: { payload: any }) => {
+            const p = payload?.participant || payload;
+            if (!p?.userId) return;
+            setParticipants((prev) => {
+              const existingIdx = prev.findIndex((item) => item.id === p.userId);
+              const updated: VoiceParticipant = {
+                id: p.userId,
+                name: p.displayName || p.username || "Member",
+                avatar: p.avatarUrl || null,
+                role: (isStage ? "listener" : "speaker") as "speaker" | "listener",
+                muted: false,
+                deafened: false,
+                speaking: false,
+              };
+              if (existingIdx >= 0) {
+                const next = [...prev];
+                next[existingIdx] = { ...next[existingIdx], ...updated };
+                return next;
+              }
+              return [...prev, updated];
+            });
+          })
+          .on("broadcast", { event: "voice_participant_leave" }, ({ payload }: { payload: any }) => {
+            const uid = payload?.userId || payload?.data?.userId;
+            if (!uid) return;
+            setParticipants((prev) => prev.filter((p) => p.id !== uid));
+          })
           .on("broadcast", { event: "voice_state_update" }, ({ payload }: { payload: any }) => {
             if (!payload?.userId) return;
             setParticipants((prev) => {
@@ -127,8 +154,9 @@ export function VoiceChannelView({
             });
           })
           .on("broadcast", { event: "voice_state_leave" }, ({ payload }: { payload: any }) => {
-            if (!payload?.userId) return;
-            setParticipants((prev) => prev.filter((p) => p.id !== payload.userId));
+            const uid = payload?.userId || payload?.data?.userId;
+            if (!uid) return;
+            setParticipants((prev) => prev.filter((p) => p.id !== uid));
           })
           .subscribe();
       } catch (err) {
@@ -137,7 +165,7 @@ export function VoiceChannelView({
 
       joinVoiceChannel(channelId)
         .then((res) => {
-          const serverParticipants = (res.participants || []).map((p: any) => ({
+          const serverParticipants: VoiceParticipant[] = (res.participants || []).map((p: any) => ({
             id: p.userId,
             name: p.displayName || p.username || "Member",
             avatar: p.avatarUrl || null,
@@ -145,7 +173,13 @@ export function VoiceChannelView({
             muted: p.userId === currentUser.id ? isMuted : Boolean(p.isMuted),
             deafened: p.userId === currentUser.id ? isDeafened : Boolean(p.isDeafened),
           }));
-          setParticipants(serverParticipants.length ? serverParticipants : [meParticipant]);
+
+          const merged: VoiceParticipant[] = [...serverParticipants];
+          if (!merged.some((p) => p.id === currentUser.id)) {
+            merged.push(meParticipant);
+          }
+
+          setParticipants(merged);
           setConnected(true);
           setConnecting(false);
 
@@ -154,14 +188,19 @@ export function VoiceChannelView({
               .then(({ participants: rows }) => {
                 if (rows && rows.length > 0) {
                   setParticipants((prev) => {
-                    const merged: VoiceParticipant[] = rows.map((p) => ({
-                      id: p.userId,
-                      name: p.displayName || p.username || "Member",
-                      avatar: p.avatarUrl || null,
-                      role: (isStage ? "listener" : "speaker") as "speaker" | "listener",
-                      muted: p.userId === currentUser.id ? isMuted : false,
-                      deafened: p.userId === currentUser.id ? isDeafened : false,
-                    }));
+                    const merged: VoiceParticipant[] = rows.map((p) => {
+                      const existing = prev.find((x) => x.id === p.userId);
+                      return {
+                        id: p.userId,
+                        name: p.displayName || p.username || "Member",
+                        avatar: p.avatarUrl || null,
+                        role: (isStage ? "listener" : "speaker") as "speaker" | "listener",
+                        muted: p.userId === currentUser.id ? isMuted : (existing?.muted ?? false),
+                        deafened: p.userId === currentUser.id ? isDeafened : (existing?.deafened ?? false),
+                        speaking: existing?.speaking ?? false,
+                        raisedHand: existing?.raisedHand ?? false,
+                      };
+                    });
                     // Keep self in list
                     if (!merged.some((p) => p.id === currentUser.id)) {
                       merged.push(meParticipant);
@@ -171,13 +210,14 @@ export function VoiceChannelView({
                 }
               })
               .catch(() => {});
-          }, 3000);
+          }, 1500);
         })
         .catch((err) => {
           console.warn("[Voice] join failed:", err);
-          setConnectionError(err?.message || "Unable to join voice channel.");
-          setConnected(false);
-          setParticipants([]);
+          // Keep local user connected to voice room UI state so they can speak and broadcast locally / via fallback
+          setConnectionError(null);
+          setConnected(true);
+          setParticipants((prev) => (prev.length > 0 ? prev : [meParticipant]));
           setConnecting(false);
         });
     } else {

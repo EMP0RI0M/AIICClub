@@ -23,10 +23,13 @@ export default function RootLayout() {
     restoreSession();
   }, [restoreSession]);
 
-  // Global Realtime Call Signaling for incoming calls anywhere in the app
+  // Global Realtime Call Signaling & Tier 3 E2EE Key Initialization
   useEffect(() => {
     if (user?.id) {
       globalCallSignaling.subscribe(user.id, (user as any).auth_user_id);
+      import("../lib/e2ee")
+        .then(({ e2ee }) => e2ee.initialize(user.id))
+        .catch((err) => console.warn("[RootLayout] E2EE Init Error:", err));
     }
     return () => {
       globalCallSignaling.unsubscribe();

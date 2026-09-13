@@ -55,20 +55,26 @@ export function VoiceView({
 
     const updateParticipantList = () => {
       if (disposed) return;
-      const peers: VoiceParticipant[] = Array.from(room.remoteParticipants.values()).map((p) => ({
+      const livekitPeers: VoiceParticipant[] = Array.from(room.remoteParticipants.values()).map((p) => ({
         id: p.identity,
         name: p.name || p.identity,
         speaking: p.isSpeaking,
         muted: !p.isMicrophoneEnabled,
       }));
-      setRemoteParticipants(peers);
+
+      setRemoteParticipants((prev) => {
+        const mergedMap = new Map<string, VoiceParticipant>();
+        for (const p of prev) mergedMap.set(p.id, p);
+        for (const p of livekitPeers) mergedMap.set(p.id, { ...(mergedMap.get(p.id) || {}), ...p });
+        return Array.from(mergedMap.values());
+      });
     };
 
     const syncApiParticipants = async () => {
       try {
         const response = await fetchVoiceParticipants(channelId);
         const localId = room.localParticipant.identity;
-        const peers = response.participants
+        const dbPeers = response.participants
           .filter((p) => p.userId !== localId)
           .map((p) => ({
             id: p.userId,
@@ -76,7 +82,18 @@ export function VoiceView({
             speaking: false,
             muted: false,
           }));
-        if (!disposed) setRemoteParticipants(peers);
+
+        if (!disposed) {
+          setRemoteParticipants((prev) => {
+            const mergedMap = new Map<string, VoiceParticipant>();
+            for (const p of dbPeers) mergedMap.set(p.id, p);
+            for (const p of prev) {
+              const live = mergedMap.get(p.id);
+              if (live) mergedMap.set(p.id, { ...live, ...p });
+            }
+            return Array.from(mergedMap.values());
+          });
+        }
         console.info("[VOICE_PARTICIPANTS_SYNC]", {
           channelId,
           roomName: `channel_${channelId}`,

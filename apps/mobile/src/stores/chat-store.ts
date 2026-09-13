@@ -1071,29 +1071,45 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Fast sync polling (2s)
       const pollTimer = setInterval(() => {
         fetchDMMessages(dmId, 30)
-          .then((res) => {
+          .then(async (res) => {
             if (res.messages && res.messages.length > 0) {
-              const formatted: ChatMessage[] = res.messages.map((m: any) => ({
-                id: m.id,
-                author: {
-                  id: m.author?.id || m.authorId,
-                  name: m.author?.displayName || m.author?.username || "User",
-                  avatar: m.author?.avatarUrl || null,
-                },
-                at: m.createdAt,
-                text: m.content,
-                type: m.type || "default",
-                metadata: m.metadata || undefined,
-                replyTo: m.replyTo
-                  ? {
-                      id: m.replyTo.id,
-                      authorId: m.replyTo.authorId || m.replyTo.author?.id,
-                      authorName: m.replyTo.authorName || m.replyTo.author?.displayName || m.replyTo.author?.username || "User",
-                      text: m.replyTo.content || m.replyTo.text || "",
-                    }
-                  : undefined,
-                reactions: m.reactions || [],
-              }));
+              const currentUser = useAuthStore.getState().user;
+              const currentUserId = currentUser?.id || "me";
+
+              const formatted: ChatMessage[] = await Promise.all(
+                res.messages.map(async (m: any) => {
+                  let text = m.content || "";
+                  let isE2EE = false;
+                  if (typeof text === "string" && text.startsWith("enc:v3:")) {
+                    const dec = await e2ee.decrypt(text, currentUserId);
+                    text = dec.plaintext;
+                    isE2EE = dec.isE2EE;
+                  }
+
+                  return {
+                    id: m.id,
+                    author: {
+                      id: m.author?.id || m.authorId,
+                      name: m.author?.displayName || m.author?.username || "User",
+                      avatar: m.author?.avatarUrl || null,
+                    },
+                    at: m.createdAt,
+                    text,
+                    isE2EE,
+                    type: m.type || "default",
+                    metadata: m.metadata || undefined,
+                    replyTo: m.replyTo
+                      ? {
+                          id: m.replyTo.id,
+                          authorId: m.replyTo.authorId || m.replyTo.author?.id,
+                          authorName: m.replyTo.authorName || m.replyTo.author?.displayName || m.replyTo.author?.username || "User",
+                          text: m.replyTo.content || m.replyTo.text || "",
+                        }
+                      : undefined,
+                    reactions: m.reactions || [],
+                  };
+                })
+              );
 
               const current = get().dmMessages[dmId] || [];
               if (
