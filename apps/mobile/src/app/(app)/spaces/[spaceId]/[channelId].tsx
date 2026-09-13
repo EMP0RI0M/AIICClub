@@ -1745,12 +1745,12 @@ function NativeMessageList({
                       }}
                       style={({ pressed }) => [
                         styles.visionGlassBubble,
-                        stickerOnly && styles.stickerOnlyBubble,
                         isOwnMessage
                           ? styles.visionGlassBubbleOwn
                           : isBot
                           ? styles.visionGlassBubbleBot
                           : styles.visionGlassBubbleOther,
+                        stickerOnly && styles.stickerOnlyBubble,
                         pressed && styles.visionGlassBubblePressed,
                       ]}
                     >
