@@ -301,7 +301,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             : Linking.createURL("auth/callback")
           : isExpoGo
           ? Linking.createURL("auth/callback")
-          : "aiic://auth/callback";
+          : "https://aiic-bbs.vercel.app/auth/callback/mobile";
 
       console.log("[AIIC OAuth] detected isExpoGo:", isExpoGo, "redirect URI:", redirectTo);
 
