@@ -26,7 +26,12 @@ export default function RootLayout() {
       if (!url) return;
 
       // 1. OAuth Deep Link
-      if (url.startsWith("aiic://auth/callback") || url.includes("auth/callback")) {
+      if (
+        url.startsWith("aiic://auth/callback") ||
+        url.includes("auth/callback") ||
+        url.includes("access_token=") ||
+        url.includes("code=")
+      ) {
         console.log("[AIIC OAuth] Deep link received:", url);
         const success = await handleOAuthCallback(url);
         if (success) {
