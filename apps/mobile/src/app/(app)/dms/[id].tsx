@@ -217,7 +217,32 @@ export default function DMDetailScreen() {
     subscribeToDM,
     unsubscribeFromDM,
     isLoadingMessages,
+    typingUsers,
+    sendDMTyping,
+    startDMCall,
   } = useChatStore();
+
+  const handleStartCall = (isVideo: boolean = false) => {
+    NativeHaptics.medium();
+    if (user) {
+      startDMCall(
+        convoId,
+        {
+          id: user.id,
+          name: user.displayName || user.username || "You",
+          avatar: user.avatar,
+        },
+        isVideo
+      );
+    }
+    router.push({
+      pathname: `/(app)/voice/${convoId}`,
+      params: {
+        type: isVideo ? "video" : "voice",
+        title: conversation.name,
+      },
+    } as any);
+  };
 
   const [inputText, setInputText] = useState("");
   const {
@@ -506,13 +531,13 @@ export default function DMDetailScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.iconBtn}
-                onPress={() => router.push(`/(app)/voice/${convoId}`)}
+                onPress={() => handleStartCall(false)}
               >
                 <Phone size={16} color={themeAccent} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.iconBtn}
-                onPress={() => router.push(`/(app)/voice/${convoId}`)}
+                onPress={() => handleStartCall(true)}
               >
                 <Video size={16} color={themeAccent} />
               </TouchableOpacity>
@@ -769,6 +794,20 @@ export default function DMDetailScreen() {
           </View>
         )}
 
+        {/* Real-Time Live Typing Indicator */}
+        {(typingUsers[convoId] || []).length > 0 && (
+          <View style={styles.typingIndicatorRow}>
+            <View style={styles.typingDotWrap}>
+              <View style={[styles.typingDot, { backgroundColor: themeAccent }]} />
+              <View style={[styles.typingDot, { backgroundColor: themeAccent, opacity: 0.7 }]} />
+              <View style={[styles.typingDot, { backgroundColor: themeAccent, opacity: 0.4 }]} />
+            </View>
+            <Text style={styles.typingIndicatorText} numberOfLines={1}>
+              {(typingUsers[convoId] || []).join(", ")} {(typingUsers[convoId] || []).length === 1 ? "is" : "are"} typing...
+            </Text>
+          </View>
+        )}
+
         {/* Floating Liquid Glass Composer Bar */}
         <View style={styles.composerWrapper}>
           <View style={styles.composerRow}>
@@ -827,7 +866,12 @@ export default function DMDetailScreen() {
                     placeholder={`Message ${conversation.name}...`}
                     placeholderTextColor="rgba(255, 255, 255, 0.45)"
                     value={inputText}
-                    onChangeText={setInputText}
+                    onChangeText={(t) => {
+                      setInputText(t);
+                      if (t && user) {
+                        sendDMTyping(convoId, user.displayName || user.username || "Member");
+                      }
+                    }}
                     multiline
                   />
 
@@ -1850,5 +1894,28 @@ const styles = StyleSheet.create({
     color: "#000",
     fontSize: 13,
     fontWeight: "700",
+  },
+  typingIndicatorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 4,
+    marginBottom: 2,
+    gap: 8,
+  },
+  typingDotWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  typingDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  typingIndicatorText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontStyle: "italic",
   },
 });

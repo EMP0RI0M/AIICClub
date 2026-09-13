@@ -47,6 +47,9 @@ interface ChatState {
   editDMMessageAction: (dmId: string, messageId: string, content: string) => Promise<void>;
   toggleDMReaction: (dmId: string, messageId: string, emoji: string) => Promise<void>;
   toggleReaction: (channelId: string, messageId: string, emoji: string) => Promise<void>;
+  sendTyping: (channelId: string, username: string) => void;
+  sendDMTyping: (dmId: string, username: string) => void;
+  startDMCall: (dmId: string, caller: { id: string; name: string; avatar?: string | null }, isVideo?: boolean) => void;
 
   // Dedicated Thread Actions
   getOrCreateThreadAction: (channelId: string, parentMessageId: string) => Promise<ThreadSummary | null>;
@@ -209,6 +212,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
             [channelId]: (state.messages[channelId] || []).map((msg) => (msg.id === tempId ? finalMsg : msg)),
           },
         }));
+
+        // Broadcast to live channel peers immediately
+        try {
+          const chan = get().activeChannelSubscription;
+          if (chan) {
+            chan.send({
+              type: "broadcast",
+              event: "new_message",
+              payload: { message: finalMsg },
+            });
+          }
+        } catch {}
       }
     } catch (err) {
       console.warn("[ChatStore] Network send failed, queueing in outbox:", err);
@@ -224,6 +239,52 @@ export const useChatStore = create<ChatState>((set, get) => ({
         type: "info",
       });
     }
+  },
+
+  sendTyping: (channelId: string, username: string) => {
+    try {
+      const chan = get().activeChannelSubscription;
+      if (chan) {
+        chan.send({
+          type: "broadcast",
+          event: "typing",
+          payload: { username },
+        });
+      }
+    } catch {}
+  },
+
+  sendDMTyping: (dmId: string, username: string) => {
+    try {
+      const chan = get().activeDMSubscription;
+      if (chan) {
+        chan.send({
+          type: "broadcast",
+          event: "typing",
+          payload: { username },
+        });
+      }
+    } catch {}
+  },
+
+  startDMCall: (dmId: string, caller: { id: string; name: string; avatar?: string | null }, isVideo?: boolean) => {
+    try {
+      const chan = get().activeDMSubscription;
+      if (chan) {
+        chan.send({
+          type: "broadcast",
+          event: "incoming_call",
+          payload: {
+            dmId,
+            callerId: caller.id,
+            callerName: caller.name,
+            callerAvatar: caller.avatar,
+            isVideo: !!isVideo,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
+    } catch {}
   },
 
   loadDMMessagesAction: async (dmId: string) => {
@@ -306,6 +367,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
             [dmId]: (state.dmMessages[dmId] || []).map((msg) => (msg.id === tempId ? finalMsg : msg)),
           },
         }));
+
+        // Broadcast to live DM peer immediately
+        try {
+          const chan = get().activeDMSubscription;
+          if (chan) {
+            chan.send({
+              type: "broadcast",
+              event: "new_message",
+              payload: { message: finalMsg },
+            });
+          }
+        } catch {}
       }
     } catch (err) {
       console.warn("[ChatStore] DM send failed, queueing in outbox:", err);
@@ -757,6 +830,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
               reactions: raw.reactions || [],
             };
             get().addDMMessage(dmId, formatted);
+          }
+        })
+        .on("broadcast", { event: "typing" }, ({ payload }: { payload: any }) => {
+          if (payload?.username) {
+            set((s: ChatState) => ({
+              typingUsers: {
+                ...s.typingUsers,
+                [dmId]: [...new Set([...(s.typingUsers[dmId] || []), payload.username])],
+              },
+            }));
+            setTimeout(() => {
+              set((s: ChatState) => ({
+                typingUsers: {
+                  ...s.typingUsers,
+                  [dmId]: (s.typingUsers[dmId] || []).filter((u: string) => u !== payload.username),
+                },
+              }));
+            }, 3000);
+          }
+        })
+        .on("broadcast", { event: "incoming_call" }, ({ payload }: { payload: any }) => {
+          if (payload?.callerName) {
+            notificationService.show({
+              type: "call",
+              title: payload.isVideo ? "Incoming Video Call" : "Incoming Voice Call",
+              body: `${payload.callerName} is calling you...`,
+              dmId: dmId,
+              durationMs: 30000,
+            });
           }
         })
         .on(
