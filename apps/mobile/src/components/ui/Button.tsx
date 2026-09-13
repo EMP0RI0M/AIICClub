@@ -8,7 +8,7 @@ import {
   TextStyle,
   PressableProps,
 } from "react-native";
-import { colors, radius, typography } from "../../theme/tokens";
+import { colors, radius, useAppTheme } from "../../theme/tokens";
 
 interface ButtonProps extends PressableProps {
   title: string;
@@ -31,14 +31,63 @@ export const Button: React.FC<ButtonProps> = ({
   disabled,
   ...props
 }) => {
+  const theme = useAppTheme();
+
+  const dynamicVariantStyle = (pressed: boolean): ViewStyle => {
+    switch (variant) {
+      case "primary":
+        return {
+          backgroundColor: pressed ? theme.colors.accentPressed : theme.colors.accent,
+        };
+      case "outline":
+        return {
+          backgroundColor: pressed ? theme.colors.accentSoft : "transparent",
+          borderColor: theme.colors.accent,
+          borderWidth: 1,
+        };
+      case "secondary":
+        return {
+          backgroundColor: pressed ? colors.surfaceOverlay : colors.surfaceRaised,
+          borderWidth: 1,
+          borderColor: colors.borderHighlight,
+        };
+      case "ghost":
+        return {
+          backgroundColor: pressed ? colors.hoverRow : "transparent",
+        };
+      case "danger":
+        return {
+          backgroundColor: pressed ? colors.dangerDim : colors.danger,
+        };
+      default:
+        return {};
+    }
+  };
+
+  const dynamicTextColor = (): string => {
+    switch (variant) {
+      case "primary":
+        return theme.colors.accentText;
+      case "outline":
+        return theme.colors.accent;
+      case "secondary":
+        return colors.textPrimary;
+      case "ghost":
+        return colors.textSecondary;
+      case "danger":
+        return "#FFFFFF";
+      default:
+        return colors.textPrimary;
+    }
+  };
+
   return (
     <Pressable
       disabled={disabled || loading}
       style={({ pressed }) => [
         styles.base,
-        styles[variant],
         styles[`size_${size}`],
-        pressed && styles[`pressed_${variant}`],
+        dynamicVariantStyle(pressed),
         (disabled || loading) && styles.disabled,
         style,
       ]}
@@ -47,7 +96,7 @@ export const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === "primary" ? colors.accentContrast : colors.accent}
+          color={variant === "primary" ? theme.colors.accentText : theme.colors.accent}
         />
       ) : (
         <>
@@ -55,8 +104,8 @@ export const Button: React.FC<ButtonProps> = ({
           <Text
             style={[
               styles.text,
-              styles[`text_${variant}`],
               styles[`textSize_${size}`],
+              { color: dynamicTextColor() },
               icon ? { marginLeft: 8 } : null,
               textStyle,
             ]}
@@ -75,40 +124,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.button,
-  },
-  primary: {
-    backgroundColor: colors.accent,
-  },
-  secondary: {
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.borderHighlight,
-  },
-  outline: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: colors.accent,
-  },
-  ghost: {
-    backgroundColor: "transparent",
-  },
-  danger: {
-    backgroundColor: colors.danger,
-  },
-  pressed_primary: {
-    backgroundColor: colors.accentPressed,
-  },
-  pressed_secondary: {
-    backgroundColor: colors.surfaceOverlay,
-  },
-  pressed_outline: {
-    backgroundColor: colors.accentSoft,
-  },
-  pressed_ghost: {
-    backgroundColor: colors.hoverRow,
-  },
-  pressed_danger: {
-    backgroundColor: colors.dangerDim,
   },
   disabled: {
     opacity: 0.5,
@@ -130,21 +145,6 @@ const styles = StyleSheet.create({
   },
   text: {
     fontWeight: "600",
-  },
-  text_primary: {
-    color: colors.accentContrast,
-  },
-  text_secondary: {
-    color: colors.textPrimary,
-  },
-  text_outline: {
-    color: colors.accent,
-  },
-  text_ghost: {
-    color: colors.textSecondary,
-  },
-  text_danger: {
-    color: "#FFFFFF",
   },
   textSize_sm: {
     fontSize: 12,

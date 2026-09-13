@@ -25,7 +25,7 @@ import {
   Tag,
   Shield,
 } from "lucide-react-native";
-import { colors } from "@/theme/tokens";
+import { colors, useAppTheme } from "@/theme/tokens";
 import { useAuthStore } from "@/stores/auth-store";
 import { api } from "@/lib/api";
 
@@ -47,6 +47,7 @@ export function MobileNoticeBoardView({
 }: {
   onBack?: () => void;
 }) {
+  const theme = useAppTheme();
   const { user, isAuthenticated } = useAuthStore();
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,21 +111,21 @@ export function MobileNoticeBoardView({
             end={{ x: 0, y: 1 }}
           />
           <View style={styles.headerLeft}>
-            <View style={styles.headerIconOrb}>
-              <Bell size={16} color={colors.accent} />
+            <View style={[styles.headerIconOrb, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+              <Bell size={16} color={theme.colors.accent} />
             </View>
             <View>
               <Text style={styles.headerTitle}>Club Notice Board</Text>
-              <Text style={styles.headerSub}>OFFICIAL DISPATCHES</Text>
+              <Text style={[styles.headerSub, { color: theme.colors.accent }]}>OFFICIAL DISPATCHES</Text>
             </View>
           </View>
 
           <Pressable
             onPress={() => setShowCreateModal(true)}
-            style={styles.postBtn}
+            style={[styles.postBtn, { backgroundColor: theme.colors.accent }]}
           >
-            <Plus size={15} color={colors.accentContrast} />
-            <Text style={styles.postBtnText}>Post Notice</Text>
+            <Plus size={15} color={theme.colors.accentText} />
+            <Text style={[styles.postBtnText, { color: theme.colors.accentText }]}>Post Notice</Text>
           </Pressable>
         </BlurView>
       </View>
@@ -136,7 +137,7 @@ export function MobileNoticeBoardView({
             colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
             style={StyleSheet.absoluteFillObject}
           />
-          <Search size={15} color={colors.accent} />
+          <Search size={15} color={theme.colors.accent} />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -165,13 +166,19 @@ export function MobileNoticeBoardView({
               onPress={() => setSelectedCategory(cat)}
               style={[
                 styles.categoryPill,
-                selectedCategory === cat && styles.categoryPillActive,
+                selectedCategory === cat && [
+                  styles.categoryPillActive,
+                  { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+                ],
               ]}
             >
               <Text
                 style={[
                   styles.categoryPillText,
-                  selectedCategory === cat && styles.categoryPillTextActive,
+                  selectedCategory === cat && [
+                    styles.categoryPillTextActive,
+                    { color: theme.colors.accent },
+                  ],
                 ]}
               >
                 {cat}
@@ -291,6 +298,7 @@ function CreateNoticeModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const theme = useAppTheme();
   const { user } = useAuthStore();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -345,7 +353,7 @@ function CreateNoticeModal({
 
           <View style={styles.modalHeader}>
             <View>
-              <Text style={styles.modalSub}>COMMUNITY DISPATCH</Text>
+              <Text style={[styles.modalSub, { color: theme.colors.accent }]}>COMMUNITY DISPATCH</Text>
               <Text style={styles.modalTitle}>Publish Club Notice</Text>
             </View>
             <Pressable onPress={onClose} style={styles.modalCloseBtn} hitSlop={8}>
@@ -372,9 +380,23 @@ function CreateNoticeModal({
                   <Pressable
                     key={c}
                     onPress={() => setCategory(c)}
-                    style={[styles.smallCatPill, category === c && styles.smallCatPillActive]}
+                    style={[
+                      styles.smallCatPill,
+                      category === c && [
+                        styles.smallCatPillActive,
+                        { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+                      ],
+                    ]}
                   >
-                    <Text style={[styles.smallCatText, category === c && styles.smallCatTextActive]}>
+                    <Text
+                      style={[
+                        styles.smallCatText,
+                        category === c && [
+                          styles.smallCatTextActive,
+                          { color: theme.colors.accent },
+                        ],
+                      ]}
+                    >
                       {c}
                     </Text>
                   </Pressable>
@@ -393,9 +415,23 @@ function CreateNoticeModal({
                   <Pressable
                     key={p.id}
                     onPress={() => setPriority(p.id as any)}
-                    style={[styles.smallCatPill, priority === p.id && styles.smallCatPillActive]}
+                    style={[
+                      styles.smallCatPill,
+                      priority === p.id && [
+                        styles.smallCatPillActive,
+                        { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+                      ],
+                    ]}
                   >
-                    <Text style={[styles.smallCatText, priority === p.id && styles.smallCatTextActive]}>
+                    <Text
+                      style={[
+                        styles.smallCatText,
+                        priority === p.id && [
+                          styles.smallCatTextActive,
+                          { color: theme.colors.accent },
+                        ],
+                      ]}
+                    >
                       {p.label}
                     </Text>
                   </Pressable>
@@ -418,12 +454,12 @@ function CreateNoticeModal({
             <Pressable
               onPress={handleSubmit}
               disabled={submitting}
-              style={[styles.modalSubmitBtn, submitting && { opacity: 0.6 }]}
+              style={[styles.modalSubmitBtn, { backgroundColor: theme.colors.accent }, submitting && { opacity: 0.6 }]}
             >
               {submitting ? (
-                <ActivityIndicator size="small" color={colors.accentContrast} />
+                <ActivityIndicator size="small" color={theme.colors.accentText} />
               ) : (
-                <Text style={styles.modalSubmitText}>Publish Notice</Text>
+                <Text style={[styles.modalSubmitText, { color: theme.colors.accentText }]}>Publish Notice</Text>
               )}
             </Pressable>
           </ScrollView>

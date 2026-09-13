@@ -152,15 +152,16 @@ export function SpaceMembersSheet({
 
 function MemberRow({
   member,
-  dimmed,
+  dimmed = false,
   onPress,
 }: {
   member: SpaceMemberItem;
   dimmed?: boolean;
   onPress: () => void;
 }) {
-  const presence = member.presence ?? "offline";
-  const dotColor = PRESENCE_DOT[presence] || PRESENCE_DOT.offline;
+  const theme = useAppTheme();
+  const dotColor =
+    PRESENCE_DOT[member.presence || "offline"] || PRESENCE_DOT.offline;
 
   return (
     <Pressable
@@ -178,8 +179,8 @@ function MemberRow({
             style={styles.avatarImg}
           />
         ) : (
-          <View style={styles.avatarFallback}>
-            <Text style={styles.avatarLetter}>
+          <View style={[styles.avatarFallback, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+            <Text style={[styles.avatarLetter, { color: theme.colors.accent }]}>
               {member.name.charAt(0).toUpperCase()}
             </Text>
           </View>
@@ -196,17 +197,22 @@ function MemberRow({
             <View
               style={[
                 styles.roleBadge,
-                Boolean(member.roleColor) && {
-                  borderColor: `${member.roleColor}55`,
-                  backgroundColor: `${member.roleColor}15`,
-                },
+                member.roleColor
+                  ? {
+                      borderColor: `${member.roleColor}55`,
+                      backgroundColor: `${member.roleColor}15`,
+                    }
+                  : {
+                      borderColor: theme.colors.accentBorder,
+                      backgroundColor: theme.colors.accentSoft,
+                    },
               ]}
             >
-              <Shield size={10} color={member.roleColor || colors.accent} style={{ marginRight: 3 }} />
+              <Shield size={10} color={member.roleColor || theme.colors.accent} style={{ marginRight: 3 }} />
               <Text
                 style={[
                   styles.roleBadgeText,
-                  Boolean(member.roleColor) && { color: member.roleColor },
+                  { color: member.roleColor || theme.colors.accent },
                 ]}
               >
                 {member.role}

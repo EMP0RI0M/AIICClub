@@ -11,7 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, radius } from "../../theme/tokens";
+import { colors, radius, useAppTheme } from "../../theme/tokens";
 import { Avatar } from "../ui/Avatar";
 import { Phone, PhoneOff, Video, Mic } from "lucide-react-native";
 import { NativeHaptics } from "../../lib/haptics";
@@ -19,6 +19,7 @@ import { globalCallSignaling, IncomingCallPayload } from "../../lib/call-signali
 import { declineDMCall } from "../../lib/api";
 
 export function IncomingCallModal() {
+  const theme = useAppTheme();
   const router = useRouter();
   const [incomingCall, setIncomingCall] = useState<IncomingCallPayload | null>(null);
   const pulseAnim = useState(new Animated.Value(1))[0];
@@ -101,11 +102,11 @@ export function IncomingCallModal() {
             />
 
             {/* Ambient Top Glow */}
-            <View style={styles.ambientGlow} />
+            <View style={[styles.ambientGlow, { backgroundColor: theme.colors.accentSoft }]} />
 
             {/* Call Type Badge */}
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
+            <View style={[styles.badge, { borderColor: theme.colors.accentBorder, backgroundColor: theme.colors.accentSoft }]}>
+              <Text style={[styles.badgeText, { color: theme.colors.accent }]}>
                 INCOMING {incomingCall.video ? "VIDEO" : "VOICE"} CALL
               </Text>
             </View>

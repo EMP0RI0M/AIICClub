@@ -23,7 +23,7 @@ import {
   Edit3,
 } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { colors, radius } from "../../theme/tokens";
+import { colors, radius, useAppTheme } from "../../theme/tokens";
 import { useAuthStore, type User } from "../../stores/auth-store";
 import { formatAvatarUrl } from "../../lib/avatar";
 import { NativeHaptics } from "../../lib/haptics";
@@ -41,6 +41,7 @@ const PRESENCE_OPTIONS: {
 ];
 
 export function MobileProfileStatusView() {
+  const theme = useAppTheme();
   const router = useRouter();
   const { user, setStatus, updateUser, logout } = useAuthStore();
   const [avatarError, setAvatarError] = useState(false);
@@ -120,9 +121,9 @@ export function MobileProfileStatusView() {
             </Text>
             <View style={styles.usernameRow}>
               <Text style={styles.usernameText}>@{user?.username || "member"}</Text>
-              <View style={styles.rolePill}>
-                <Shield size={10} color={colors.accent} />
-                <Text style={styles.rolePillText}>
+              <View style={[styles.rolePill, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+                <Shield size={10} color={theme.colors.accent} />
+                <Text style={[styles.rolePillText, { color: theme.colors.accent }]}>
                   {(user?.role || "MEMBER").replace(/_/g, " ").toUpperCase()}
                 </Text>
               </View>
@@ -135,7 +136,7 @@ export function MobileProfileStatusView() {
             style={styles.headerEditBtn}
             hitSlop={8}
           >
-            <Edit3 size={14} color={colors.accent} />
+            <Edit3 size={14} color={theme.colors.accent} />
           </Pressable>
         </View>
       </View>
@@ -152,20 +153,20 @@ export function MobileProfileStatusView() {
                 onPress={() => handleSelectPresence(item.id)}
                 style={({ pressed }) => [
                   styles.presenceOption,
-                  isActive && styles.presenceOptionActive,
+                  isActive && [styles.presenceOptionActive, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }],
                   pressed && { opacity: 0.8 },
                 ]}
               >
                 <View style={[styles.presenceDot, { backgroundColor: item.dotColor }]} />
                 <View style={styles.presenceTextWrap}>
-                  <Text style={[styles.presenceLabel, isActive && styles.presenceLabelActive]}>
+                  <Text style={[styles.presenceLabel, isActive && [styles.presenceLabelActive, { color: theme.colors.accent }]]}>
                     {item.label}
                   </Text>
                   {item.hint ? (
                     <Text style={styles.presenceHint}>{item.hint}</Text>
                   ) : null}
                 </View>
-                {isActive && <Check size={14} color={colors.accent} />}
+                {isActive && <Check size={14} color={theme.colors.accent} />}
               </Pressable>
             );
           })}
@@ -201,7 +202,7 @@ export function MobileProfileStatusView() {
       {/* ─── NOISE SUPPRESSION (VISUALLY SECONDARY) ─── */}
       <View style={styles.section}>
         <View style={styles.sectionTitleRow}>
-          <AudioLines size={12} color={colors.accent} />
+          <AudioLines size={12} color={theme.colors.accent} />
           <Text style={styles.sectionTitle}>NOISE SUPPRESSION</Text>
         </View>
         <View style={styles.noiseRow}>
@@ -214,9 +215,9 @@ export function MobileProfileStatusView() {
                   NativeHaptics.light();
                   setNoiseLevel(level);
                 }}
-                style={[styles.noisePill, isActive && styles.noisePillActive]}
+                style={[styles.noisePill, isActive && [styles.noisePillActive, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]]}
               >
-                <Text style={[styles.noisePillText, isActive && styles.noisePillTextActive]}>
+                <Text style={[styles.noisePillText, isActive && [styles.noisePillTextActive, { color: theme.colors.accent }]]}>
                   {level.charAt(0).toUpperCase() + level.slice(1)}
                 </Text>
               </Pressable>

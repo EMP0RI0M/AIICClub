@@ -90,16 +90,16 @@ export function SpaceDrawerModal({
   });
 
   const renderGlyph = (type: string, isSelected: boolean) => {
-    const iconColor = isSelected ? theme.colors.accent : "rgba(255, 255, 255, 0.6)";
+    const iconColor = isSelected ? theme.colors.accent : colors.textMuted;
     switch (type) {
-      case "voice": return <Volume2 size={16} color={isSelected ? theme.colors.accent : theme.colors.accentTeal} />;
-      case "board": return <Kanban size={16} color={isSelected ? theme.colors.accent : theme.colors.accentWarm} />;
-      case "docs": return <FileText size={16} color={isSelected ? theme.colors.accent : theme.colors.info} />;
-      case "github": return <Github size={16} color={isSelected ? theme.colors.accent : theme.colors.accentTeal} />;
-      case "incident": return <AlertTriangle size={16} color={isSelected ? theme.colors.accent : theme.colors.danger} />;
-      case "canvas": return <Layers size={16} color={theme.colors.accent} />;
-      case "stage": return <Radio size={16} color={theme.colors.live} />;
-      case "announcement": return <Bell size={16} color={theme.colors.accent} />;
+      case "voice": return <Volume2 size={16} color={iconColor} />;
+      case "board": return <Kanban size={16} color={iconColor} />;
+      case "docs": return <FileText size={16} color={iconColor} />;
+      case "github": return <Github size={16} color={iconColor} />;
+      case "incident": return <AlertTriangle size={16} color={isSelected ? theme.colors.accent : colors.danger} />;
+      case "canvas": return <Layers size={16} color={iconColor} />;
+      case "stage": return <Radio size={16} color={isSelected ? theme.colors.accent : colors.live} />;
+      case "announcement": return <Bell size={16} color={iconColor} />;
       default: return <Hash size={16} color={iconColor} />;
     }
   };
@@ -137,16 +137,23 @@ export function SpaceDrawerModal({
                       onPress={() => onSelectServer(s.id)}
                       style={[
                         styles.spaceOrb,
-                        isActive && styles.spaceOrbActive,
+                        isActive && [
+                          styles.spaceOrbActive,
+                          {
+                            borderColor: theme.colors.accentBorder,
+                            backgroundColor: theme.colors.accentSoft,
+                            shadowColor: theme.colors.accent,
+                          },
+                        ],
                       ]}
                     >
                       {isActive && (
-                        <View style={styles.activePillIndicator} />
+                        <View style={[styles.activePillIndicator, { backgroundColor: theme.colors.accent }]} />
                       )}
                       {s.iconUrl ? (
                         <Image source={{ uri: s.iconUrl }} style={styles.spaceImg} />
                       ) : (
-                        <Text style={[styles.spaceOrbLetter, isActive && { color: colors.accent }]}>
+                        <Text style={[styles.spaceOrbLetter, isActive && { color: theme.colors.accent }]}>
                           {s.name.charAt(0).toUpperCase()}
                         </Text>
                       )}
@@ -161,10 +168,10 @@ export function SpaceDrawerModal({
                       onClose();
                       onCreateSpace();
                     }}
-                    style={[styles.spaceOrb, styles.addSpaceOrb]}
+                    style={[styles.spaceOrb, styles.addSpaceOrb, { borderColor: theme.colors.accentBorder, backgroundColor: theme.colors.accentSoft }]}
                     hitSlop={6}
                   >
-                    <Plus size={18} color={colors.accent} />
+                    <Plus size={18} color={theme.colors.accent} />
                   </Pressable>
                 )}
               </ScrollView>
@@ -178,7 +185,7 @@ export function SpaceDrawerModal({
                   <Text style={styles.spaceName} numberOfLines={1}>
                     {currentServer?.name || "AIIC Space"}
                   </Text>
-                  <Text style={styles.spaceSubtitle}>AIIC COMMUNITY</Text>
+                  <Text style={[styles.spaceSubtitle, { color: theme.colors.accent }]}>AIIC COMMUNITY</Text>
                 </View>
 
                 <Pressable
@@ -186,9 +193,9 @@ export function SpaceDrawerModal({
                     onClose();
                     onOpenSpaceSettings();
                   }}
-                  style={styles.settingsBtn}
+                  style={[styles.settingsBtn, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}
                 >
-                  <Settings size={16} color={colors.accent} />
+                  <Settings size={16} color={theme.colors.accent} />
                 </Pressable>
 
                 <Pressable onPress={onClose} style={styles.closeBtn}>
@@ -215,12 +222,18 @@ export function SpaceDrawerModal({
                           }}
                           style={[
                             styles.channelRow,
-                            isSelected && styles.channelRowSelected,
+                            isSelected && [
+                              styles.channelRowSelected,
+                              {
+                                backgroundColor: theme.colors.accentSoft,
+                                borderColor: theme.colors.accentBorder,
+                              },
+                            ],
                           ]}
                         >
                           {isSelected && (
                             <LinearGradient
-                              colors={["rgba(212, 160, 23, 0.22)", "rgba(212, 160, 23, 0.06)"]}
+                              colors={[theme.colors.accentGlow, "transparent"]}
                               style={StyleSheet.absoluteFillObject}
                             />
                           )}
@@ -229,14 +242,30 @@ export function SpaceDrawerModal({
                           <Text
                             style={[
                               styles.channelName,
-                              isSelected && styles.channelNameSelected,
+                              isSelected && [styles.channelNameSelected, { color: theme.colors.accent }],
                             ]}
                             numberOfLines={1}
                           >
                             {ch.name}
                           </Text>
-                          <View style={[styles.typeBadge, isSelected && styles.typeBadgeSelected]}>
-                            <Text style={[styles.typeBadgeText, isSelected && { color: colors.accent }]}>
+                          <View
+                            style={[
+                              styles.typeBadge,
+                              isSelected && [
+                                styles.typeBadgeSelected,
+                                {
+                                  backgroundColor: theme.colors.accentSoft,
+                                  borderColor: theme.colors.accentBorder,
+                                },
+                              ],
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.typeBadgeText,
+                                isSelected && { color: theme.colors.accent },
+                              ]}
+                            >
                               {(ch.type || "text").toUpperCase()}
                             </Text>
                           </View>

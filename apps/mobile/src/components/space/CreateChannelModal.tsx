@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, radius } from "../../theme/tokens";
+import { colors, radius, useAppTheme } from "../../theme/tokens";
 import { NativeHaptics } from "../../lib/haptics";
 import { notificationService } from "../../lib/notifications";
 import { createChannel } from "../../lib/api";
@@ -118,6 +118,7 @@ export function CreateChannelModal({
   initialCategory,
   onCreated,
 }: CreateChannelModalProps) {
+  const theme = useAppTheme();
   const [name, setName] = useState("");
   const [selectedType, setSelectedType] = useState<ChannelTypeOption["type"]>("text");
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory || "General");
@@ -218,9 +219,9 @@ export function CreateChannelModal({
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <View style={styles.headerBadge}>
-                <Sparkles size={11} color={colors.accent} />
-                <Text style={styles.headerBadgeText}>SPACE ARCHITECTURE</Text>
+              <View style={[styles.headerBadge, { borderColor: theme.colors.accentBorder, backgroundColor: theme.colors.accentSoft }]}>
+                <Sparkles size={11} color={theme.colors.accent} />
+                <Text style={[styles.headerBadgeText, { color: theme.colors.accent }]}>SPACE ARCHITECTURE</Text>
               </View>
               <Text style={styles.headerTitle}>Create Channel</Text>
             </View>
@@ -249,7 +250,10 @@ export function CreateChannelModal({
                   }}
                   style={[
                     styles.typeCard,
-                    isSelected && styles.typeCardSelected,
+                    isSelected && [
+                      styles.typeCardSelected,
+                      { borderColor: theme.colors.accent, backgroundColor: theme.colors.accentSoft },
+                    ],
                   ]}
                 >
                   <View
@@ -277,10 +281,10 @@ export function CreateChannelModal({
                   <View
                     style={[
                       styles.radioCircle,
-                      isSelected && styles.radioCircleSelected,
+                      isSelected && [styles.radioCircleSelected, { borderColor: theme.colors.accent }],
                     ]}
                   >
-                    {isSelected && <View style={styles.radioInner} />}
+                    {isSelected && <View style={[styles.radioInner, { backgroundColor: theme.colors.accent }]} />}
                   </View>
                 </Pressable>
               );
@@ -325,13 +329,19 @@ export function CreateChannelModal({
                 }}
                 style={[
                   styles.categoryPill,
-                  !isCustomCategory && selectedCategory === cat && styles.categoryPillActive,
+                  !isCustomCategory && selectedCategory === cat && [
+                    styles.categoryPillActive,
+                    { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+                  ],
                 ]}
               >
                 <Text
                   style={[
                     styles.categoryPillText,
-                    !isCustomCategory && selectedCategory === cat && styles.categoryPillTextActive,
+                    !isCustomCategory && selectedCategory === cat && [
+                      styles.categoryPillTextActive,
+                      { color: theme.colors.accent },
+                    ],
                   ]}
                 >
                   {cat}
@@ -346,18 +356,24 @@ export function CreateChannelModal({
               }}
               style={[
                 styles.categoryPill,
-                isCustomCategory && styles.categoryPillActive,
+                isCustomCategory && [
+                  styles.categoryPillActive,
+                  { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+                ],
                 { borderStyle: "dashed" },
               ]}
             >
               <FolderPlus
                 size={13}
-                color={isCustomCategory ? colors.accent : colors.textMuted}
+                color={isCustomCategory ? theme.colors.accent : colors.textMuted}
               />
               <Text
                 style={[
                   styles.categoryPillText,
-                  isCustomCategory && styles.categoryPillTextActive,
+                  isCustomCategory && [
+                    styles.categoryPillTextActive,
+                    { color: theme.colors.accent },
+                  ],
                 ]}
               >
                 + New Category
@@ -404,15 +420,16 @@ export function CreateChannelModal({
             disabled={creating || !name.trim()}
             style={[
               styles.createBtn,
+              { backgroundColor: theme.colors.accent },
               (!name.trim() || creating) && { opacity: 0.5 },
             ]}
           >
             {creating ? (
-              <ActivityIndicator size="small" color="#000" />
+              <ActivityIndicator size="small" color={theme.colors.accentText} />
             ) : (
               <>
-                <Plus size={16} color="#000" />
-                <Text style={styles.createBtnText}>Create Channel</Text>
+                <Plus size={16} color={theme.colors.accentText} />
+                <Text style={[styles.createBtnText, { color: theme.colors.accentText }]}>Create Channel</Text>
               </>
             )}
           </Pressable>

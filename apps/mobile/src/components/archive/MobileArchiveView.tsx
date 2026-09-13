@@ -31,7 +31,7 @@ import {
   ArrowRight,
   Shield,
 } from "lucide-react-native";
-import { colors } from "@/theme/tokens";
+import { colors, useAppTheme } from "@/theme/tokens";
 import { useAuthStore } from "@/stores/auth-store";
 import { api } from "@/lib/api";
 import { MobileDocumentReaderModal } from "./MobileDocumentReaderModal";
@@ -81,6 +81,7 @@ export function MobileArchiveView({
 }: {
   onBack?: () => void;
 }) {
+  const theme = useAppTheme();
   const { user, isAuthenticated } = useAuthStore();
   const [records, setRecords] = useState<ArchiveRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,21 +145,21 @@ export function MobileArchiveView({
             end={{ x: 0, y: 1 }}
           />
           <View style={styles.headerLeft}>
-            <View style={styles.headerIconOrb}>
-              <Sparkles size={16} color={colors.accent} />
+            <View style={[styles.headerIconOrb, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+              <Sparkles size={16} color={theme.colors.accent} />
             </View>
             <View>
               <Text style={styles.headerTitle}>AIIC Archive</Text>
-              <Text style={styles.headerSub}>INSTITUTIONAL KNOWLEDGE</Text>
+              <Text style={[styles.headerSub, { color: theme.colors.accent }]}>INSTITUTIONAL KNOWLEDGE</Text>
             </View>
           </View>
 
           <Pressable
             onPress={() => setShowSubmitModal(true)}
-            style={styles.submitBtn}
+            style={[styles.submitBtn, { backgroundColor: theme.colors.accent }]}
           >
-            <Plus size={15} color={colors.accentContrast} />
-            <Text style={styles.submitBtnText}>Submit</Text>
+            <Plus size={15} color={theme.colors.accentText} />
+            <Text style={[styles.submitBtnText, { color: theme.colors.accentText }]}>Submit</Text>
           </Pressable>
         </BlurView>
       </View>
@@ -170,7 +171,7 @@ export function MobileArchiveView({
             colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
             style={StyleSheet.absoluteFillObject}
           />
-          <Search size={15} color={colors.accent} />
+          <Search size={15} color={theme.colors.accent} />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -205,13 +206,19 @@ export function MobileArchiveView({
               onPress={() => setSelectedType(pill.id)}
               style={[
                 styles.filterPill,
-                selectedType === pill.id && styles.filterPillActive,
+                selectedType === pill.id && [
+                  styles.filterPillActive,
+                  { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+                ],
               ]}
             >
               <Text
                 style={[
                   styles.filterPillText,
-                  selectedType === pill.id && styles.filterPillTextActive,
+                  selectedType === pill.id && [
+                    styles.filterPillTextActive,
+                    { color: theme.colors.accent },
+                  ],
                 ]}
               >
                 {pill.label}
@@ -448,6 +455,7 @@ function SubmitArchiveModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const theme = useAppTheme();
   const [tab, setTab] = useState<"video" | "repository" | "build" | "document">("video");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -515,7 +523,7 @@ function SubmitArchiveModal({
 
           <View style={styles.modalHeader}>
             <View>
-              <Text style={styles.modalSub}>INSTITUTIONAL RECORD</Text>
+              <Text style={[styles.modalSub, { color: theme.colors.accent }]}>INSTITUTIONAL RECORD</Text>
               <Text style={styles.modalTitle}>Submit to Archive</Text>
             </View>
             <Pressable onPress={onClose} style={styles.modalCloseBtn} hitSlop={8}>
@@ -529,9 +537,23 @@ function SubmitArchiveModal({
               <Pressable
                 key={t}
                 onPress={() => setTab(t)}
-                style={[styles.modalTabPill, tab === t && styles.modalTabPillActive]}
+                style={[
+                  styles.modalTabPill,
+                  tab === t && [
+                    styles.modalTabPillActive,
+                    { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+                  ],
+                ]}
               >
-                <Text style={[styles.modalTabText, tab === t && styles.modalTabTextActive]}>
+                <Text
+                  style={[
+                    styles.modalTabText,
+                    tab === t && [
+                      styles.modalTabTextActive,
+                      { color: theme.colors.accent },
+                    ],
+                  ]}
+                >
                   {t.toUpperCase()}
                 </Text>
               </Pressable>
@@ -642,12 +664,12 @@ function SubmitArchiveModal({
             <Pressable
               onPress={handleSubmit}
               disabled={submitting}
-              style={[styles.modalSubmitBtn, submitting && { opacity: 0.6 }]}
+              style={[styles.modalSubmitBtn, { backgroundColor: theme.colors.accent }, submitting && { opacity: 0.6 }]}
             >
               {submitting ? (
-                <ActivityIndicator size="small" color={colors.accentContrast} />
+                <ActivityIndicator size="small" color={theme.colors.accentText} />
               ) : (
-                <Text style={styles.modalSubmitText}>Publish Record</Text>
+                <Text style={[styles.modalSubmitText, { color: theme.colors.accentText }]}>Publish Record</Text>
               )}
             </Pressable>
           </ScrollView>

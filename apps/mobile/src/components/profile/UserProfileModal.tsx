@@ -24,7 +24,7 @@ import {
   Sparkles,
   BookOpen,
 } from "lucide-react-native";
-import { colors } from "@/theme/tokens";
+import { colors, useAppTheme } from "@/theme/tokens";
 import { formatAvatarUrl } from "../../lib/avatar";
 
 export interface UserProfileData {
@@ -66,6 +66,7 @@ export function UserProfileModal({
   onVideoCall,
   onCall,
 }: UserProfileModalProps) {
+  const theme = useAppTheme();
   const [avatarError, setAvatarError] = useState(false);
   if (!user) return null;
 
@@ -96,31 +97,38 @@ export function UserProfileModal({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose}>
-          <BlurView intensity={Platform.OS === "ios" ? 25 : 15} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={Platform.OS === "ios" ? 30 : 20} tint="dark" style={StyleSheet.absoluteFill} />
         </Pressable>
 
         <View style={styles.sheet}>
-          <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={Platform.OS === "ios" ? 45 : 30} tint="dark" style={StyleSheet.absoluteFill} />
           <LinearGradient
-            colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
+            colors={["rgba(255, 255, 255, 0.12)", "rgba(10, 12, 18, 0.95)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          {/* Subtle Ambient Refraction Orbs */}
-          <View style={styles.glowAmber} pointerEvents="none" />
+
+          {/* Top Sheet Handle */}
+          <View style={styles.dragPill} />
+
+          {/* Ambient Refraction Fog */}
+          <View style={[styles.glowAmber, { backgroundColor: theme.colors.accentSoft }]} pointerEvents="none" />
           <View style={styles.glowTeal} pointerEvents="none" />
 
-          {/* Header Bar */}
+          {/* Top Bar Header */}
           <View style={styles.sheetHeader}>
-            <View style={styles.dragPill} />
-            <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={12}>
-              <X size={18} color={colors.textMuted} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Sparkles size={11} color={theme.colors.accent} />
+              <Text style={{ color: theme.colors.accent, fontSize: 11, fontWeight: "800", fontFamily: "monospace", letterSpacing: 0.8 }}>CORVUS MEMBER PROFILE</Text>
+            </View>
+            <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
+              <X size={18} color={colors.textPrimary} />
             </Pressable>
           </View>
 
@@ -129,12 +137,8 @@ export function UserProfileModal({
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Profile Banner & Identity Header */}
+            {/* Identity Card: Avatar, Name, Handle, Main Role */}
             <View style={styles.identityCard}>
-              <LinearGradient
-                colors={["rgba(232, 163, 61, 0.08)", "rgba(255, 255, 255, 0.02)"]}
-                style={StyleSheet.absoluteFill}
-              />
               <View style={styles.avatarWrap}>
                 {avatar && !avatarError ? (
                   <Image
@@ -143,8 +147,8 @@ export function UserProfileModal({
                     onError={() => setAvatarError(true)}
                   />
                 ) : (
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarLetter}>
+                  <View style={[styles.avatarFallback, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+                    <Text style={[styles.avatarLetter, { color: theme.colors.accent }]}>
                       {(user.displayName || user.username || "U")
                         .charAt(0)
                         .toUpperCase()}
@@ -163,17 +167,17 @@ export function UserProfileModal({
               <Text style={styles.username}>@{user.username || "member"}</Text>
 
               {/* Authoritative Role Badge */}
-              <View style={styles.roleBadge}>
-                <Shield size={12} color={colors.accent} />
-                <Text style={styles.roleBadgeText}>{roleDisplay.toUpperCase()}</Text>
+              <View style={[styles.roleBadge, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+                <Shield size={12} color={theme.colors.accent} />
+                <Text style={[styles.roleBadgeText, { color: theme.colors.accent }]}>{roleDisplay.toUpperCase()}</Text>
               </View>
 
               {/* Action Buttons: Message, Voice, Video */}
               <View style={styles.actionRow}>
                 {onMessage && (
-                  <Pressable onPress={onMessage} style={styles.actionBtnPrimary}>
-                    <MessageSquare size={16} color={colors.accentContrast} />
-                    <Text style={styles.actionBtnPrimaryText}>Message</Text>
+                  <Pressable onPress={onMessage} style={[styles.actionBtnPrimary, { backgroundColor: theme.colors.accent }]}>
+                    <MessageSquare size={16} color={theme.colors.accentText} />
+                    <Text style={[styles.actionBtnPrimaryText, { color: theme.colors.accentText }]}>Message</Text>
                   </Pressable>
                 )}
                 {onCall && (

@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, radius } from "../../theme/tokens";
+import { colors, radius, useAppTheme } from "../../theme/tokens";
 import { NativeHaptics } from "../../lib/haptics";
 import { notificationService } from "../../lib/notifications";
 import { createSpace } from "../../lib/api";
@@ -42,6 +42,7 @@ export function CreateSpaceModal({
   onClose,
   onCreated,
 }: CreateSpaceModalProps) {
+  const theme = useAppTheme();
   const { loadSpaces } = useWorkspaceStore();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -139,7 +140,7 @@ export function CreateSpaceModal({
           {/* Modal Header */}
           <View style={styles.modalHeader}>
             <View style={styles.headerTitleWrap}>
-              <FolderKanban size={20} color={colors.accent} />
+              <FolderKanban size={20} color={theme.colors.accent} />
               <Text style={styles.modalTitle}>Create New Space</Text>
             </View>
             <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn}>
@@ -175,11 +176,14 @@ export function CreateSpaceModal({
                 onPress={() => setSelectedTemplate("general")}
                 style={[
                   styles.templateCard,
-                  selectedTemplate === "general" && styles.templateCardActive,
+                  selectedTemplate === "general" && [
+                    styles.templateCardActive,
+                    { borderColor: theme.colors.accent, backgroundColor: theme.colors.accentSoft },
+                  ],
                 ]}
               >
-                <Hash size={16} color={selectedTemplate === "general" ? colors.accent : colors.textMuted} />
-                <Text style={[styles.templateTitle, selectedTemplate === "general" && styles.templateTitleActive]}>
+                <Hash size={16} color={selectedTemplate === "general" ? theme.colors.accent : colors.textMuted} />
+                <Text style={[styles.templateTitle, selectedTemplate === "general" && { color: theme.colors.accent }]}>
                   Standard
                 </Text>
                 <Text style={styles.templateSub}>Text + Voice</Text>
@@ -189,11 +193,14 @@ export function CreateSpaceModal({
                 onPress={() => setSelectedTemplate("research")}
                 style={[
                   styles.templateCard,
-                  selectedTemplate === "research" && styles.templateCardActive,
+                  selectedTemplate === "research" && [
+                    styles.templateCardActive,
+                    { borderColor: theme.colors.accent, backgroundColor: theme.colors.accentSoft },
+                  ],
                 ]}
               >
-                <FileText size={16} color={selectedTemplate === "research" ? colors.accent : colors.textMuted} />
-                <Text style={[styles.templateTitle, selectedTemplate === "research" && styles.templateTitleActive]}>
+                <FileText size={16} color={selectedTemplate === "research" ? theme.colors.accent : colors.textMuted} />
+                <Text style={[styles.templateTitle, selectedTemplate === "research" && { color: theme.colors.accent }]}>
                   Research Lab
                 </Text>
                 <Text style={styles.templateSub}>Docs + Board</Text>
@@ -203,11 +210,14 @@ export function CreateSpaceModal({
                 onPress={() => setSelectedTemplate("dev")}
                 style={[
                   styles.templateCard,
-                  selectedTemplate === "dev" && styles.templateCardActive,
+                  selectedTemplate === "dev" && [
+                    styles.templateCardActive,
+                    { borderColor: theme.colors.accent, backgroundColor: theme.colors.accentSoft },
+                  ],
                 ]}
               >
-                <Layers size={16} color={selectedTemplate === "dev" ? colors.accent : colors.textMuted} />
-                <Text style={[styles.templateTitle, selectedTemplate === "dev" && styles.templateTitleActive]}>
+                <Layers size={16} color={selectedTemplate === "dev" ? theme.colors.accent : colors.textMuted} />
+                <Text style={[styles.templateTitle, selectedTemplate === "dev" && { color: theme.colors.accent }]}>
                   Engineering
                 </Text>
                 <Text style={styles.templateSub}>Git + Canvas</Text>
@@ -220,15 +230,16 @@ export function CreateSpaceModal({
               disabled={!name.trim() || creating}
               style={[
                 styles.createBtn,
+                { backgroundColor: theme.colors.accent },
                 (!name.trim() || creating) && { opacity: 0.4 },
               ]}
             >
               {creating ? (
-                <ActivityIndicator color={colors.accentContrast} size="small" />
+                <ActivityIndicator color={theme.colors.accentText} size="small" />
               ) : (
                 <>
-                  <Sparkles size={16} color={colors.accentContrast} />
-                  <Text style={styles.createBtnText}>Create Space</Text>
+                  <Sparkles size={16} color={theme.colors.accentText} />
+                  <Text style={[styles.createBtnText, { color: theme.colors.accentText }]}>Create Space</Text>
                 </>
               )}
             </Pressable>

@@ -33,7 +33,7 @@ import {
   Clock,
   Terminal,
 } from "lucide-react-native";
-import { colors } from "@/theme/tokens";
+import { colors, useAppTheme } from "@/theme/tokens";
 import { api } from "@/lib/api";
 
 export type SpaceSettingsSection =
@@ -67,6 +67,7 @@ export function SpaceSettingsModal({
   onRenameSpace,
   onDeleteSpace,
 }: SpaceSettingsModalProps) {
+  const theme = useAppTheme();
   const [activeTab, setActiveTab] = useState<SpaceSettingsSection>("profile");
 
   // Determine permissions based on role
@@ -106,13 +107,13 @@ export function SpaceSettingsModal({
           <View style={styles.sheetHandle} />
 
           {/* Ambient Glow Orbs */}
-          <View style={styles.ambientGlowAmber} pointerEvents="none" />
+          <View style={[styles.ambientGlowAmber, { backgroundColor: theme.colors.accentSoft }]} pointerEvents="none" />
           <View style={styles.ambientGlowTeal} pointerEvents="none" />
 
           {/* Top Header */}
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.headerSubtitle}>SPACE GOVERNANCE & SETTINGS</Text>
+              <Text style={[styles.headerSubtitle, { color: theme.colors.accent }]}>SPACE GOVERNANCE & SETTINGS</Text>
               <Text style={styles.headerTitle} numberOfLines={1}>
                 {spaceName}
               </Text>
@@ -131,50 +132,50 @@ export function SpaceSettingsModal({
           >
             <NavPill
               label="Profile"
-              icon={<Sparkles size={14} color={activeTab === "profile" ? colors.accentContrast : colors.textMuted} />}
+              icon={<Sparkles size={14} color={activeTab === "profile" ? theme.colors.accent : colors.textMuted} />}
               active={activeTab === "profile"}
               onPress={() => setActiveTab("profile")}
             />
             <NavPill
               label="Roles & Governance"
-              icon={<Shield size={14} color={activeTab === "roles" ? colors.accentContrast : colors.textMuted} />}
+              icon={<Shield size={14} color={activeTab === "roles" ? theme.colors.accent : colors.textMuted} />}
               active={activeTab === "roles"}
               onPress={() => setActiveTab("roles")}
             />
             <NavPill
               label="Channels"
-              icon={<Layers size={14} color={activeTab === "channels" ? colors.accentContrast : colors.textMuted} />}
+              icon={<Layers size={14} color={activeTab === "channels" ? theme.colors.accent : colors.textMuted} />}
               active={activeTab === "channels"}
               onPress={() => setActiveTab("channels")}
             />
             <NavPill
               label="Members"
-              icon={<Users size={14} color={activeTab === "members" ? colors.accentContrast : colors.textMuted} />}
+              icon={<Users size={14} color={activeTab === "members" ? theme.colors.accent : colors.textMuted} />}
               active={activeTab === "members"}
               onPress={() => setActiveTab("members")}
             />
             <NavPill
               label="Integrations"
-              icon={<Github size={14} color={activeTab === "integrations" ? colors.accentContrast : colors.textMuted} />}
+              icon={<Github size={14} color={activeTab === "integrations" ? theme.colors.accent : colors.textMuted} />}
               active={activeTab === "integrations"}
               onPress={() => setActiveTab("integrations")}
             />
             <NavPill
               label="Automations"
-              icon={<Terminal size={14} color={activeTab === "automations" ? colors.accentContrast : colors.textMuted} />}
+              icon={<Terminal size={14} color={activeTab === "automations" ? theme.colors.accent : colors.textMuted} />}
               active={activeTab === "automations"}
               onPress={() => setActiveTab("automations")}
             />
             <NavPill
               label="Webhooks"
-              icon={<Radio size={14} color={activeTab === "webhooks" ? colors.accentContrast : colors.textMuted} />}
+              icon={<Radio size={14} color={activeTab === "webhooks" ? theme.colors.accent : colors.textMuted} />}
               active={activeTab === "webhooks"}
               onPress={() => setActiveTab("webhooks")}
             />
             {canDeleteSpace && (
               <NavPill
                 label="Danger Zone"
-                icon={<AlertTriangle size={14} color={activeTab === "danger" ? colors.accentContrast : colors.danger} />}
+                icon={<AlertTriangle size={14} color={activeTab === "danger" ? colors.danger : colors.danger} />}
                 active={activeTab === "danger"}
                 isDanger
                 onPress={() => setActiveTab("danger")}
@@ -222,19 +223,20 @@ function NavPill({
   isDanger?: boolean;
   onPress: () => void;
 }) {
+  const theme = useAppTheme();
   return (
     <Pressable
       onPress={onPress}
       style={[
         styles.navPill,
-        active && (isDanger ? styles.navPillActiveDanger : styles.navPillActive),
+        active && (isDanger ? styles.navPillActiveDanger : [styles.navPillActive, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accent }]),
       ]}
     >
       {icon}
       <Text
         style={[
           styles.navPillText,
-          active && (isDanger ? styles.navPillTextActiveDanger : styles.navPillTextActive),
+          active && (isDanger ? styles.navPillTextActiveDanger : [styles.navPillTextActive, { color: theme.colors.accent }]),
           isDanger && !active && { color: colors.danger },
         ]}
       >
@@ -258,12 +260,17 @@ function ProfileSection({
   initialDesc?: string;
   onRenameSpace?: (name: string) => void;
 }) {
+  const theme = useAppTheme();
   const [name, setName] = useState(initialName);
   const [desc, setDesc] = useState(initialDesc || "");
   const [saving, setSaving] = useState(false);
   const [invites, setInvites] = useState<any[]>([]);
-  const [loadingInvites, setLoadingInvites] = useState(false);
+  const [loadingInvites, setLoadingInvites] = useState(true);
   const [creatingInvite, setCreatingInvite] = useState(false);
+
+  useEffect(() => {
+    loadInvites();
+  }, [spaceId]);
 
   const loadInvites = async () => {
     setLoadingInvites(true);
@@ -277,22 +284,18 @@ function ProfileSection({
     }
   };
 
-  useEffect(() => {
-    loadInvites();
-  }, [spaceId]);
-
   const handleSaveProfile = async () => {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await api(`/servers/${spaceId}/settings`, {
+      await api(`/servers/${spaceId}`, {
         method: "PATCH",
-        body: JSON.stringify({ name: name.trim(), description: desc.trim() }),
+        body: JSON.stringify({ name: name.trim(), description: desc.trim() || null }),
       });
       onRenameSpace?.(name.trim());
-      Alert.alert("Success", "Space profile updated successfully.");
-    } catch (err: any) {
-      Alert.alert("Error", err?.message || "Failed to update space profile.");
+      Alert.alert("Updated", "Space profile successfully saved.");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to update space profile.");
     } finally {
       setSaving(false);
     }
@@ -303,30 +306,34 @@ function ProfileSection({
     try {
       const res = await api<{ invite: any }>(`/servers/${spaceId}/invites`, {
         method: "POST",
-        body: JSON.stringify({}),
+        body: JSON.stringify({ maxUses: 0 }),
       });
       if (res?.invite) {
         setInvites((prev) => [res.invite, ...prev]);
-        Alert.alert("Invite Created", `Invite code: ${res.invite.code}`);
+        Alert.alert("Invite Created", `Code: ${res.invite.code}`);
       }
-    } catch (err: any) {
-      Alert.alert("Error", err?.message || "Failed to create invite link.");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to create invite.");
     } finally {
       setCreatingInvite(false);
     }
   };
 
   const handleShareInvite = async (code: string) => {
-    const url = `https://aiic-bbs.vercel.app/join/${code}`;
-    await Share.share({
-      message: `Join our space on AIIC: ${url}`,
-      url,
-    });
+    const inviteUrl = `https://corvus.space/join/${code}`;
+    try {
+      await Share.share({
+        message: `Join our Space on Corvus: ${inviteUrl}`,
+        url: inviteUrl,
+      });
+    } catch {
+      // User cancelled
+    }
   };
 
   return (
     <View style={styles.sectionContainer}>
-      <Text style={styles.sectionTitle}>Space Profile & Identity</Text>
+      <Text style={styles.sectionTitle}>General Information</Text>
       <Text style={styles.sectionSubtitle}>
         Configure the public title, description, and shareable join links for this Space.
       </Text>
@@ -357,12 +364,12 @@ function ProfileSection({
       <Pressable
         onPress={handleSaveProfile}
         disabled={saving || !name.trim()}
-        style={[styles.primaryBtn, (!name.trim() || saving) && styles.btnDisabled]}
+        style={[styles.primaryBtn, { backgroundColor: theme.colors.accent }, (!name.trim() || saving) && styles.btnDisabled]}
       >
         {saving ? (
-          <ActivityIndicator size="small" color={colors.accentContrast} />
+          <ActivityIndicator size="small" color={theme.colors.accentText} />
         ) : (
-          <Text style={styles.primaryBtnText}>Save Profile Changes</Text>
+          <Text style={[styles.primaryBtnText, { color: theme.colors.accentText }]}>Save Profile Changes</Text>
         )}
       </Pressable>
 
@@ -373,15 +380,15 @@ function ProfileSection({
         <Pressable
           onPress={handleCreateInvite}
           disabled={creatingInvite}
-          style={styles.smallOutlineBtn}
+          style={[styles.smallOutlineBtn, { borderColor: theme.colors.accentBorder, backgroundColor: theme.colors.accentSoft }]}
         >
-          <Plus size={14} color={colors.accent} />
-          <Text style={styles.smallOutlineBtnText}>Generate Invite</Text>
+          <Plus size={14} color={theme.colors.accent} />
+          <Text style={[styles.smallOutlineBtnText, { color: theme.colors.accent }]}>Generate Invite</Text>
         </Pressable>
       </View>
 
       {loadingInvites ? (
-        <ActivityIndicator size="small" color={colors.accent} style={{ marginVertical: 16 }} />
+        <ActivityIndicator size="small" color={theme.colors.accent} style={{ marginVertical: 16 }} />
       ) : invites.length === 0 ? (
         <Text style={styles.emptyText}>No invite links created yet for this space.</Text>
       ) : (

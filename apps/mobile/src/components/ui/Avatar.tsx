@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Image } from "expo-image";
-import { colors } from "../../theme/tokens";
+import { colors, useAppTheme } from "../../theme/tokens";
 import { Presence } from "../../lib/types";
 import { resolveUserAvatar } from "../../lib/avatar";
 
@@ -20,6 +20,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   size = 36,
   presence,
 }) => {
+  const theme = useAppTheme();
   const [loadError, setLoadError] = useState(false);
   const displayName = name || user?.displayName || user?.username || "?";
   const initial = displayName.charAt(0).toUpperCase() || "?";
@@ -62,10 +63,16 @@ export const Avatar: React.FC<AvatarProps> = ({
         <View
           style={[
             styles.fallback,
-            { width: size, height: size, borderRadius: size / 2 },
+            {
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              backgroundColor: theme.colors.accentSoft,
+              borderColor: theme.colors.accentBorder,
+            },
           ]}
         >
-          <Text style={[styles.initial, { fontSize: size * 0.42 }]}>{initial}</Text>
+          <Text style={[styles.initial, { fontSize: size * 0.42, color: theme.colors.accent }]}>{initial}</Text>
         </View>
       )}
 
@@ -93,14 +100,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
   },
   fallback: {
-    backgroundColor: "rgba(232, 163, 61, 0.18)",
     borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.35)",
     alignItems: "center",
     justifyContent: "center",
   },
   initial: {
-    color: colors.accent,
     fontWeight: "700",
   },
   presenceIndicator: {

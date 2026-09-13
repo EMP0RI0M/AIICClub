@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors, radius } from "../../theme/tokens";
+import { colors, radius, useAppTheme } from "../../theme/tokens";
 
 interface BadgeProps {
   label: string;
@@ -13,6 +13,8 @@ export const Badge: React.FC<BadgeProps> = ({
   variant = "primary",
   size = "sm",
 }) => {
+  const theme = useAppTheme();
+
   const getStyles = () => {
     switch (variant) {
       case "teal":
@@ -26,7 +28,7 @@ export const Badge: React.FC<BadgeProps> = ({
       case "muted":
         return { bg: colors.hoverRow, border: colors.border, text: colors.textSecondary };
       default:
-        return { bg: colors.accentSoft, border: colors.accentMuted, text: colors.accent };
+        return { bg: theme.colors.accentSoft, border: theme.colors.accentBorder, text: theme.colors.accent };
     }
   };
 

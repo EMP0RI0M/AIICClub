@@ -24,7 +24,7 @@ import {
   Tag,
 } from "lucide-react-native";
 import * as Clipboard from "expo-clipboard";
-import { colors, radius } from "../../theme/tokens";
+import { colors, radius, useAppTheme } from "../../theme/tokens";
 import { NativeHaptics } from "../../lib/haptics";
 import { RichMarkdown } from "../chat/RichMarkdown";
 import type { ArchiveRecord } from "./MobileArchiveView";
@@ -40,6 +40,7 @@ export function MobileDocumentReaderModal({
   onClose,
   record,
 }: MobileDocumentReaderModalProps) {
+  const theme = useAppTheme();
   const [copied, setCopied] = useState(false);
   const [fontSize, setFontSize] = useState<"sm" | "base" | "lg">("base");
 
@@ -121,9 +122,9 @@ export function MobileDocumentReaderModal({
         <View style={styles.header}>
           <View style={styles.headerTitleRow}>
             <View style={styles.badgeRow}>
-              <View style={styles.idBadge}>
-                <Sparkles size={11} color={colors.accent} />
-                <Text style={styles.idBadgeText}>{record.archiveId || "DOCUMENT"}</Text>
+              <View style={[styles.idBadge, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+                <Sparkles size={11} color={theme.colors.accent} />
+                <Text style={[styles.idBadgeText, { color: theme.colors.accent }]}>{record.archiveId || "DOCUMENT"}</Text>
               </View>
               <View style={styles.categoryBadge}>
                 <Text style={styles.categoryBadgeText}>
@@ -208,13 +209,13 @@ export function MobileDocumentReaderModal({
 
             {/* External File Link / Download */}
             {fileUrl ? (
-              <Pressable onPress={handleOpenExternal} style={styles.downloadBtn}>
+              <Pressable onPress={handleOpenExternal} style={[styles.downloadBtn, { backgroundColor: theme.colors.accent }]}>
                 {isPdf ? (
-                  <FileText size={14} color="#000" />
+                  <FileText size={14} color={theme.colors.accentText} />
                 ) : (
-                  <Download size={14} color="#000" />
+                  <Download size={14} color={theme.colors.accentText} />
                 )}
-                <Text style={styles.downloadBtnText}>
+                <Text style={[styles.downloadBtnText, { color: theme.colors.accentText }]}>
                   {isPdf ? "Open PDF" : "Download"}
                 </Text>
               </Pressable>
@@ -230,9 +231,9 @@ export function MobileDocumentReaderModal({
         >
           {/* External File Banner if available */}
           {fileUrl ? (
-            <Pressable onPress={handleOpenExternal} style={styles.fileBanner}>
+            <Pressable onPress={handleOpenExternal} style={[styles.fileBanner, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
               <View style={styles.fileBannerLeft}>
-                <FileText size={20} color={colors.accent} />
+                <FileText size={20} color={theme.colors.accent} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.fileBannerTitle} numberOfLines={1}>
                     {record.document?.fileName || "Attached Document"}
@@ -245,7 +246,7 @@ export function MobileDocumentReaderModal({
                   </Text>
                 </View>
               </View>
-              <ExternalLink size={16} color={colors.accent} />
+              <ExternalLink size={16} color={theme.colors.accent} />
             </Pressable>
           ) : null}
 

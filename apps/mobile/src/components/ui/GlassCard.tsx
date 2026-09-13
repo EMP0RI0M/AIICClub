@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet, ViewProps } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors } from "../../theme/tokens";
+import { colors, useAppTheme } from "../../theme/tokens";
 
 interface GlassCardProps extends ViewProps {
   elevated?: boolean;
@@ -17,6 +17,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   children,
   ...props
 }) => {
+  const theme = useAppTheme();
   const blurIntensity =
     intensity === "low" ? 18 : intensity === "high" ? 40 : 28;
 
@@ -24,7 +25,14 @@ export const GlassCard: React.FC<GlassCardProps> = ({
     <View
       style={[
         styles.base,
-        elevated && styles.elevated,
+        elevated && [
+          styles.elevated,
+          {
+            borderColor: theme.colors.accentBorder,
+            backgroundColor: theme.colors.accentSoft,
+            shadowColor: theme.colors.accent,
+          },
+        ],
         style,
       ]}
       {...props}
@@ -41,7 +49,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
             ? [
                 "rgba(255, 255, 255, 0.18)",
                 "rgba(255, 255, 255, 0.04)",
-                "rgba(232, 163, 61, 0.08)",
+                theme.colors.accentGlow,
               ]
             : [
                 "rgba(255, 255, 255, 0.12)",
@@ -80,9 +88,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   elevated: {
-    borderColor: "rgba(232, 163, 61, 0.35)",
-    backgroundColor: "rgba(232, 163, 61, 0.06)",
-    shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
     shadowRadius: 16,

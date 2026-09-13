@@ -139,8 +139,8 @@ export function LiquidUserDock({
                 style={styles.avatarImg}
               />
             ) : (
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarLetter}>
+              <View style={[styles.avatarFallback, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+                <Text style={[styles.avatarLetter, { color: theme.colors.accent }]}>
                   {(user?.displayName || user?.username || "M")
                     .charAt(0)
                     .toUpperCase()}
@@ -162,7 +162,7 @@ export function LiquidUserDock({
             <Text style={styles.userName} numberOfLines={1}>
               {user?.displayName || "Member"}
             </Text>
-            <Text style={styles.userStatus} numberOfLines={1}>
+            <Text style={[styles.userStatus, { color: theme.colors.accent }]} numberOfLines={1}>
               {user?.statusText || currentConfig.label}
             </Text>
           </View>
@@ -246,8 +246,8 @@ export function LiquidUserDock({
                     style={styles.sheetAvatarImg}
                   />
                 ) : (
-                  <View style={styles.sheetAvatarFallback}>
-                    <Text style={styles.sheetAvatarLetter}>
+                  <View style={[styles.sheetAvatarFallback, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+                    <Text style={[styles.sheetAvatarLetter, { color: theme.colors.accent }]}>
                       {(user?.displayName || user?.username || "M")
                         .charAt(0)
                         .toUpperCase()}
@@ -313,7 +313,7 @@ export function LiquidUserDock({
                     onPress={() => handleSelectPresence(item.id)}
                     style={[
                       styles.presenceRow,
-                      isSelected && styles.presenceRowActive,
+                      isSelected && [styles.presenceRowActive, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }],
                     ]}
                   >
                     <View
@@ -326,7 +326,7 @@ export function LiquidUserDock({
                       <Text
                         style={[
                           styles.presenceRowLabel,
-                          isSelected && styles.presenceRowLabelActive,
+                          isSelected && [styles.presenceRowLabelActive, { color: theme.colors.accent }],
                         ]}
                       >
                         {item.label}
