@@ -7,18 +7,30 @@ import * as Linking from "expo-linking";
 import { useAuthStore } from "../stores/auth-store";
 import { colors } from "../theme/tokens";
 import { NotificationBanner } from "../components/ui/NotificationBanner";
+import { IncomingCallModal } from "../components/call/IncomingCallModal";
+import { globalCallSignaling } from "../lib/call-signaling";
 
 // Suppress runtime debug warning overlays from floating over mobile preview
 LogBox.ignoreAllLogs(true);
 
 export default function RootLayout() {
-  const { isAuthenticated, isRestoring, restoreSession, handleOAuthCallback } = useAuthStore();
+  const { user, isAuthenticated, isRestoring, restoreSession, handleOAuthCallback } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     restoreSession();
   }, []);
+
+  // Global Realtime Call Signaling for incoming calls anywhere in the app
+  useEffect(() => {
+    if (user?.id) {
+      globalCallSignaling.subscribe(user.id, (user as any).auth_user_id);
+    }
+    return () => {
+      globalCallSignaling.unsubscribe();
+    };
+  }, [user?.id]);
 
   // Global Native Deep Link Listener for OAuth callback & HTTPS App Links (/join, /invite)
   useEffect(() => {
@@ -90,6 +102,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StatusBar style="light" backgroundColor={colors.background} />
       <NotificationBanner />
+      <IncomingCallModal />
       <Stack
         screenOptions={{
           headerShown: false,

@@ -27,6 +27,7 @@ import { api, searchUsers, publishAnnouncement, fetchUserProfile, fetchOrgMember
 import { NativeHaptics } from "../../../../lib/haptics";
 import { notificationService } from "../../../../lib/notifications";
 import { AttachmentCard, parseMessageAttachments } from "../../../../components/chat/AttachmentCard";
+import { encodeAttachmentContent } from "../../../../lib/attachments";
 import { RichMarkdown, ReasoningTrace } from "../../../../components/chat/RichMarkdown";
 import { formatAvatarUrl } from "../../../../lib/avatar";
 import { Avatar } from "../../../../components/ui/Avatar";
@@ -1586,7 +1587,14 @@ function MessageComposer({
     try {
       let finalContent = rawText;
       if (stagedAttachment) {
-        const attPayload = `attachment:${JSON.stringify(stagedAttachment)}`;
+        const attPayload = encodeAttachmentContent({
+          url: stagedAttachment.url,
+          name: stagedAttachment.name,
+          size: stagedAttachment.size,
+          mimeType: stagedAttachment.type,
+          kind: stagedAttachment.kind || "image",
+          duration: stagedAttachment.duration,
+        });
         finalContent = rawText ? `${rawText}\n${attPayload}` : attPayload;
       }
       await onSend(finalContent, replyingTo?.id);
@@ -1598,34 +1606,52 @@ function MessageComposer({
     }
   }
 
-  const handleSelectGif = (gifUrl: string) => {
-    setStagedAttachment({
-      url: gifUrl,
-      name: "GIF",
-      type: "image/gif",
-      kind: "gif",
-    });
+  const handleSelectGif = async (gifUrl: string) => {
     setExpressionSheetOpen(false);
+    NativeHaptics.selection();
+    try {
+      const attPayload = encodeAttachmentContent({
+        url: gifUrl,
+        name: "GIF",
+        mimeType: "image/gif",
+        kind: "gif",
+      });
+      await onSend(attPayload);
+    } catch (err) {
+      console.error("Failed to send GIF:", err);
+    }
   };
 
-  const handleSelectSticker = (stickerUrl: string, title?: string) => {
-    setStagedAttachment({
-      url: stickerUrl,
-      name: title || "Sticker",
-      type: "image/webp",
-      kind: "image",
-    });
+  const handleSelectSticker = async (stickerUrl: string, title?: string) => {
     setExpressionSheetOpen(false);
+    NativeHaptics.selection();
+    try {
+      const attPayload = encodeAttachmentContent({
+        url: stickerUrl,
+        name: title || "Sticker",
+        mimeType: "image/webp",
+        kind: "image",
+      });
+      await onSend(attPayload);
+    } catch (err) {
+      console.error("Failed to send sticker:", err);
+    }
   };
 
-  const handleSelectMeme = (memeUrl: string, title?: string) => {
-    setStagedAttachment({
-      url: memeUrl,
-      name: title || "Meme",
-      type: "image/jpeg",
-      kind: "image",
-    });
+  const handleSelectMeme = async (memeUrl: string, title?: string) => {
     setExpressionSheetOpen(false);
+    NativeHaptics.selection();
+    try {
+      const attPayload = encodeAttachmentContent({
+        url: memeUrl,
+        name: title || "Meme",
+        mimeType: "image/jpeg",
+        kind: "image",
+      });
+      await onSend(attPayload);
+    } catch (err) {
+      console.error("Failed to send meme:", err);
+    }
   };
 
   const handlePressInAction = () => {

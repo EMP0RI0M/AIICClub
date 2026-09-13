@@ -13,16 +13,9 @@ import { FileText, Download, ExternalLink, Play, Pause, Film, Music } from "luci
 import { Audio } from "expo-av";
 import { ImageViewerModal } from "../ui/ImageViewerModal";
 import { NativeHaptics } from "../../lib/haptics";
+import { SharedAttachment } from "../../lib/attachments";
 
-export interface AttachmentItem {
-  id?: string;
-  url: string;
-  name?: string;
-  size?: number;
-  mimeType?: string;
-  duration?: string;
-  kind?: "image" | "video" | "audio" | "file" | "gif";
-}
+export type AttachmentItem = SharedAttachment;
 
 interface AttachmentCardProps {
   attachment: AttachmentItem;
@@ -251,118 +244,7 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
   );
 };
 
-export function parseMessageAttachments(rawText: string): {
-  cleanText: string;
-  reasoningText: string | null;
-  attachments: AttachmentItem[];
-} {
-  const attachments: AttachmentItem[] = [];
-  let cleanText = rawText || "";
-  let reasoningText: string | null = null;
-
-  // Extract and strip AI thinking/reasoning blocks
-  const thinkMatch =
-    cleanText.match(/<think>([\s\S]*?)(?:<\/think>|$)/i) ||
-    cleanText.match(/<thought>([\s\S]*?)(?:<\/thought>|$)/i) ||
-    cleanText.match(/<thinking>([\s\S]*?)(?:<\/thinking>|$)/i) ||
-    cleanText.match(/^Here's a thinking process:([\s\S]*?)(?=\n\n(?:[A-Z0-9#]|```)|$)/im);
-
-  if (thinkMatch && thinkMatch[1]?.trim()) {
-    reasoningText = thinkMatch[1].trim();
-  }
-
-  // Robust regex to detect all prefix payloads: (attachment|clip|video|audio|file):{...} or percent-encoded
-  const payloadRegex = /(?:attachment|clip|video|audio|file):((?:%7B[\s\S]*?%7D)|(?:\{[\s\S]*?\}))/gi;
-  let match: RegExpExecArray | null;
-
-  while ((match = payloadRegex.exec(cleanText)) !== null) {
-    try {
-      const fullMatch = match[0];
-      const jsonStr = match[1];
-      const isClip = fullMatch.toLowerCase().startsWith("clip:");
-      const isVideoPrefix = fullMatch.toLowerCase().startsWith("video:");
-      const isAudioPrefix = fullMatch.toLowerCase().startsWith("audio:");
-
-      const decodedStr = jsonStr.startsWith("%7B") || jsonStr.startsWith("%7b")
-        ? decodeURIComponent(jsonStr)
-        : jsonStr;
-
-      const parsed = JSON.parse(decodedStr);
-      if (parsed.url) {
-        let kind: AttachmentItem["kind"] = parsed.kind;
-        if (!kind) {
-          if (isClip || isVideoPrefix || parsed.mimeType?.startsWith("video/") || parsed.url.match(/\.(webm|mp4|mov)($|\?)/i)) {
-            kind = "video";
-          } else if (isAudioPrefix || parsed.mimeType?.startsWith("audio/") || parsed.url.match(/\.(mp3|wav|ogg|m4a)($|\?)/i)) {
-            kind = "audio";
-          } else if (parsed.mimeType?.startsWith("image/") || parsed.url.match(/\.(png|jpg|jpeg|gif|webp)($|\?)/i)) {
-            kind = "image";
-          } else {
-            kind = "file";
-          }
-        }
-
-        attachments.push({
-          url: parsed.url,
-          name: parsed.name || (kind === "video" ? "Video Clip" : "Attachment"),
-          size: parsed.size,
-          duration: parsed.duration,
-          mimeType: parsed.mimeType,
-          kind,
-        });
-      }
-    } catch (e) {
-      console.warn("Failed to parse attachment payload:", e);
-    }
-  }
-
-  // Also extract standalone markdown images: ![alt](url)
-  const mdImgRegex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
-  let imgMatch: RegExpExecArray | null;
-  while ((imgMatch = mdImgRegex.exec(cleanText)) !== null) {
-    attachments.push({
-      name: imgMatch[1] || "Image",
-      url: imgMatch[2],
-      kind: "image",
-    });
-  }
-
-  // Also extract standalone image URLs
-  const rawUrlRegex = /(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^\s]*)?)/gi;
-  let rawUrlMatch: RegExpExecArray | null;
-  while ((rawUrlMatch = rawUrlRegex.exec(cleanText)) !== null) {
-    const matchedUrl = rawUrlMatch[1];
-    if (!attachments.some((a) => a.url === matchedUrl)) {
-      const filename = matchedUrl.split("/").pop()?.split("?")[0] || "Image";
-      attachments.push({
-        name: filename,
-        url: matchedUrl,
-        kind: "image",
-      });
-    }
-  }
-
-  // Thoroughly clean cleanText: Strip payload tags, reasoning, and raw payload strings
-  cleanText = cleanText
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .replace(/<think>[\s\S]*/gi, "")
-    .replace(/<thought>[\s\S]*?<\/thought>/gi, "")
-    .replace(/<thought>[\s\S]*/gi, "")
-    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
-    .replace(/<thinking>[\s\S]*/gi, "")
-    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
-    .replace(/<reasoning>[\s\S]*/gi, "")
-    .replace(/^Here's a thinking process:[\s\S]*?(?=\n\n(?:[A-Z0-9#]|```)|$)/gim, "")
-    .replace(/(?:attachment|clip|video|audio|file):((?:%7B[\s\S]*?%7D)|(?:\{[\s\S]*?\}))/gi, "")
-    .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, "")
-    .replace(/(https?:\/\/[^\s]+?\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^\s]*)?)/gi, (m) => {
-      if (cleanText.trim() === m.trim()) return "";
-      return m;
-    })
-    .trim();
-
-  return { cleanText, reasoningText, attachments };
-}
+export { parseMessageAttachments } from "../../lib/attachments";
 
 const styles = StyleSheet.create({
   imageContainer: {

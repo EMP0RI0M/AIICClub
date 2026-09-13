@@ -88,7 +88,7 @@ export function Message({
           <AttachmentCard
             attachment={{
               url: message.attachment.uri,
-              name: 'name' in message.attachment ? message.attachment.name : undefined,
+              name: ('name' in message.attachment && message.attachment.name) ? message.attachment.name : 'Attachment',
               size: 'size' in message.attachment ? message.attachment.size : undefined,
               mimeType: 'mimeType' in message.attachment ? message.attachment.mimeType : undefined,
               kind: message.attachment.kind,
