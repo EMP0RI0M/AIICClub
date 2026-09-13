@@ -13,6 +13,8 @@ import { globalCallSignaling } from "../lib/call-signaling";
 // Suppress runtime debug warning overlays from floating over mobile preview
 LogBox.ignoreAllLogs(true);
 
+import { WallpaperBackground } from "../components/theme/WallpaperBackground";
+
 export default function RootLayout() {
   const { user, isAuthenticated, isRestoring, restoreSession, handleOAuthCallback } = useAuthStore();
   const segments = useSegments();
@@ -100,21 +102,23 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" backgroundColor={colors.background} />
-      <NotificationBanner />
-      <IncomingCallModal />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-          animation: "slide_from_right",
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(app)" options={{ headerShown: false }} />
-        <Stack.Screen name="(admin)" options={{ headerShown: false }} />
-      </Stack>
+      <StatusBar style="light" backgroundColor="transparent" translucent />
+      <WallpaperBackground>
+        <NotificationBanner />
+        <IncomingCallModal />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: "transparent" },
+            animation: "slide_from_right",
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(app)" options={{ headerShown: false }} />
+          <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+        </Stack>
+      </WallpaperBackground>
     </SafeAreaProvider>
   );
 }

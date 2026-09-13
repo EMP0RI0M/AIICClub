@@ -2650,9 +2650,9 @@ export default function AIICDiscordApp() {
                     <View style={[styles.headerIconOrb, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
                       <MessageSquare size={16} color={theme.colors.accent} />
                     </View>
-                    <View>
-                      <Text style={styles.headerTitle}>Direct Messages</Text>
-                      <Text style={[styles.headerSub, { color: theme.colors.accent }]}>ENCRYPTED PEER COMM</Text>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.headerTitle} numberOfLines={1}>Direct Messages</Text>
+                      <Text style={[styles.headerSub, { color: theme.colors.accent }]} numberOfLines={1}>ENCRYPTED PEER COMM</Text>
                     </View>
                   </View>
 
@@ -2865,7 +2865,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     flexDirection: "row",
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
   },
 
   /* LEVEL 1: FLOATING CURVED GLASS NAVIGATION RAIL */
@@ -3140,29 +3140,29 @@ const styles = StyleSheet.create({
   },
 
   spaceHeaderCardWrap: {
-    marginHorizontal: 12,
-    marginTop: 8,
-    marginBottom: 10,
-    borderRadius: 24,
+    marginHorizontal: 10,
+    marginTop: 6,
+    marginBottom: 8,
+    borderRadius: 20,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(39, 45, 56, 0.85)",
+    borderColor: "rgba(255, 255, 255, 0.10)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 3,
   },
 
   spaceHeaderGlassCard: {
-    borderRadius: 24,
+    borderRadius: 20,
     overflow: "hidden",
   },
 
   spaceHeaderGlassGradient: {
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 14,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
 
   header: {
@@ -3173,7 +3173,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginBottom: 12,
+    marginBottom: 8,
   },
 
   spaceBadgeCapsule: {
@@ -3183,25 +3183,25 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(232, 163, 61, 0.12)",
     borderWidth: 1,
     borderColor: "rgba(232, 163, 61, 0.25)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 7,
     alignSelf: "flex-start",
-    marginBottom: 4,
+    marginBottom: 3,
   },
 
   spaceBadgeText: {
     color: colors.accent,
-    fontSize: 9.5,
+    fontSize: 9,
     fontWeight: "800",
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
   },
 
   serverName: {
     color: colors.textPrimary,
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: "800",
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
 
   serverDescription: {
@@ -3212,37 +3212,37 @@ const styles = StyleSheet.create({
 
   headerActions: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
   },
 
   searchButton: {
     flex: 1,
-    height: 40,
-    borderRadius: 18,
+    height: 36,
+    borderRadius: 14,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    gap: 8,
+    paddingHorizontal: 10,
+    gap: 6,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.10)",
   },
 
   searchText: {
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
   },
 
   squareButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.10)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -3406,16 +3406,16 @@ const styles = StyleSheet.create({
 
   /* Curved Obsidian Glass Floating Channel Rows */
   channelRow: {
-    minHeight: 46,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     gap: 10,
-    borderRadius: 18,
-    backgroundColor: "rgba(21, 25, 34, 0.65)",
-    marginBottom: 6,
+    borderRadius: 16,
+    backgroundColor: "rgba(18, 22, 30, 0.65)",
+    marginBottom: 5,
     borderWidth: 1,
-    borderColor: "rgba(39, 45, 56, 0.70)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
     position: "relative",
   },
 
@@ -3660,6 +3660,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
 
   headerIconOrb: {
@@ -4209,10 +4212,11 @@ const styles = StyleSheet.create({
   createBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
+    gap: 5,
+    paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 14,
+    flexShrink: 0,
   },
 
   createBtnText: {

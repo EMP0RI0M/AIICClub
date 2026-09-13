@@ -91,13 +91,6 @@ export function MobileNoticeBoardView({
 
   return (
     <View style={styles.container}>
-      <BlurView intensity={Platform.OS === "ios" ? 30 : 20} tint="dark" style={StyleSheet.absoluteFill} />
-      <LinearGradient
-        colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.01)"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
       <View style={styles.ambientGlowAmber} pointerEvents="none" />
       <View style={styles.ambientGlowTeal} pointerEvents="none" />
 
@@ -108,23 +101,24 @@ export function MobileNoticeBoardView({
             colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
             style={StyleSheet.absoluteFillObject}
             start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
+            end={{ x: 1, y: 0 }}
           />
           <View style={styles.headerLeft}>
             <View style={[styles.headerIconOrb, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
               <Bell size={16} color={theme.colors.accent} />
             </View>
-            <View>
-              <Text style={styles.headerTitle}>Club Notice Board</Text>
-              <Text style={[styles.headerSub, { color: theme.colors.accent }]}>OFFICIAL DISPATCHES</Text>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.headerTitle} numberOfLines={1}>Club Notice Board</Text>
+              <Text style={[styles.headerSub, { color: theme.colors.accent }]} numberOfLines={1}>OFFICIAL DISPATCHES</Text>
             </View>
           </View>
 
           <Pressable
             onPress={() => setShowCreateModal(true)}
             style={[styles.postBtn, { backgroundColor: theme.colors.accent }]}
+            hitSlop={6}
           >
-            <Plus size={15} color={theme.colors.accentText} />
+            <Plus size={14} color={theme.colors.accentText} />
             <Text style={[styles.postBtnText, { color: theme.colors.accentText }]}>Post Notice</Text>
           </Pressable>
         </BlurView>
@@ -512,6 +506,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   headerIconOrb: {
     width: 36,
@@ -621,7 +618,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   cardWrap: {
-    borderRadius: 22,
+    borderRadius: 20,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -630,10 +627,11 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   card: {
-    padding: 16,
-    borderRadius: 22,
+    padding: 14,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.10)",
+    backgroundColor: "rgba(18, 22, 30, 0.72)",
     gap: 8,
   },
   cardPinned: {
