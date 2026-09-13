@@ -23,7 +23,7 @@
         "NSMicrophoneUsageDescription": "AIIC needs microphone access for voice channels, voice messages, and audio calls.",
         "NSCameraUsageDescription": "AIIC needs camera access for video calls, avatar photos, and media attachments.",
         "NSPhotoLibraryUsageDescription": "AIIC needs photo library access for sharing images and attachments in chats.",
-        "UIBackgroundModes": ["audio", "fetch", "remote-notification"]
+        "UIBackgroundModes": ["audio", "voip", "fetch", "remote-notification"]
       }
     },
     "android": {
@@ -42,6 +42,9 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.VIBRATE",
         "android.permission.WAKE_LOCK",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.FOREGROUND_SERVICE_PHONE_CALL",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
