@@ -22,7 +22,11 @@ import {
   Compass,
   Layers,
   Sun,
+  Upload,
+  Sliders,
+  Trash2,
 } from "lucide-react-native";
+import * as ImagePicker from "expo-image-picker";
 import {
   useThemeStore,
   THEME_PRESETS,
@@ -95,10 +99,42 @@ export function ThemeCustomizerModal({ visible, onClose }: ThemeCustomizerModalP
     setGradientDirection(dir);
   };
 
+  const handlePickDeviceWallpaper = async () => {
+    NativeHaptics.medium();
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [9, 16],
+        quality: 0.85,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
+        const uri = result.assets[0].uri;
+        setCustomInputUrl(uri);
+        setWallpaperUrl(uri);
+        NativeHaptics.success();
+      }
+    } catch (err) {
+      console.warn("[ThemeCustomizer] Image pick error:", err);
+    }
+  };
+
   const handleApplyWallpaperUrl = (url: string) => {
     NativeHaptics.medium();
     setCustomInputUrl(url);
     setWallpaperUrl(url);
+  };
+
+  const handleClearWallpaper = () => {
+    NativeHaptics.light();
+    setCustomInputUrl("");
+    setWallpaperUrl("");
   };
 
   const handleReset = () => {
@@ -280,12 +316,36 @@ export function ThemeCustomizerModal({ visible, onClose }: ThemeCustomizerModalP
               ))}
             </View>
 
-            {/* SECTION 4: IMAGE WALLPAPERS */}
+            {/* SECTION 4: IMAGE WALLPAPERS & DEVICE UPLOAD */}
             <View style={[styles.sectionHeader, { marginTop: 20 }]}>
-              <Text style={styles.sectionTitle}>4. WALLPAPER IMAGES & OVERLAY</Text>
-              <Text style={styles.sectionHint}>Layer a custom image behind with darkened glass</Text>
+              <Text style={styles.sectionTitle}>4. WALLPAPER IMAGE & DEVICE UPLOAD</Text>
+              <Text style={styles.sectionHint}>Upload your own photo or pick curated glass backdrops</Text>
             </View>
 
+            {/* Quick Upload Action Button */}
+            <View style={styles.uploadRow}>
+              <TouchableOpacity
+                style={[styles.uploadDeviceBtn, { borderColor: accentColor, backgroundColor: `${accentColor}18` }]}
+                onPress={handlePickDeviceWallpaper}
+              >
+                <Upload size={16} color={accentColor} />
+                <Text style={[styles.uploadDeviceText, { color: accentColor }]}>
+                  Upload Wallpaper From Device
+                </Text>
+              </TouchableOpacity>
+
+              {Boolean(wallpaperUrl) && (
+                <TouchableOpacity
+                  style={styles.clearWpBtn}
+                  onPress={handleClearWallpaper}
+                  hitSlop={6}
+                >
+                  <Trash2 size={15} color="#EF4444" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Curated Previews */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetScroll}>
               {CURATED_WALLPAPERS.map((wp, idx) => (
                 <TouchableOpacity
@@ -303,7 +363,7 @@ export function ThemeCustomizerModal({ visible, onClose }: ThemeCustomizerModalP
 
             <View style={styles.customHexRow}>
               <TextInput
-                placeholder="Custom image URL (https://...)..."
+                placeholder="Or paste direct image URL (https://...)..."
                 placeholderTextColor="rgba(255,255,255,0.4)"
                 value={customInputUrl}
                 onChangeText={setCustomInputUrl}
@@ -314,9 +374,47 @@ export function ThemeCustomizerModal({ visible, onClose }: ThemeCustomizerModalP
                 style={[styles.applyHexBtn, { backgroundColor: accentColor }]}
                 onPress={() => handleApplyWallpaperUrl(customInputUrl)}
               >
-                <Text style={styles.applyHexBtnText}>Set</Text>
+                <Text style={styles.applyHexBtnText}>Apply</Text>
               </TouchableOpacity>
             </View>
+
+            {/* SECTION 5: DARK GLASS OVERLAY DIMMER */}
+            {Boolean(wallpaperUrl) && (
+              <>
+                <View style={[styles.sectionHeader, { marginTop: 20 }]}>
+                  <Text style={styles.sectionTitle}>5. GLASS OVERLAY DIMMING</Text>
+                  <Text style={styles.sectionHint}>Adjust contrast between your wallpaper and chat text</Text>
+                </View>
+
+                <View style={styles.overlayDimmerRow}>
+                  {[
+                    { label: "Light (20%)", val: 0.2 },
+                    { label: "Standard (35%)", val: 0.35 },
+                    { label: "Dark (50%)", val: 0.5 },
+                    { label: "Deep (70%)", val: 0.7 },
+                  ].map((dim) => {
+                    const isSelected = Math.abs(overlayOpacity - dim.val) < 0.05;
+                    return (
+                      <TouchableOpacity
+                        key={dim.label}
+                        style={[
+                          styles.dimmerBtn,
+                          isSelected && { borderColor: accentColor, backgroundColor: `${accentColor}18` },
+                        ]}
+                        onPress={() => {
+                          NativeHaptics.light();
+                          setOverlayOpacity(dim.val);
+                        }}
+                      >
+                        <Text style={[styles.dimmerBtnText, isSelected && { color: accentColor, fontWeight: "700" }]}>
+                          {dim.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            )}
 
             {/* Reset & Done Buttons */}
             <View style={styles.footerRow}>
@@ -631,6 +729,57 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 11,
     fontWeight: "600",
+  },
+  uploadRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  uploadDeviceBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: "dashed",
+  },
+  uploadDeviceText: {
+    fontSize: 12.5,
+    fontWeight: "700",
+  },
+  clearWpBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "rgba(239, 68, 68, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  overlayDimmerRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  dimmerBtn: {
+    flex: 1,
+    minWidth: "45%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  dimmerBtnText: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 11,
   },
   footerRow: {
     flexDirection: "row",
