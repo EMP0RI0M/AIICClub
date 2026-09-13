@@ -4,12 +4,15 @@ import {
   StyleSheet,
   Text,
   View,
+  Image,
   Animated,
   Easing,
   useWindowDimensions,
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "../stores/auth-store";
 
 const COLORS = {
@@ -19,7 +22,7 @@ const COLORS = {
 
   amber: "#E8A33D",
   amberLight: "#F3C56B",
-  amberGlow: "rgba(232, 163, 61, 0.32)",
+  amberGlow: "rgba(232, 163, 61, 0.35)",
 
   teal: "#2DD4BF",
   tealGlow: "rgba(45, 212, 191, 0.22)",
@@ -30,62 +33,11 @@ const COLORS = {
   border: "rgba(255, 255, 255, 0.10)",
 };
 
-function CalmOrb() {
-  const breathe = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(breathe, {
-          toValue: 1.055,
-          duration: 2100,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(breathe, {
-          toValue: 1,
-          duration: 2100,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [breathe]);
-
-  return (
-    <Animated.View
-      style={[
-        styles.orbBreathe,
-        {
-          transform: [{ scale: breathe }],
-        },
-      ]}
-    >
-      <View style={styles.orbHalo} />
-
-      <View style={styles.orb}>
-        <View style={styles.orbHighlight} />
-
-        <View style={styles.face}>
-          <View style={[styles.eye, styles.eyeLeft]} />
-          <View style={[styles.eye, styles.eyeRight]} />
-
-          <View style={styles.faceCenterDot} />
-        </View>
-
-        <View style={[styles.blush, styles.blushLeft]} />
-        <View style={[styles.blush, styles.blushRight]} />
-      </View>
-    </Animated.View>
-  );
-}
-
-function AnimatedOrb() {
+function PulsingAIICLogo() {
+  const pulse = useRef(new Animated.Value(1)).current;
+  const glow = useRef(new Animated.Value(0.7)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.55)).current;
-  const translateY = useRef(new Animated.Value(8)).current;
+  const translateY = useRef(new Animated.Value(12)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -96,13 +48,6 @@ function AnimatedOrb() {
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.spring(scale, {
-        toValue: 1,
-        delay: 150,
-        friction: 6,
-        tension: 40,
-        useNativeDriver: true,
-      }),
       Animated.timing(translateY, {
         toValue: 0,
         duration: 900,
@@ -111,19 +56,76 @@ function AnimatedOrb() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(pulse, {
+            toValue: 1.08,
+            duration: 2200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(glow, {
+            toValue: 1.15,
+            duration: 2200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(pulse, {
+            toValue: 1,
+            duration: 2200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(glow, {
+            toValue: 0.7,
+            duration: 2200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+    pulseLoop.start();
+    return () => pulseLoop.stop();
+  }, [pulse, glow, opacity, translateY]);
 
   return (
     <Animated.View
       style={[
-        styles.orbWrap,
+        styles.logoWrap,
         {
           opacity,
-          transform: [{ scale }, { translateY }],
+          transform: [{ scale: pulse }, { translateY }],
         },
       ]}
     >
-      <CalmOrb />
+      <Animated.View
+        style={[
+          styles.logoHalo,
+          {
+            transform: [{ scale: glow }],
+          },
+        ]}
+      />
+
+      <View style={styles.logoGlassOrb}>
+        <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
+        <LinearGradient
+          colors={["rgba(255, 255, 255, 0.16)", "rgba(232, 163, 61, 0.12)", "rgba(255, 255, 255, 0.02)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <Image
+          source={require("../../assets/aiic-logo.png")}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+      </View>
     </Animated.View>
   );
 }
@@ -170,10 +172,6 @@ function AnimatedText({
     </Animated.View>
   );
 }
-
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
-import { GlassView } from "../components/ui/liquid-glass";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -239,8 +237,8 @@ export default function HomeScreen() {
         <View style={styles.purpleAmbient} />
       </Animated.View>
 
-      {/* AIIC Breathing Liquid Orb */}
-      <AnimatedOrb />
+      {/* Pulsing AIIC Logo */}
+      <PulsingAIICLogo />
 
       {/* Floating Liquid Glass Card */}
       <View style={styles.content}>
@@ -256,10 +254,6 @@ export default function HomeScreen() {
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          
-          <View style={styles.badgePill}>
-            <Text style={styles.badgeText}>✨ AIIC Liquid Edition</Text>
-          </View>
 
           <AnimatedText delay={1050} style={styles.title}>
             Welcome to AIIC
@@ -352,19 +346,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(45, 212, 191, 0.09)",
   },
 
-  purpleAmbient: {
+  logoWrap: {
     position: "absolute",
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    top: "35%",
-    right: -80,
-    backgroundColor: "rgba(139, 92, 246, 0.08)",
-  },
-
-  orbWrap: {
-    position: "absolute",
-    top: "10%",
+    top: "14%",
     alignSelf: "center",
     width: 170,
     height: 170,
@@ -372,106 +356,39 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  orbBreathe: {
-    width: 170,
-    height: 170,
+  logoHalo: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: COLORS.amberGlow,
+    opacity: 0.65,
+  },
+
+  logoGlassOrb: {
+    width: 148,
+    height: 148,
+    borderRadius: 74,
+    backgroundColor: "rgba(21, 26, 34, 0.75)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.20)",
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-  },
-
-  orbHalo: {
-    position: "absolute",
-    width: 230,
-    height: 230,
-    borderRadius: 115,
-    backgroundColor: COLORS.amberGlow,
-    opacity: 0.75,
-  },
-
-  orb: {
-    width: 142,
-    height: 142,
-    borderRadius: 71,
-    backgroundColor: "#151A22",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-
+    padding: 22,
     shadowColor: "#E8A33D",
-    shadowOpacity: 0.32,
+    shadowOpacity: 0.45,
     shadowRadius: 28,
     shadowOffset: {
       width: 0,
-      height: 18,
+      height: 12,
     },
-
     elevation: 18,
   },
 
-  orbHighlight: {
-    position: "absolute",
-    top: 14,
-    left: 25,
-    width: 66,
-    height: 28,
-    borderRadius: 30,
-    backgroundColor: "rgba(255,255,255,0.10)",
-    transform: [{ rotate: "-14deg" }],
-  },
-
-  face: {
-    position: "absolute",
-    inset: 0,
-  },
-
-  eye: {
-    position: "absolute",
-    top: 58,
-    width: 25,
-    height: 10,
-    borderBottomWidth: 3,
-    borderBottomColor: COLORS.amberLight,
-    borderRadius: 20,
-  },
-
-  eyeLeft: {
-    left: 36,
-    transform: [{ rotate: "12deg" }],
-  },
-
-  eyeRight: {
-    right: 36,
-    transform: [{ rotate: "-12deg" }],
-  },
-
-  faceCenterDot: {
-    position: "absolute",
-    top: 52,
-    left: "50%",
-    marginLeft: -3,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.teal,
-    shadowColor: COLORS.teal,
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
-  },
-
-  blush: {
-    position: "absolute",
-    top: 76,
-    width: 17,
-    height: 7,
-    borderRadius: 10,
-    backgroundColor: "rgba(232,163,61,0.20)",
-  },
-
-  blushLeft: {
-    left: 27,
-  },
-
-  blushRight: {
-    right: 27,
+  logoImage: {
+    width: "100%",
+    height: "100%",
   },
 
   content: {
@@ -495,24 +412,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 24,
     elevation: 12,
-  },
-
-  badgePill: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 16,
-    backgroundColor: "rgba(232, 163, 61, 0.16)",
-    borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.35)",
-    marginBottom: 12,
-  },
-
-  badgeText: {
-    color: "#F3C56B",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.2,
   },
 
   title: {
