@@ -46,6 +46,7 @@ import { BoardChannelView } from "@/components/chat/BoardChannelView";
 import { GitHubChannelView } from "@/components/chat/GitHubChannelView";
 import { SpaceDrawerModal } from "@/components/navigation/SpaceDrawerModal";
 import { CreateSpaceModal } from "@/components/space/CreateSpaceModal";
+import { CreateChannelModal } from "@/components/space/CreateChannelModal";
 import { MobileArchiveView } from "@/components/archive/MobileArchiveView";
 import { MobileNoticeBoardView } from "@/components/notifications/MobileNoticeBoardView";
 import { MobileProfileStatusView } from "@/components/profile/MobileProfileStatusView";
@@ -415,6 +416,8 @@ function SelectedSpaceView({
   const [memberCount, setMemberCount] = useState<number>(16);
   const [showMembers, setShowMembers] = useState(false);
   const [spaceMembers, setSpaceMembers] = useState<SpaceMemberItem[]>([]);
+  const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [initialCategoryForCreate, setInitialCategoryForCreate] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (server?.id) {
@@ -519,6 +522,18 @@ function SelectedSpaceView({
         </Pressable>
 
         <View style={styles.headerActions}>
+          <Pressable
+            onPress={() => {
+              NativeHaptics.selection();
+              setInitialCategoryForCreate(undefined);
+              setShowCreateChannel(true);
+            }}
+            style={[styles.squareButton, { backgroundColor: "rgba(232, 163, 61, 0.15)", borderColor: "rgba(232, 163, 61, 0.35)", borderWidth: 1 }]}
+            hitSlop={6}
+          >
+            <Plus size={16} color={colors.accent} />
+          </Pressable>
+
           <Pressable onPress={() => setShowMembers(true)} style={styles.squareButton} hitSlop={6}>
             <Users size={16} color={colors.accent} />
           </Pressable>
@@ -554,22 +569,36 @@ function SelectedSpaceView({
 
           return (
             <View key={category} style={styles.categoryBlock}>
-              <Pressable
-                onPress={() => toggleCategory(category)}
-                style={styles.categoryHeaderRow}
-                hitSlop={8}
-              >
-                <ChevronDown
-                  size={12}
-                  color={colors.textMuted}
-                  style={[styles.categoryChevron, isCollapsed && { transform: [{ rotate: "-90deg" }] }]}
-                />
-                <Text style={styles.categoryTitle}>{category.toUpperCase()}</Text>
-                <Text style={styles.categoryCount}>{items.length}</Text>
-                {categoryUnreads > 0 && isCollapsed && (
-                  <View style={styles.categoryUnreadDot} />
-                )}
-              </Pressable>
+              <View style={styles.categoryHeaderContainer}>
+                <Pressable
+                  onPress={() => toggleCategory(category)}
+                  style={styles.categoryHeaderRow}
+                  hitSlop={8}
+                >
+                  <ChevronDown
+                    size={12}
+                    color={colors.textMuted}
+                    style={[styles.categoryChevron, isCollapsed && { transform: [{ rotate: "-90deg" }] }]}
+                  />
+                  <Text style={styles.categoryTitle}>{category.toUpperCase()}</Text>
+                  <Text style={styles.categoryCount}>{items.length}</Text>
+                  {categoryUnreads > 0 && isCollapsed && (
+                    <View style={styles.categoryUnreadDot} />
+                  )}
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    NativeHaptics.selection();
+                    setInitialCategoryForCreate(category);
+                    setShowCreateChannel(true);
+                  }}
+                  style={styles.categoryAddBtn}
+                  hitSlop={8}
+                >
+                  <Plus size={14} color={colors.textMuted} />
+                </Pressable>
+              </View>
 
               {!isCollapsed &&
                 items.map((channel) => {
@@ -630,6 +659,21 @@ function SelectedSpaceView({
         onSelectMember={(m) => {
           setShowMembers(false);
           if (onOpenProfile) onOpenProfile();
+        }}
+      />
+
+      {/* CREATE CHANNEL MODAL */}
+      <CreateChannelModal
+        visible={showCreateChannel}
+        onClose={() => setShowCreateChannel(false)}
+        spaceId={server.id}
+        existingCategories={Object.keys(categories)}
+        initialCategory={initialCategoryForCreate}
+        onCreated={(newCh) => {
+          if (newCh?.id) {
+            useWorkspaceStore.getState().loadChannelsForSpace(server.id);
+            onSelectChannel(newCh.id);
+          }
         }}
       />
     </View>
@@ -3107,13 +3151,29 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  categoryHeaderRow: {
+  categoryHeaderContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "space-between",
     paddingHorizontal: 4,
     paddingTop: 10,
     paddingBottom: 4,
+  },
+
+  categoryHeaderRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  categoryAddBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
 
   categoryChevron: {

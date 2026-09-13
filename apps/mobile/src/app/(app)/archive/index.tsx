@@ -15,6 +15,7 @@ import { colors, radius } from "../../../theme/tokens";
 import { GlassCard } from "../../../components/ui/GlassCard";
 import { Badge } from "../../../components/ui/Badge";
 import { fetchArchiveRecords } from "../../../lib/api";
+import { MobileDocumentReaderModal } from "../../../components/archive/MobileDocumentReaderModal";
 import {
   ArrowLeft,
   Search,
@@ -25,6 +26,7 @@ import {
   FileText,
   GitBranch,
   Play,
+  Download,
 } from "lucide-react-native";
 
 export default function ArchiveScreen() {
@@ -33,6 +35,7 @@ export default function ArchiveScreen() {
   const [selectedType, setSelectedType] = useState<string>("all");
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeDoc, setActiveDoc] = useState<any | null>(null);
 
   const types = [
     { id: "all", label: "All Records" },
@@ -127,17 +130,12 @@ export default function ArchiveScreen() {
 
         {(item.type === "document" || item.document) && (
           <TouchableOpacity
-            style={styles.metaRow}
-            onPress={() => {
-              const docUrl = item.document?.url || item.url || item.documentUrl;
-              if (docUrl) {
-                import("react-native").then(({ Linking }) => Linking.openURL(docUrl).catch(() => {}));
-              }
-            }}
+            style={[styles.metaRow, { backgroundColor: "rgba(34, 224, 214, 0.12)", borderColor: "rgba(34, 224, 214, 0.3)", borderWidth: 1 }]}
+            onPress={() => setActiveDoc(item)}
           >
-            <FileText size={12} color={colors.info} />
-            <Text style={[styles.metaText, { color: colors.info }]}>
-              {item.document?.fileName || item.title} {item.document?.fileSize ? `(${item.document.fileSize})` : ""} · Tap to View
+            <FileText size={13} color={colors.accentTeal} />
+            <Text style={[styles.metaText, { color: colors.accentTeal, fontWeight: "700" }]}>
+              {item.document?.fileName || item.title} {item.document?.fileSize ? `(${item.document.fileSize})` : ""} · Tap to Read Notes & View
             </Text>
           </TouchableOpacity>
         )}
@@ -204,6 +202,13 @@ export default function ArchiveScreen() {
           }
         />
       )}
+
+      {/* Mobile Document Reader Modal */}
+      <MobileDocumentReaderModal
+        visible={Boolean(activeDoc)}
+        record={activeDoc}
+        onClose={() => setActiveDoc(null)}
+      />
     </SafeAreaView>
   );
 }

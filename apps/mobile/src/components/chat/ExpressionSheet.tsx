@@ -1396,10 +1396,10 @@ export function ExpressionSheet({
           style={styles.sheetContainer}
           onPress={(e) => e.stopPropagation()}
         >
-          {/* Obsidian Liquid Glass Gradient Surface */}
-          <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} />
+          {/* Obsidian Liquid Frosted Glass Gradient Surface */}
+          <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={StyleSheet.absoluteFillObject} />
           <LinearGradient
-            colors={["rgba(30, 32, 44, 0.96)", "rgba(13, 14, 20, 0.98)"]}
+            colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
             style={StyleSheet.absoluteFillObject}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
@@ -1665,19 +1665,24 @@ export function ExpressionSheet({
 const styles = StyleSheet.create({
   sheetBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
     justifyContent: "flex-end",
   },
   sheetContainer: {
-    height: 310,
-    maxHeight: 330,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    height: 330,
+    maxHeight: 350,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderTopWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
     overflow: "hidden",
     paddingTop: 8,
     paddingBottom: Platform.OS === "ios" ? 14 : 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 24,
   },
   dragHandle: {
     width: 38,

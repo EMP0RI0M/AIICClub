@@ -105,9 +105,9 @@ export function UserProfileModal({
         </Pressable>
 
         <View style={styles.sheet}>
-          <BlurView intensity={Platform.OS === "ios" ? 45 : 30} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={StyleSheet.absoluteFill} />
           <LinearGradient
-            colors={["rgba(255, 255, 255, 0.09)", "rgba(255, 255, 255, 0.02)"]}
+            colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -315,15 +315,19 @@ const styles = StyleSheet.create({
   },
   sheet: {
     height: "84%",
-    backgroundColor: "rgba(10, 11, 16, 0.78)",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     borderTopWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.16)",
     paddingTop: 12,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 24,
   },
   glowAmber: {
     position: "absolute",

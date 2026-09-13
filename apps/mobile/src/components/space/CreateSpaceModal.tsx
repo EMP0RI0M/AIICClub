@@ -126,9 +126,9 @@ export function CreateSpaceModal({
         </Pressable>
 
         <View style={styles.modalSheet}>
-          <BlurView intensity={Platform.OS === "ios" ? 40 : 25} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={StyleSheet.absoluteFill} />
           <LinearGradient
-            colors={["rgba(255, 255, 255, 0.09)", "rgba(255, 255, 255, 0.01)"]}
+            colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -254,14 +254,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(212, 160, 23, 0.12)",
   },
   modalSheet: {
-    backgroundColor: "rgba(12, 14, 22, 0.85)",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(12, 14, 22, 0.95)",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderTopWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
     maxHeight: "85%",
     paddingBottom: Platform.OS === "ios" ? 36 : 24,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 24,
   },
   modalHeader: {
     flexDirection: "row",

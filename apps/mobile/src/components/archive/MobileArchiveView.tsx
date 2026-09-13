@@ -34,6 +34,7 @@ import {
 import { colors } from "@/theme/tokens";
 import { useAuthStore } from "@/stores/auth-store";
 import { api } from "@/lib/api";
+import { MobileDocumentReaderModal } from "./MobileDocumentReaderModal";
 
 export interface ArchiveRecord {
   id: string;
@@ -44,6 +45,8 @@ export interface ArchiveRecord {
   type: string;
   tags?: string[];
   createdAt?: string;
+  fileUrl?: string;
+  content?: string;
   video?: {
     speaker?: string;
     duration?: string;
@@ -63,8 +66,13 @@ export interface ArchiveRecord {
   };
   document?: {
     fileName?: string;
-    fileSize?: string;
+    fileSize?: string | number;
     category?: string;
+    fileUrl?: string;
+    url?: string;
+    content?: string;
+    summary?: string;
+    mimeType?: string;
   };
 }
 
@@ -79,6 +87,7 @@ export function MobileArchiveView({
   const [query, setQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [activeDoc, setActiveDoc] = useState<ArchiveRecord | null>(null);
 
   const loadArchive = async () => {
     setLoading(true);
@@ -211,10 +220,21 @@ export function MobileArchiveView({
           </View>
         ) : (
           filtered.map((record) => (
-            <ArchiveRecordCard key={record.id || record.archiveId} record={record} />
+            <ArchiveRecordCard
+              key={record.id || record.archiveId}
+              record={record}
+              onOpenDocument={(rec) => setActiveDoc(rec)}
+            />
           ))
         )}
       </ScrollView>
+
+      {/* Document Reader Modal */}
+      <MobileDocumentReaderModal
+        visible={Boolean(activeDoc)}
+        record={activeDoc}
+        onClose={() => setActiveDoc(null)}
+      />
 
       {/* Submit Archive Record Modal */}
       <SubmitArchiveModal
@@ -229,17 +249,37 @@ export function MobileArchiveView({
   );
 }
 
-function ArchiveRecordCard({ record }: { record: ArchiveRecord }) {
+function ArchiveRecordCard({
+  record,
+  onOpenDocument,
+}: {
+  record: ArchiveRecord;
+  onOpenDocument?: (record: ArchiveRecord) => void;
+}) {
   const isVideo = record.type === "video" || !!record.video;
   const isRepo = record.type === "repository" || !!record.repository;
   const isBuild = record.type === "build" || !!record.build;
+  const isDoc = record.type === "document" || !!record.document;
 
   const handleOpenLink = (url?: string) => {
     if (url) Linking.openURL(url).catch(() => {});
   };
 
+  const docFileUrl =
+    record.document?.fileUrl ||
+    record.document?.url ||
+    record.fileUrl ||
+    (record as any).url;
+
   return (
-    <View style={styles.card}>
+    <Pressable
+      onPress={() => {
+        if (isDoc && onOpenDocument) {
+          onOpenDocument(record);
+        }
+      }}
+      style={styles.card}
+    >
       {/* Top Meta Bar */}
       <View style={styles.cardTop}>
         <View style={styles.idBadge}>
@@ -321,25 +361,38 @@ function ArchiveRecordCard({ record }: { record: ArchiveRecord }) {
         </View>
       )}
 
-      {(record.type === "document" || record.document) && (
+      {isDoc && (
         <View style={styles.detailBox}>
           <View style={styles.detailRow}>
             <FileText size={13} color={colors.info} />
             <Text style={styles.detailText}>
-              {record.document?.fileName || record.title} {record.document?.fileSize ? `(${record.document.fileSize})` : ""}
+              {record.document?.fileName || record.title}{" "}
+              {record.document?.fileSize ? `(${record.document.fileSize})` : ""}
             </Text>
           </View>
-          {((record.document as any)?.url || (record as any).url) ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <Pressable
-              onPress={() => handleOpenLink((record.document as any)?.url || (record as any).url)}
-              style={styles.actionLink}
+              onPress={() => onOpenDocument && onOpenDocument(record)}
+              style={[styles.actionLink, { backgroundColor: "rgba(34, 224, 214, 0.15)", borderColor: "rgba(34, 224, 214, 0.35)", borderWidth: 1 }]}
             >
-              <Download size={12} color={colors.info} />
-              <Text style={[styles.actionLinkText, { color: colors.info }]}>
-                Download / View Document
+              <FileText size={12} color={colors.accentTeal} />
+              <Text style={[styles.actionLinkText, { color: colors.accentTeal, fontWeight: "800" }]}>
+                Read Document & Notes
               </Text>
             </Pressable>
-          ) : null}
+
+            {docFileUrl ? (
+              <Pressable
+                onPress={() => handleOpenLink(docFileUrl)}
+                style={styles.actionLink}
+              >
+                <Download size={12} color={colors.info} />
+                <Text style={[styles.actionLinkText, { color: colors.info }]}>
+                  Open File
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       )}
 
@@ -353,7 +406,7 @@ function ArchiveRecordCard({ record }: { record: ArchiveRecord }) {
           ))}
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 

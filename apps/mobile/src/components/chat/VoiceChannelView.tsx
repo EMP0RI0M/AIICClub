@@ -6,11 +6,14 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { colors, radius } from "../../theme/tokens";
 import { GlassCard } from "../ui/GlassCard";
 import { Badge } from "../ui/Badge";
 import { Avatar } from "../ui/Avatar";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   Mic,
   MicOff,
@@ -298,76 +301,90 @@ export function VoiceChannelView({
         )}
       </ScrollView>
 
-      {/* Bottom Voice Control Dock */}
-      <View style={styles.controlDock}>
-        {isStage ? (
-          <Pressable
-            onPress={() => {
-              NativeHaptics.selection();
-              setHandRaised((h) => !h);
-            }}
-            style={[
-              styles.dockBtn,
-              handRaised && { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-            ]}
-          >
-            <Hand size={18} color={handRaised ? colors.accent : colors.textPrimary} />
-            <Text style={[styles.dockBtnText, handRaised && { color: colors.accent }]}>
-              {handRaised ? "Hand Raised" : "Raise Hand"}
-            </Text>
-          </Pressable>
-        ) : (
-          <>
-            <Pressable
-              onPress={async () => {
-                NativeHaptics.selection();
-                if (isMuted) {
-                  const { status } = await Audio.requestPermissionsAsync();
-                  if (status !== "granted") return;
-                }
-                setIsMuted((m) => !m);
-              }}
-              style={[
-                styles.iconControlBtn,
-                isMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)" },
-              ]}
-            >
-              {isMuted ? (
-                <MicOff size={20} color={colors.danger} />
-              ) : (
-                <Mic size={20} color={colors.textPrimary} />
-              )}
-            </Pressable>
+      {/* Floating Frosted Liquid Voice Control Dock */}
+      <View style={styles.dockOuterWrap}>
+        <View style={styles.controlDock}>
+          <BlurView
+            intensity={Platform.OS === "ios" ? 45 : 30}
+            tint="dark"
+            style={StyleSheet.absoluteFillObject}
+          />
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.14)", "rgba(18, 20, 28, 0.95)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
 
+          {isStage ? (
             <Pressable
               onPress={() => {
                 NativeHaptics.selection();
-                setIsDeafened((d) => !d);
+                setHandRaised((h) => !h);
               }}
               style={[
-                styles.iconControlBtn,
-                isDeafened && { backgroundColor: "rgba(239, 68, 68, 0.15)" },
+                styles.dockBtn,
+                handRaised && { backgroundColor: colors.accentSoft, borderColor: colors.accent },
               ]}
             >
-              {isDeafened ? (
-                <VolumeX size={20} color={colors.danger} />
-              ) : (
-                <Volume2 size={20} color={colors.textPrimary} />
-              )}
+              <Hand size={18} color={handRaised ? colors.accent : colors.textPrimary} />
+              <Text style={[styles.dockBtnText, handRaised && { color: colors.accent }]}>
+                {handRaised ? "Hand Raised" : "Raise Hand"}
+              </Text>
             </Pressable>
-          </>
-        )}
+          ) : (
+            <>
+              <Pressable
+                onPress={async () => {
+                  NativeHaptics.selection();
+                  if (isMuted) {
+                    const { status } = await Audio.requestPermissionsAsync();
+                    if (status !== "granted") return;
+                  }
+                  setIsMuted((m) => !m);
+                }}
+                style={[
+                  styles.iconControlBtn,
+                  isMuted && { backgroundColor: "rgba(239, 68, 68, 0.2)", borderColor: "rgba(239, 68, 68, 0.4)" },
+                ]}
+              >
+                {isMuted ? (
+                  <MicOff size={20} color={colors.danger} />
+                ) : (
+                  <Mic size={20} color={colors.textPrimary} />
+                )}
+              </Pressable>
 
-        <Pressable
-          onPress={() => {
-            NativeHaptics.heavy();
-            onBack();
-          }}
-          style={styles.disconnectBtn}
-        >
-          <PhoneOff size={18} color="#FFF" />
-          <Text style={styles.disconnectText}>Disconnect</Text>
-        </Pressable>
+              <Pressable
+                onPress={() => {
+                  NativeHaptics.selection();
+                  setIsDeafened((d) => !d);
+                }}
+                style={[
+                  styles.iconControlBtn,
+                  isDeafened && { backgroundColor: "rgba(239, 68, 68, 0.2)", borderColor: "rgba(239, 68, 68, 0.4)" },
+                ]}
+              >
+                {isDeafened ? (
+                  <VolumeX size={20} color={colors.danger} />
+                ) : (
+                  <Volume2 size={20} color={colors.textPrimary} />
+                )}
+              </Pressable>
+            </>
+          )}
+
+          <Pressable
+            onPress={() => {
+              NativeHaptics.heavy();
+              onBack();
+            }}
+            style={styles.disconnectBtn}
+          >
+            <PhoneOff size={18} color="#FFF" />
+            <Text style={styles.disconnectText}>Disconnect</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -515,37 +532,49 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: "center",
   },
+  dockOuterWrap: {
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === "ios" ? 30 : 16,
+    paddingTop: 8,
+    backgroundColor: "transparent",
+  },
   controlDock: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: "rgba(28, 30, 42, 0.95)",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.12)",
+    paddingVertical: 12,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 18,
+    elevation: 8,
   },
   iconControlBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.14)",
   },
   dockBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 16,
-    height: 46,
-    borderRadius: 23,
+    paddingHorizontal: 18,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.14)",
   },
   dockBtnText: {
     color: colors.textPrimary,
@@ -556,10 +585,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 16,
-    height: 46,
-    borderRadius: 23,
+    paddingHorizontal: 18,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.danger,
+    shadowColor: colors.danger,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
   disconnectText: {
     color: "#FFF",

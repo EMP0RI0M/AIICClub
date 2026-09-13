@@ -15,6 +15,8 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius } from "../../theme/tokens";
 import { NativeHaptics } from "../../lib/haptics";
 import {
@@ -128,6 +130,13 @@ export function MobileAttachmentSheet({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.sheetBackdrop} onPress={onClose}>
         <View style={styles.sheetContainer}>
+          <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
+            style={StyleSheet.absoluteFillObject}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          />
           <View style={styles.sheetIndicator} />
           <Text style={styles.sheetTitle}>Add Attachment</Text>
 
@@ -642,17 +651,23 @@ export function MobileEmojiModal({ visible, title = "Emoji Picker", onClose, onS
 const styles = StyleSheet.create({
   sheetBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
     justifyContent: "flex-end",
   },
   sheetContainer: {
     backgroundColor: "#0d0e14",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderTopWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
+    overflow: "hidden",
     padding: 20,
     paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 24,
   },
   sheetIndicator: {
     width: 36,

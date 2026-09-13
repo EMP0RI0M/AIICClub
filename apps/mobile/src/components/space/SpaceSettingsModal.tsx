@@ -91,9 +91,9 @@ export function SpaceSettingsModal({
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        <BlurView intensity={Platform.OS === "ios" ? 35 : 20} tint="dark" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={StyleSheet.absoluteFill} />
         <LinearGradient
-          colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.01)"]}
+          colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}

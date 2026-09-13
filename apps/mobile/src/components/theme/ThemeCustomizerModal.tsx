@@ -111,9 +111,12 @@ export function ThemeCustomizerModal({ visible, onClose }: ThemeCustomizerModalP
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
         <View style={styles.modalSheet}>
+          <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={StyleSheet.absoluteFillObject} />
           <LinearGradient
-            colors={["#0D0F18", "#07080E"]}
+            colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
             style={StyleSheet.absoluteFillObject}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
           />
 
           {/* Header */}
@@ -340,12 +343,17 @@ const styles = StyleSheet.create({
   },
   modalSheet: {
     height: "88%",
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderTopWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
     overflow: "hidden",
     paddingTop: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 24,
   },
   header: {
     flexDirection: "row",

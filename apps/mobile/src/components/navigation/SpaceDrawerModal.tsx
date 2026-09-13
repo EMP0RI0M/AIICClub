@@ -114,9 +114,9 @@ export function SpaceDrawerModal({
         <Pressable style={styles.backdrop} onPress={onClose} />
 
         <View style={styles.drawerSheetWrap}>
-          <BlurView intensity={40} tint="dark" style={styles.drawerSheet}>
+          <BlurView intensity={Platform.OS === "ios" ? 50 : 35} tint="dark" style={styles.drawerSheet}>
             <LinearGradient
-              colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+              colors={["rgba(255, 255, 255, 0.14)", "rgba(10, 12, 18, 0.96)"]}
               style={StyleSheet.absoluteFillObject}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
@@ -270,14 +270,16 @@ const styles = StyleSheet.create({
     width: "88%",
     maxWidth: 340,
     height: "100%",
-    borderTopRightRadius: 18,
-    borderBottomRightRadius: 18,
+    borderTopRightRadius: 32,
+    borderBottomRightRadius: 32,
+    borderRightWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 20,
   },
   drawerSheet: {
     flex: 1,
