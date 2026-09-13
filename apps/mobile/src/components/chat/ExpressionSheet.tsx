@@ -28,7 +28,10 @@ import {
   Flame,
   Laugh,
   Layers,
+  ExternalLink,
+  Plus,
 } from "lucide-react-native";
+import * as WebBrowser from "expo-web-browser";
 import { fetchExpressions } from "../../lib/api";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -1646,10 +1649,22 @@ export function ExpressionSheet({
             )}
           </View>
 
-          {/* Subtle KLIPY Attribution */}
+          {/* KLIPY Attribution & Direct Create Sticker Trigger */}
           {activeTab !== "emoji" && (
             <View style={styles.attributionBar}>
               <Text style={styles.attributionText}>powered by klipy</Text>
+              <Pressable
+                onPress={async () => {
+                  NativeHaptics.selection();
+                  await WebBrowser.openBrowserAsync("https://klipy.com/create");
+                }}
+                style={styles.createStickerLink}
+                hitSlop={6}
+              >
+                <Plus size={10} color={colors.accent} />
+                <Text style={styles.createStickerLinkText}>Create Sticker</Text>
+                <ExternalLink size={9} color={colors.accent} />
+              </Pressable>
             </View>
           )}
         </Pressable>
@@ -1879,7 +1894,10 @@ const styles = StyleSheet.create({
     height: "82%",
   },
   attributionBar: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
     paddingTop: 4,
     paddingBottom: 2,
   },
@@ -1888,5 +1906,22 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     color: "rgba(255, 255, 255, 0.3)",
     letterSpacing: 0.5,
+  },
+  createStickerLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3.5,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: "rgba(232, 163, 61, 0.1)",
+    borderWidth: 0.5,
+    borderColor: "rgba(232, 163, 61, 0.3)",
+  },
+  createStickerLinkText: {
+    fontSize: 9.5,
+    fontWeight: "700",
+    color: colors.accent,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
 });
