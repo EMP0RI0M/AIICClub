@@ -217,9 +217,9 @@ function SpaceRail({
   return (
     <View style={styles.railWrapper}>
       <View style={styles.rail}>
-        <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFillObject} />
         <LinearGradient
-          colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)", "rgba(10, 12, 18, 0.85)"]}
+          colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)", "rgba(10, 12, 18, 0.70)"]}
           style={StyleSheet.absoluteFillObject}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
@@ -2401,6 +2401,7 @@ export default function AIICDiscordApp() {
   const [themeStudioOpen, setThemeStudioOpen] = useState(false);
   const [selectedMemberProfile, setSelectedMemberProfile] = useState<UserProfileData | null>(null);
   const { accentColor: themeAccent } = useThemeStore();
+  const theme = useAppTheme();
 
   // Authority & Role calculation from Supabase profile data
   const userRole = (user?.role || "member").toLowerCase().trim();
@@ -2553,42 +2554,40 @@ export default function AIICDiscordApp() {
         {/* =================================================
             LEVEL 1: DISCORD LEFT SPACE / SERVER RAIL
             ================================================= */}
-        {!(currentSection === "space" && selectedServer && selectedChannel) && (
-          <SpaceRail
-            servers={servers}
-            selectedServerId={selectedServerId}
-            onSelectServer={(id) => {
-              setSelectedServerId(id);
-              setActiveSpace(id);
-              setSelectedChannelId(null);
-              setCurrentSection("space");
-            }}
-            onDM={() => {
-              setCurrentSection("dm");
-              setSelectedChannelId(null);
-            }}
-            currentSection={currentSection}
-            isAdmin={isAdmin}
-            onNotice={() => {
-              setCurrentSection("notices");
-              setSelectedChannelId(null);
-            }}
-            onArchive={() => {
-              setCurrentSection("archive");
-              setSelectedChannelId(null);
-            }}
-            onAdmin={() => {
-              setCurrentSection("admin");
-              setSelectedChannelId(null);
-            }}
-            currentUser={user}
-            onOpenProfile={() => {
-              setCurrentSection("profile");
-              setSelectedChannelId(null);
-            }}
-            onCreateSpace={() => setCreateSpaceModalOpen(true)}
-          />
-        )}
+        <SpaceRail
+          servers={servers}
+          selectedServerId={selectedServerId}
+          onSelectServer={(id) => {
+            setSelectedServerId(id);
+            setActiveSpace(id);
+            setSelectedChannelId(null);
+            setCurrentSection("space");
+          }}
+          onDM={() => {
+            setCurrentSection("dm");
+            setSelectedChannelId(null);
+          }}
+          currentSection={currentSection}
+          isAdmin={isAdmin}
+          onNotice={() => {
+            setCurrentSection("notices");
+            setSelectedChannelId(null);
+          }}
+          onArchive={() => {
+            setCurrentSection("archive");
+            setSelectedChannelId(null);
+          }}
+          onAdmin={() => {
+            setCurrentSection("admin");
+            setSelectedChannelId(null);
+          }}
+          currentUser={user}
+          onOpenProfile={() => {
+            setCurrentSection("profile");
+            setSelectedChannelId(null);
+          }}
+          onCreateSpace={() => setCreateSpaceModalOpen(true)}
+        />
 
         {/* =================================================
             LEVEL 2: MAIN CONTENT & CHAT STREAM
@@ -2635,29 +2634,49 @@ export default function AIICDiscordApp() {
             )
           )}
 
-          {/* DEDICATED FUNCTIONAL DMs */}
+          {/* DEDICATED FUNCTIONAL DMs (FULL CURVED GLASS DESIGN) */}
           {currentSection === "dm" && (
             <View style={styles.page}>
-              <View style={styles.pageHeaderRow}>
-                <Text style={styles.pageTitle}>Direct Messages</Text>
-                <Pressable
-                  onPress={() => router.push("/(app)/dms" as any)}
-                  style={styles.createBtn}
-                >
-                  <Text style={styles.createBtnText}>+ Add Friend</Text>
-                </Pressable>
+              {/* Top Curved Glass Header Capsule */}
+              <View style={styles.headerCapsuleWrap}>
+                <BlurView intensity={30} tint="dark" style={styles.headerCapsule}>
+                  <LinearGradient
+                    colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+                    style={StyleSheet.absoluteFillObject}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  />
+                  <View style={styles.headerLeft}>
+                    <View style={[styles.headerIconOrb, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+                      <MessageSquare size={16} color={theme.colors.accent} />
+                    </View>
+                    <View>
+                      <Text style={styles.headerTitle}>Direct Messages</Text>
+                      <Text style={[styles.headerSub, { color: theme.colors.accent }]}>ENCRYPTED PEER COMM</Text>
+                    </View>
+                  </View>
+
+                  <Pressable
+                    onPress={() => router.push("/(app)/dms" as any)}
+                    style={[styles.createBtn, { backgroundColor: theme.colors.accent }]}
+                    hitSlop={6}
+                  >
+                    <UserPlus size={14} color={theme.colors.accentText} />
+                    <Text style={[styles.createBtnText, { color: theme.colors.accentText }]}>Add Friend</Text>
+                  </Pressable>
+                </BlurView>
               </View>
 
               <FlatList
                 data={dms}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={{ paddingBottom: 24 }}
+                contentContainerStyle={{ paddingBottom: 32, paddingTop: 10 }}
                 renderItem={({ item }) => (
                   <Pressable
                     style={styles.dmRow}
                     onPress={() => router.push(`/(app)/dms/${item.id}` as any)}
                   >
-                    <Avatar name={item.name} presence={item.presence} size={42} url={(item as any).avatar || (item as any).avatarUrl} />
+                    <Avatar name={item.name} presence={item.presence} size={46} url={(item as any).avatar || (item as any).avatarUrl} />
                     <View style={styles.dmInfo}>
                       <View style={styles.dmTop}>
                         <Text style={styles.dmName} numberOfLines={1}>
@@ -2668,14 +2687,14 @@ export default function AIICDiscordApp() {
                         ) : null}
                       </View>
                       <Text style={styles.dmSnippet} numberOfLines={1}>
-                        {item.snippet || "Start a conversation"}
+                        {item.snippet || "Tap to start conversation..."}
                       </Text>
                     </View>
                   </Pressable>
                 )}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
-                    <MessageSquare size={36} color={colors.textMuted} />
+                    <MessageSquare size={40} color={colors.textMuted} />
                     <Text style={styles.emptyTitle}>No Direct Messages</Text>
                     <Text style={styles.emptySubtitle}>
                       Connect with peers, squad mates, and faculty mentors.
@@ -2861,7 +2880,7 @@ const styles = StyleSheet.create({
   rail: {
     width: 76,
     height: "100%",
-    backgroundColor: "rgba(18, 22, 30, 0.82)",
+    backgroundColor: "rgba(14, 18, 26, 0.65)",
     borderWidth: 1,
     borderRadius: 36,
     borderColor: "rgba(255, 255, 255, 0.12)",
@@ -2916,7 +2935,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 1,
     backgroundColor: "rgba(255, 255, 255, 0.08)",
-    marginVertical: 12,
+    marginVertical: 14,
   },
 
   railItemWrapper: {
@@ -2962,7 +2981,7 @@ const styles = StyleSheet.create({
   spaceList: {
     alignItems: "center",
     paddingBottom: 6,
-    gap: 10,
+    gap: 12,
   },
 
   spaceButton: {
@@ -3034,7 +3053,7 @@ const styles = StyleSheet.create({
 
   utilityArea: {
     marginTop: "auto",
-    gap: 10,
+    gap: 12,
     alignItems: "center",
     width: "100%",
   },
@@ -3637,6 +3656,29 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
 
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  headerIconOrb: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(232, 163, 61, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.25)",
+  },
+
+  headerTitle: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
   headerCenter: {
     flexDirection: "row",
     alignItems: "center",
@@ -4165,30 +4207,29 @@ const styles = StyleSheet.create({
   },
 
   createBtn: {
-    backgroundColor: "rgba(232, 163, 61, 0.10)",
-    borderWidth: 1,
-    borderColor: "rgba(232, 163, 61, 0.22)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
   },
 
   createBtnText: {
-    color: colors.accent,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "800",
   },
 
   dmRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.025)",
+    padding: 14,
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.055)",
-    marginBottom: 6,
-    gap: 10,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    marginBottom: 8,
+    gap: 12,
   },
 
   dmInfo: {
