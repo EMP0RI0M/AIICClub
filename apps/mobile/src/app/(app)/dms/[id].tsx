@@ -30,6 +30,10 @@ import {
   ArrowLeft,
   Send,
   Phone,
+  PhoneCall,
+  PhoneMissed,
+  PhoneIncoming,
+  PhoneOutgoing,
   Video,
   Smile,
   Paperclip,
@@ -582,6 +586,35 @@ export default function DMDetailScreen() {
                 }
               }
 
+              const isCallMessage =
+                item.type === "call" ||
+                item.text.startsWith("Call ended") ||
+                item.text.startsWith("Missed call") ||
+                item.text.toLowerCase().includes("call ended") ||
+                item.text.toLowerCase().includes("missed call");
+
+              let callDurationSec: number | null = null;
+              let isVideoCall = false;
+              let isMissedCall = item.text.toLowerCase().includes("missed");
+
+              if (isCallMessage) {
+                if (item.metadata) {
+                  try {
+                    const meta = typeof item.metadata === "string" ? JSON.parse(item.metadata) : item.metadata;
+                    if (typeof meta?.duration === "number") callDurationSec = meta.duration;
+                    if (meta?.video || meta?.isVideo) isVideoCall = true;
+                    if (meta?.missed || meta?.status === "missed") isMissedCall = true;
+                  } catch {}
+                }
+              }
+
+              const formattedCallDuration =
+                callDurationSec !== null
+                  ? callDurationSec >= 60
+                    ? `${Math.floor(callDurationSec / 60)}m ${callDurationSec % 60}s`
+                    : `${callDurationSec}s`
+                  : "";
+
               return (
                 <SwipeableMessageRow
                   timestamp={item.at}
@@ -594,7 +627,7 @@ export default function DMDetailScreen() {
                       isHighlighted && styles.messageHighlighted,
                     ]}
                   >
-                    {!isMe && (
+                    {!isMe && !isCallMessage && (
                       <TouchableOpacity
                         onPress={() => {
                           fetchUserProfile(item.author.id).then((res) => setSelectedUser(res.user)).catch(() => setSelectedUser({
@@ -609,8 +642,13 @@ export default function DMDetailScreen() {
                         <Avatar name={item.author.name} size={28} url={item.author.avatar} />
                       </TouchableOpacity>
                     )}
-                    <View style={{ alignItems: isMe ? "flex-end" : "flex-start" }}>
-                      {/* Match channel-message reply layout: preview sits above the bubble. */}
+                    <View
+                      style={[
+                        styles.messageContentColumn,
+                        isCallMessage ? styles.callLogColumn : isMe ? styles.messageContentColumnOwn : styles.messageContentColumnOther,
+                      ]}
+                    >
+                      {/* Quoted reply header if message is a reply */}
                       {item.replyTo && (
                         <Pressable
                           onPress={() => item.replyTo?.id && handleJumpToMessage(item.replyTo.id)}
@@ -625,116 +663,184 @@ export default function DMDetailScreen() {
                         </Pressable>
                       )}
 
-                      <Pressable
-                        delayLongPress={150}
-                        onPress={() => handleMessagePress(item)}
-                        onLongPress={() => {
-                          NativeHaptics.medium();
-                          setSelectedMessage(item);
-                          setMessageActionOpen(true);
-                        }}
-                        style={[
-                        styles.bubbleGlassWrap,
-                        stickerOnly && styles.stickerOnlyBubble,
-                          isMe ? styles.myBubbleGlassWrap : styles.theirBubbleGlassWrap,
-                        ]}
-                      >
-                        <DoubleTapHeartOverlay visible={heartPoppingId === item.id} />
-
-                        <BlurView
-                          intensity={isMe ? 20 : 25}
-                          tint="dark"
-                          style={[
-                            styles.bubbleInner,
-                            isMe ? styles.myBubbleInner : styles.theirBubbleInner,
-                          ]}
-                        >
-                          <LinearGradient
-                            colors={
-                              isMe
-                                ? ["rgba(232, 163, 61, 0.12)", "rgba(232, 163, 61, 0.04)"]
-                                : ["rgba(255, 255, 255, 0.04)", "rgba(255, 255, 255, 0.01)"]
-                            }
-                            style={StyleSheet.absoluteFillObject}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 0, y: 1 }}
-                          />
-
-                          {/* Rich Markdown & LaTeX Message Body */}
-                          {cleanText ? (
-                            <RichMarkdown
-                              content={cleanText}
-                              textColor={isMe ? "#FFFFFF" : colors.textPrimary}
+                      {isCallMessage ? (
+                        <View style={styles.callLogCardWrap}>
+                          <BlurView intensity={28} tint="dark" style={styles.callLogCard}>
+                            <LinearGradient
+                              colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
+                              style={StyleSheet.absoluteFillObject}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
                             />
-                          ) : null}
-
-                          {/* Decoded Attachments */}
-                          {attachments.map((att, idx) => (
-                            <AttachmentCard key={idx} attachment={att} />
-                          ))}
-
-                          <View style={styles.bubbleMetaRow}>
-                            <Text
-                              style={[
-                                styles.bubbleTime,
-                                isMe ? styles.myBubbleTime : styles.theirBubbleTime,
-                              ]}
-                            >
-                              {new Date(item.at).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </Text>
-                            {isMe && (
-                              <CheckCheck size={12} color="rgba(232, 163, 61, 0.85)" style={{ marginLeft: 3 }} />
-                            )}
-                          </View>
-                        </BlurView>
-                      </Pressable>
-
-                      {/* Translucent Liquid Glass Reaction Strip */}
-                      {hasReactions && (
-                        <View style={[styles.reactionsStrip, isMe && styles.myReactionsStrip]}>
-                          {item.reactions!.map((reaction: any, rIdx: number) => {
-                            const userReacted = reaction.reacted;
-                            return (
-                              <TouchableOpacity
-                                key={`${item.id}_${reaction.emoji}_${rIdx}`}
-                                onPress={() => {
-                                  NativeHaptics.selection();
-                                  toggleDMReaction(convoId, item.id, reaction.emoji);
-                                }}
+                            <View style={styles.callLogCardLeft}>
+                              <View
                                 style={[
-                                  styles.reactionBadge,
-                                  userReacted && styles.reactionBadgeActive,
+                                  styles.callLogIconOrb,
+                                  isMissedCall
+                                    ? styles.callLogIconOrbMissed
+                                    : { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
                                 ]}
                               >
-                                <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
-                                {reaction.count > 1 && (
-                                  <Text
+                                {isVideoCall ? (
+                                  <Video size={16} color={isMissedCall ? "#EF4444" : themeAccent} />
+                                ) : isMissedCall ? (
+                                  <PhoneMissed size={16} color="#EF4444" />
+                                ) : (
+                                  <PhoneCall size={16} color={themeAccent} />
+                                )}
+                              </View>
+                              <View style={{ flex: 1, minWidth: 0 }}>
+                                <Text style={styles.callLogTitle}>
+                                  {isVideoCall ? "Video Call" : "Voice Call"}
+                                </Text>
+                                <Text style={styles.callLogSub} numberOfLines={1}>
+                                  {isMissedCall
+                                    ? "Missed call"
+                                    : formattedCallDuration
+                                    ? `Call ended • ${formattedCallDuration}`
+                                    : "Call ended"}{" "}
+                                  •{" "}
+                                  {new Date(item.at).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <TouchableOpacity
+                              onPress={() => handleStartCall(isVideoCall)}
+                              style={[
+                                styles.callLogActionBtn,
+                                { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+                              ]}
+                              hitSlop={6}
+                            >
+                              {isVideoCall ? (
+                                <Video size={13} color={themeAccent} />
+                              ) : (
+                                <Phone size={13} color={themeAccent} />
+                              )}
+                              <Text style={[styles.callLogActionText, { color: themeAccent }]}>
+                                Call
+                              </Text>
+                            </TouchableOpacity>
+                          </BlurView>
+                        </View>
+                      ) : (
+                        <>
+                          <Pressable
+                            delayLongPress={150}
+                            onPress={() => handleMessagePress(item)}
+                            onLongPress={() => {
+                              NativeHaptics.medium();
+                              setSelectedMessage(item);
+                              setMessageActionOpen(true);
+                            }}
+                            style={[
+                              styles.bubbleGlassWrap,
+                              stickerOnly && styles.stickerOnlyBubble,
+                              isMe ? styles.myBubbleGlassWrap : styles.theirBubbleGlassWrap,
+                            ]}
+                          >
+                            <DoubleTapHeartOverlay visible={heartPoppingId === item.id} />
+
+                            <BlurView
+                              intensity={isMe ? 20 : 25}
+                              tint="dark"
+                              style={[
+                                styles.bubbleInner,
+                                isMe ? styles.myBubbleInner : styles.theirBubbleInner,
+                              ]}
+                            >
+                              <LinearGradient
+                                colors={
+                                  isMe
+                                    ? ["rgba(232, 163, 61, 0.12)", "rgba(232, 163, 61, 0.04)"]
+                                    : ["rgba(255, 255, 255, 0.04)", "rgba(255, 255, 255, 0.01)"]
+                                }
+                                style={StyleSheet.absoluteFillObject}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                              />
+
+                              {/* Rich Markdown & LaTeX Message Body */}
+                              {cleanText ? (
+                                <RichMarkdown
+                                  content={cleanText}
+                                  textColor={isMe ? "#FFFFFF" : colors.textPrimary}
+                                />
+                              ) : null}
+
+                              {/* Decoded Attachments */}
+                              {attachments.map((att, idx) => (
+                                <AttachmentCard key={idx} attachment={att} />
+                              ))}
+
+                              <View style={styles.bubbleMetaRow}>
+                                <Text
+                                  style={[
+                                    styles.bubbleTime,
+                                    isMe ? styles.myBubbleTime : styles.theirBubbleTime,
+                                  ]}
+                                >
+                                  {new Date(item.at).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </Text>
+                                {isMe && (
+                                  <CheckCheck size={12} color="rgba(232, 163, 61, 0.85)" style={{ marginLeft: 3 }} />
+                                )}
+                              </View>
+                            </BlurView>
+                          </Pressable>
+
+                          {/* Translucent Liquid Glass Reaction Strip */}
+                          {hasReactions && (
+                            <View style={[styles.reactionsStrip, isMe && styles.myReactionsStrip]}>
+                              {item.reactions!.map((reaction: any, rIdx: number) => {
+                                const userReacted = reaction.reacted;
+                                return (
+                                  <TouchableOpacity
+                                    key={`${item.id}_${reaction.emoji}_${rIdx}`}
+                                    onPress={() => {
+                                      NativeHaptics.selection();
+                                      toggleDMReaction(convoId, item.id, reaction.emoji);
+                                    }}
                                     style={[
-                                      styles.reactionCount,
-                                      userReacted && styles.reactionCountActive,
+                                      styles.reactionBadge,
+                                      userReacted && styles.reactionBadgeActive,
                                     ]}
                                   >
-                                    {reaction.count}
-                                  </Text>
-                                )}
+                                    <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+                                    {reaction.count > 1 && (
+                                      <Text
+                                        style={[
+                                          styles.reactionCount,
+                                          userReacted && styles.reactionCountActive,
+                                        ]}
+                                      >
+                                        {reaction.count}
+                                      </Text>
+                                    )}
+                                  </TouchableOpacity>
+                                );
+                              })}
+                              <TouchableOpacity
+                                onPress={() => {
+                                  NativeHaptics.light();
+                                  setMessageToReact(item);
+                                  setReactModalOpen(true);
+                                }}
+                                style={styles.reactionAddBtn}
+                                hitSlop={6}
+                              >
+                                <Plus size={11} color={colors.textMuted} />
                               </TouchableOpacity>
-                            );
-                          })}
-                          <TouchableOpacity
-                            onPress={() => {
-                              NativeHaptics.light();
-                              setMessageToReact(item);
-                              setReactModalOpen(true);
-                            }}
-                            style={styles.reactionAddBtn}
-                            hitSlop={6}
-                          >
-                            <Plus size={11} color={colors.textMuted} />
-                          </TouchableOpacity>
-                        </View>
+                            </View>
+                          )}
+                        </>
                       )}
                     </View>
                   </View>
@@ -1004,6 +1110,57 @@ export default function DMDetailScreen() {
                 <Text style={styles.actionMenuSub}>Customize this conversation appearance</Text>
               </View>
             </Pressable>
+
+            {/* Test / Simulate Incoming Voice Call */}
+            <Pressable
+              style={styles.actionMenuRow}
+              onPress={() => {
+                setDmOptionsOpen(false);
+                NativeHaptics.medium();
+                router.push({
+                  pathname: `/(app)/voice/${convoId}`,
+                  params: {
+                    type: "voice",
+                    title: conversation.name,
+                    direction: "incoming",
+                  },
+                } as any);
+              }}
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: "rgba(34, 197, 94, 0.15)" }]}>
+                <PhoneCall size={17} color="#22C55E" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.actionMenuText}>Test Incoming Call</Text>
+                <Text style={styles.actionMenuSub}>Simulate receiving an incoming call & answering</Text>
+              </View>
+            </Pressable>
+
+            {/* Test / Simulate Incoming Video Call */}
+            <Pressable
+              style={styles.actionMenuRow}
+              onPress={() => {
+                setDmOptionsOpen(false);
+                NativeHaptics.medium();
+                router.push({
+                  pathname: `/(app)/voice/${convoId}`,
+                  params: {
+                    type: "video",
+                    title: conversation.name,
+                    direction: "incoming",
+                  },
+                } as any);
+              }}
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: "rgba(168, 85, 247, 0.15)" }]}>
+                <Video size={17} color="#A855F7" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.actionMenuText}>Test Incoming Video Call</Text>
+                <Text style={styles.actionMenuSub}>Simulate receiving a video call</Text>
+              </View>
+            </Pressable>
+
             <Pressable
               style={styles.actionMenuRow}
               onPress={async () => {
@@ -1435,8 +1592,8 @@ const styles = StyleSheet.create({
   messageBubbleWrap: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 9,
-    marginBottom: 12,
+    gap: 8,
+    marginVertical: 4,
   },
   myMessageWrap: {
     justifyContent: "flex-end",
@@ -1444,16 +1601,97 @@ const styles = StyleSheet.create({
   theirMessageWrap: {
     justifyContent: "flex-start",
   },
+  messageContentColumn: {
+    maxWidth: "82%",
+    flexShrink: 1,
+  },
+  messageContentColumnOwn: {
+    alignItems: "flex-end",
+  },
+  messageContentColumnOther: {
+    alignItems: "flex-start",
+  },
+  callLogColumn: {
+    width: "100%",
+    maxWidth: "100%",
+  },
+  callLogCardWrap: {
+    width: "100%",
+    borderRadius: 20,
+    overflow: "hidden",
+    marginVertical: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  callLogCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.10)",
+    borderRadius: 20,
+    overflow: "hidden",
+    gap: 12,
+  },
+  callLogCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+    minWidth: 0,
+  },
+  callLogIconOrb: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  callLogIconOrbMissed: {
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    borderColor: "rgba(239, 68, 68, 0.35)",
+  },
+  callLogTitle: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  callLogSub: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+    fontFamily: "monospace",
+  },
+  callLogActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexShrink: 0,
+  },
+  callLogActionText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
   bubbleGlassWrap: {
     minWidth: 0,
     maxWidth: "100%",
-    borderRadius: 22,
+    borderRadius: 20,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.28,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    elevation: 3,
   },
   stickerOnlyBubble: {
     backgroundColor: "transparent",
@@ -1463,26 +1701,24 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   myBubbleGlassWrap: {
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    borderBottomRightRadius: 5,
-    borderBottomLeftRadius: 22,
-    maxWidth: "78%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 4,
+    borderBottomLeftRadius: 20,
   },
   theirBubbleGlassWrap: {
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    borderBottomRightRadius: 22,
-    borderBottomLeftRadius: 5,
-    maxWidth: "82%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: 4,
   },
   bubbleInner: {
     minWidth: 0,
     maxWidth: "100%",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
     overflow: "hidden",
-    borderWidth: 0,
+    borderRadius: 20,
   },
   myBubbleInner: {
     borderTopLeftRadius: 20,
@@ -1490,6 +1726,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
     borderBottomLeftRadius: 20,
     borderColor: "rgba(232, 163, 61, 0.2)",
+    borderWidth: 1,
     backgroundColor: "transparent",
   },
   theirBubbleInner: {
@@ -1498,6 +1735,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 20,
     borderBottomLeftRadius: 4,
     borderColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
     backgroundColor: "transparent",
   },
   bubbleText: {
@@ -1539,9 +1777,13 @@ const styles = StyleSheet.create({
   dmReplyHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 6,
     marginBottom: 4,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderLeftWidth: 2,
+    maxWidth: "100%",
   },
   dmReplyAuthor: {
     color: colors.accent,

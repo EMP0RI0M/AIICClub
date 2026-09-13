@@ -21,6 +21,7 @@ import {
   CallState,
   AudioRoute,
   CallParticipant,
+  VideoState,
 } from "../../lib/call-service";
 import {
   Mic,
@@ -32,6 +33,12 @@ import {
   ShieldCheck,
   Wifi,
   AlertCircle,
+  Video as VideoIcon,
+  VideoOff,
+  SwitchCamera,
+  Camera,
+  Sparkles,
+  User,
 } from "lucide-react-native";
 
 export interface CallScreenProps {
@@ -64,6 +71,9 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   const [audioRoute, setAudioRoute] = useState<AudioRoute>("speaker");
   const [callDuration, setCallDuration] = useState(0);
   const [quality, setQuality] = useState<"excellent" | "good" | "weak" | "reconnecting">("excellent");
+  const [videoState, setVideoState] = useState<VideoState>(callService.getVideoState());
+
+  const isVideoMode = isVideo || videoState.isVideo;
 
   // Animations
   const haloAnim = useRef(new Animated.Value(1)).current;
@@ -167,6 +177,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
       setQuality(nextQuality);
     });
 
+    const unsubVideo = callService.onVideoStateChange((nextVideo) => {
+      setVideoState(nextVideo);
+    });
+
     // Start Call Session
     callService.startCall({
       callId,
@@ -186,6 +200,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
     return () => {
       unsubState();
       unsubQuality();
+      unsubVideo();
       backHandler.remove();
       if (callService.getState() === "ended" || callService.getState() === "failed" || callService.getState() === "no_answer") {
         callService.cleanup();
@@ -211,7 +226,13 @@ export const CallScreen: React.FC<CallScreenProps> = ({
       case "connecting":
         return "Connecting…";
       case "connected":
-        return isMuted ? "Muted · HD Audio" : "Connected";
+        return isVideoMode
+          ? isMuted
+            ? "Muted · HD Video"
+            : "Connected · HD Video"
+          : isMuted
+          ? "Muted · HD Audio"
+          : "Connected";
       case "reconnecting":
         return "Reconnecting…";
       case "no_answer":
@@ -223,12 +244,22 @@ export const CallScreen: React.FC<CallScreenProps> = ({
       default:
         return "Calling…";
     }
-  }, [callState, isMuted, errorMessage, direction]);
+  }, [callState, isMuted, errorMessage, direction, isVideoMode]);
 
   const handleToggleMute = () => {
     NativeHaptics.selection();
     const nextMute = callService.toggleMute();
     setIsMuted(nextMute);
+  };
+
+  const handleToggleCamera = () => {
+    NativeHaptics.selection();
+    callService.toggleCamera();
+  };
+
+  const handleFlipCamera = () => {
+    NativeHaptics.selection();
+    callService.flipCamera();
   };
 
   const handleToggleAudioRoute = async () => {
@@ -256,7 +287,8 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   };
 
   const resolvedAvatarUrl = formatAvatarUrl(participant.avatarUrl);
-  const avatarSize = Math.min(140, width * 0.35);
+  const userAvatarUrl = formatAvatarUrl(currentUser?.avatarUrl);
+  const avatarSize = Math.min(130, width * 0.32);
 
   return (
     <View style={styles.container}>
@@ -270,7 +302,11 @@ export const CallScreen: React.FC<CallScreenProps> = ({
 
       {/* Subtle Ambient Top Glow */}
       <LinearGradient
-        colors={["rgba(232, 163, 61, 0.08)", "rgba(45, 212, 191, 0.03)", "transparent"]}
+        colors={
+          isVideoMode
+            ? ["rgba(45, 212, 191, 0.12)", "rgba(56, 189, 248, 0.05)", "transparent"]
+            : ["rgba(232, 163, 61, 0.08)", "rgba(45, 212, 191, 0.03)", "transparent"]
+        }
         style={styles.ambientGlow}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
@@ -291,7 +327,9 @@ export const CallScreen: React.FC<CallScreenProps> = ({
         <View style={styles.topHeader}>
           <View style={styles.securityBadge}>
             <ShieldCheck size={13} color={colors.live} />
-            <Text style={styles.securityText}>END-TO-END ENCRYPTED</Text>
+            <Text style={styles.securityText}>
+              {isVideoMode ? "E2EE HD VIDEO CALL" : "END-TO-END ENCRYPTED"}
+            </Text>
           </View>
 
           {callState === "connected" && (
@@ -302,71 +340,179 @@ export const CallScreen: React.FC<CallScreenProps> = ({
           )}
         </View>
 
-        {/* Center Remote Participant Area */}
-        <View style={styles.centerArea}>
-          {/* Avatar Ring & Subtle Halo */}
-          <View style={[styles.avatarArea, { width: avatarSize + 40, height: avatarSize + 40 }]}>
-            <Animated.View
-              style={[
-                styles.avatarHalo,
-                {
-                  width: avatarSize + 36,
-                  height: avatarSize + 36,
-                  borderRadius: (avatarSize + 36) / 2,
-                  opacity: haloOpacity,
-                  transform: [{ scale: haloAnim }],
-                },
-              ]}
-            />
-
-            <View
-              style={[
-                styles.avatarRing,
-                {
-                  width: avatarSize + 8,
-                  height: avatarSize + 8,
-                  borderRadius: (avatarSize + 8) / 2,
-                },
-              ]}
-            >
-              <Avatar
-                name={participant.name}
-                url={resolvedAvatarUrl}
-                size={avatarSize}
+        {/* Center Area: Video Stage or Voice Call View */}
+        {isVideoMode ? (
+          <View style={styles.videoStageContainer}>
+            {/* Remote Participant Video Canvas */}
+            <View style={styles.remoteVideoCard}>
+              <LinearGradient
+                colors={["rgba(26, 32, 48, 0.70)", "rgba(10, 12, 18, 0.90)"]}
+                style={StyleSheet.absoluteFillObject}
               />
+
+              {callState === "connected" && videoState.remoteCameraOn ? (
+                /* Connected Remote Camera View */
+                <View style={styles.liveVideoView}>
+                  <LinearGradient
+                    colors={["rgba(16, 185, 129, 0.15)", "rgba(13, 14, 22, 0.6)"]}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                  <View style={styles.liveWatermark}>
+                    <Sparkles size={14} color="#10B981" />
+                    <Text style={styles.liveWatermarkText}>HD 1080p Live Stream</Text>
+                  </View>
+
+                  <View style={styles.videoAvatarBackdrop}>
+                    <Avatar
+                      name={participant.name}
+                      url={resolvedAvatarUrl}
+                      size={96}
+                    />
+                  </View>
+                </View>
+              ) : (
+                /* Remote Camera Paused / Ringing Placeholder */
+                <View style={styles.videoPausedContainer}>
+                  <View style={styles.videoPausedAvatarWrap}>
+                    <Avatar
+                      name={participant.name}
+                      url={resolvedAvatarUrl}
+                      size={88}
+                    />
+                  </View>
+                  <Text style={styles.videoPausedLabel}>
+                    {callState === "connected" ? "Camera Paused" : "Connecting Video…"}
+                  </Text>
+                </View>
+              )}
+
+              {/* Remote Name Overlay at bottom left of stage */}
+              <View style={styles.remoteVideoOverlay}>
+                <Text style={styles.remoteVideoName} numberOfLines={1}>
+                  {participant.name}
+                </Text>
+                <View style={styles.statusRow}>
+                  {callState === "failed" ? (
+                    <AlertCircle size={12} color={colors.danger} />
+                  ) : callState === "reconnecting" ? (
+                    <Wifi size={12} color={colors.warning} />
+                  ) : null}
+                  <Text
+                    style={[
+                      styles.statusText,
+                      callState === "connected" && styles.statusConnected,
+                      callState === "failed" && styles.statusFailed,
+                    ]}
+                  >
+                    {statusLabel}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Local User Picture-in-Picture (PiP) Window */}
+            <TouchableOpacity
+              style={styles.localPipCard}
+              onPress={handleFlipCamera}
+              activeOpacity={0.85}
+            >
+              <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFillObject} />
+              <LinearGradient
+                colors={["rgba(255, 255, 255, 0.12)", "rgba(18, 22, 34, 0.95)"]}
+                style={StyleSheet.absoluteFillObject}
+              />
+
+              {videoState.isCameraOn ? (
+                <View style={styles.pipContent}>
+                  <View style={styles.pipAvatarMini}>
+                    <Avatar
+                      name={currentUser?.name || "You"}
+                      url={userAvatarUrl}
+                      size={40}
+                    />
+                  </View>
+                  <View style={styles.pipBadge}>
+                    <SwitchCamera size={10} color="#FFFFFF" />
+                    <Text style={styles.pipBadgeText}>
+                      {videoState.cameraFacing === "front" ? "Front" : "Back"}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.pipOffContent}>
+                  <VideoOff size={16} color={colors.danger} />
+                  <Text style={styles.pipOffText}>Cam Off</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          /* Voice Call Center Area */
+          <View style={styles.centerArea}>
+            {/* Avatar Ring & Subtle Halo */}
+            <View style={[styles.avatarArea, { width: avatarSize + 40, height: avatarSize + 40 }]}>
+              <Animated.View
+                style={[
+                  styles.avatarHalo,
+                  {
+                    width: avatarSize + 36,
+                    height: avatarSize + 36,
+                    borderRadius: (avatarSize + 36) / 2,
+                    opacity: haloOpacity,
+                    transform: [{ scale: haloAnim }],
+                  },
+                ]}
+              />
+
+              <View
+                style={[
+                  styles.avatarRing,
+                  {
+                    width: avatarSize + 8,
+                    height: avatarSize + 8,
+                    borderRadius: (avatarSize + 8) / 2,
+                  },
+                ]}
+              >
+                <Avatar
+                  name={participant.name}
+                  url={resolvedAvatarUrl}
+                  size={avatarSize}
+                />
+              </View>
+            </View>
+
+            {/* Remote Name & Username */}
+            <Text style={styles.remoteName} numberOfLines={1}>
+              {participant.name}
+            </Text>
+
+            {participant.username && (
+              <Text style={styles.remoteUsername} numberOfLines={1}>
+                @{participant.username.replace(/^@/, "")}
+              </Text>
+            )}
+
+            {/* Call Status Indicator */}
+            <View style={styles.statusRow}>
+              {callState === "failed" ? (
+                <AlertCircle size={14} color={colors.danger} />
+              ) : callState === "reconnecting" ? (
+                <Wifi size={14} color={colors.warning} />
+              ) : null}
+              <Text
+                style={[
+                  styles.statusText,
+                  callState === "connected" && styles.statusConnected,
+                  callState === "failed" && styles.statusFailed,
+                  callState === "reconnecting" && styles.statusReconnecting,
+                ]}
+              >
+                {statusLabel}
+              </Text>
             </View>
           </View>
-
-          {/* Remote Name & Username */}
-          <Text style={styles.remoteName} numberOfLines={1}>
-            {participant.name}
-          </Text>
-
-          {participant.username && (
-            <Text style={styles.remoteUsername} numberOfLines={1}>
-              @{participant.username.replace(/^@/, "")}
-            </Text>
-          )}
-
-          {/* Call Status Indicator */}
-          <View style={styles.statusRow}>
-            {callState === "failed" ? (
-              <AlertCircle size={14} color={colors.danger} />
-            ) : callState === "reconnecting" ? (
-              <Wifi size={14} color={colors.warning} />
-            ) : null}
-            <Text
-              style={[
-                styles.statusText,
-                callState === "connected" && styles.statusConnected,
-                callState === "failed" && styles.statusFailed,
-                callState === "reconnecting" && styles.statusReconnecting,
-              ]}
-            >
-              {statusLabel}
-            </Text>
-          </View>
-        </View>
+        )}
 
         {/* Bottom Glass Call Controls */}
         <View style={styles.bottomControls}>
@@ -390,13 +536,19 @@ export const CallScreen: React.FC<CallScreenProps> = ({
                   onPress={handleAcceptCall}
                   activeOpacity={0.8}
                 >
-                  <Phone size={28} color="#FFFFFF" />
+                  {isVideoMode ? (
+                    <VideoIcon size={28} color="#FFFFFF" />
+                  ) : (
+                    <Phone size={28} color="#FFFFFF" />
+                  )}
                 </TouchableOpacity>
-                <Text style={styles.btnLabel}>Accept</Text>
+                <Text style={styles.btnLabel}>
+                  {isVideoMode ? "Accept Video" : "Accept"}
+                </Text>
               </View>
             </View>
           ) : (
-            /* Active Call Controls Bar: [ Speaker ] [ Mute ] [ End Call ] */
+            /* Active Call Controls Bar: [ Flip ] [ Camera ] [ Speaker ] [ Mute ] [ End ] */
             <BlurView intensity={35} tint="dark" style={styles.glassControlBar}>
               <LinearGradient
                 colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
@@ -404,6 +556,46 @@ export const CallScreen: React.FC<CallScreenProps> = ({
                 start={{ x: 0, y: 0 }}
                 end={{ x: 0, y: 1 }}
               />
+
+              {/* Video Specific: Flip Camera Button */}
+              {isVideoMode && (
+                <View style={styles.btnColumn}>
+                  <TouchableOpacity
+                    style={styles.circleControlBtn}
+                    onPress={handleFlipCamera}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Flip camera"
+                  >
+                    <SwitchCamera size={22} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                  <Text style={styles.controlLabel}>Flip</Text>
+                </View>
+              )}
+
+              {/* Video Specific: Camera On/Off Toggle */}
+              {isVideoMode && (
+                <View style={styles.btnColumn}>
+                  <TouchableOpacity
+                    style={[
+                      styles.circleControlBtn,
+                      videoState.isCameraOn && styles.circleControlBtnVideoActive,
+                      !videoState.isCameraOn && styles.circleControlBtnMuted,
+                    ]}
+                    onPress={handleToggleCamera}
+                    activeOpacity={0.7}
+                    accessibilityLabel={videoState.isCameraOn ? "Turn camera off" : "Turn camera on"}
+                  >
+                    {videoState.isCameraOn ? (
+                      <VideoIcon size={22} color="#10B981" />
+                    ) : (
+                      <VideoOff size={22} color={colors.danger} />
+                    )}
+                  </TouchableOpacity>
+                  <Text style={[styles.controlLabel, !videoState.isCameraOn && { color: colors.danger }]}>
+                    {videoState.isCameraOn ? "Camera" : "Cam Off"}
+                  </Text>
+                </View>
+              )}
 
               {/* Speaker / Earpiece Toggle */}
               <View style={styles.btnColumn}>
@@ -417,9 +609,9 @@ export const CallScreen: React.FC<CallScreenProps> = ({
                   accessibilityLabel="Audio output switch"
                 >
                   {audioRoute === "speaker" ? (
-                    <Volume2 size={24} color={colors.textPrimary} />
+                    <Volume2 size={22} color={colors.textPrimary} />
                   ) : (
-                    <VolumeX size={24} color={colors.textMuted} />
+                    <VolumeX size={22} color={colors.textMuted} />
                   )}
                 </TouchableOpacity>
                 <Text style={styles.controlLabel}>
@@ -439,9 +631,9 @@ export const CallScreen: React.FC<CallScreenProps> = ({
                   accessibilityLabel={isMuted ? "Unmute microphone" : "Mute microphone"}
                 >
                   {isMuted ? (
-                    <MicOff size={24} color={colors.danger} />
+                    <MicOff size={22} color={colors.danger} />
                   ) : (
-                    <Mic size={24} color={colors.textPrimary} />
+                    <Mic size={22} color={colors.textPrimary} />
                   )}
                 </TouchableOpacity>
                 <Text style={[styles.controlLabel, isMuted && { color: colors.danger }]}>
@@ -457,7 +649,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
                   activeOpacity={0.8}
                   accessibilityLabel="End Call"
                 >
-                  <PhoneOff size={26} color="#FFFFFF" />
+                  <PhoneOff size={24} color="#FFFFFF" />
                 </TouchableOpacity>
                 <Text style={[styles.controlLabel, { color: colors.danger }]}>End</Text>
               </View>
@@ -657,6 +849,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.20)",
     borderColor: "rgba(255, 255, 255, 0.35)",
   },
+  circleControlBtnVideoActive: {
+    backgroundColor: "rgba(16, 185, 129, 0.22)",
+    borderColor: "rgba(16, 185, 129, 0.50)",
+  },
   circleControlBtnMuted: {
     backgroundColor: "rgba(239, 68, 68, 0.18)",
     borderColor: "rgba(239, 68, 68, 0.35)",
@@ -674,5 +870,151 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: colors.textPrimary,
+  },
+  videoStageContainer: {
+    width: "100%",
+    flex: 1,
+    marginVertical: 12,
+    position: "relative",
+  },
+  remoteVideoCard: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.10)",
+    backgroundColor: "#0C0F17",
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  liveVideoView: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  liveWatermark: {
+    position: "absolute",
+    top: 14,
+    left: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.3)",
+  },
+  liveWatermarkText: {
+    fontSize: 11,
+    fontFamily: "JetBrainsMono_700Bold",
+    color: "#10B981",
+  },
+  videoAvatarBackdrop: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderColor: "rgba(16, 185, 129, 0.4)",
+    backgroundColor: "rgba(10, 15, 20, 0.8)",
+  },
+  videoPausedContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  videoPausedAvatarWrap: {
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 50,
+    padding: 4,
+  },
+  videoPausedLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: "600",
+  },
+  remoteVideoOverlay: {
+    position: "absolute",
+    bottom: 16,
+    left: 16,
+    right: 16,
+    flexDirection: "column",
+    gap: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  remoteVideoName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  localPipCard: {
+    position: "absolute",
+    bottom: 24,
+    right: 16,
+    width: 96,
+    height: 128,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.22)",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pipContent: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+  },
+  pipAvatarMini: {
+    marginTop: 4,
+  },
+  pipBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  pipBadgeText: {
+    fontSize: 9,
+    fontFamily: "JetBrainsMono_700Bold",
+    color: "#FFFFFF",
+  },
+  pipOffContent: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 4,
+  },
+  pipOffText: {
+    fontSize: 10,
+    color: colors.danger,
+    fontWeight: "700",
   },
 });

@@ -180,8 +180,11 @@ export interface ChatMessage {
   author: MemberRef;
   at: string;
   text: string;
+  type?: "default" | "reply" | "call" | "system";
+  metadata?: string | Record<string, any>;
   pinned?: boolean;
   edited?: boolean;
+  isE2EE?: boolean;
   replyTo?: { id: string; authorName: string; text: string; authorId?: string };
   thread?: ThreadSummary | { id: string; messageCount: number; lastMessageAt: string };
   threadReplyCount?: number;

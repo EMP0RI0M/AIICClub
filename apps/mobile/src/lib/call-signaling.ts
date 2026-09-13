@@ -56,6 +56,49 @@ class GlobalCallSignaling {
     this.listeners.forEach((fn) => fn(call));
   }
 
+  triggerIncomingCall(rawPayload: any) {
+    if (!rawPayload) return;
+    const payload = rawPayload.payload?.data || rawPayload.payload || rawPayload.data || rawPayload;
+    const callerId = payload.callerId || payload.caller_id || "unknown";
+    if (this.currentUserId && callerId === this.currentUserId) return;
+
+    const incoming: IncomingCallPayload = {
+      conversationId: payload.conversationId || payload.callId || payload.dmId || "",
+      callId: payload.callId || payload.conversationId || payload.dmId || "",
+      callerId,
+      callerName: payload.callerName || payload.caller_name || "AIIC Member",
+      callerAvatar: payload.callerAvatar || payload.caller_avatar || null,
+      video: Boolean(payload.video || payload.isVideo),
+      roomName: payload.roomName || payload.room_name,
+      timestamp: payload.timestamp || Date.now(),
+    };
+
+    console.log("[GlobalCallSignaling] Triggering incoming call:", incoming);
+    NativeHaptics.warning();
+    this.notify(incoming);
+
+    notificationService.show({
+      type: "call",
+      title: incoming.video ? "Incoming Video Call" : "Incoming Voice Call",
+      body: `${incoming.callerName} is calling you...`,
+      dmId: incoming.conversationId || incoming.callId,
+      durationMs: 45000,
+    });
+  }
+
+  private acceptedListeners: Set<(payload: any) => void> = new Set();
+  private endedListeners: Set<(payload: any) => void> = new Set();
+
+  onCallAccepted(fn: (payload: any) => void): () => void {
+    this.acceptedListeners.add(fn);
+    return () => this.acceptedListeners.delete(fn);
+  }
+
+  onCallEnded(fn: (payload: any) => void): () => void {
+    this.endedListeners.add(fn);
+    return () => this.endedListeners.delete(fn);
+  }
+
   /**
    * Subscribe to global user channel to receive incoming calls anywhere across the app
    */
@@ -72,40 +115,28 @@ class GlobalCallSignaling {
       });
 
       this.userChannel
-        .on("broadcast", { event: "incoming_call" }, ({ payload }: { payload: any }) => {
-          if (!payload) return;
-          console.log("[GlobalCallSignaling] Incoming call received:", payload);
-          NativeHaptics.warning();
-
-          const incoming: IncomingCallPayload = {
-            conversationId: payload.conversationId || payload.callId,
-            callId: payload.callId || payload.conversationId,
-            callerId: payload.callerId,
-            callerName: payload.callerName || "AIIC Member",
-            callerAvatar: payload.callerAvatar || null,
-            video: Boolean(payload.video),
-            roomName: payload.roomName,
-            timestamp: payload.timestamp || Date.now(),
-          };
-
-          this.notify(incoming);
-
-          notificationService.show({
-            type: "call",
-            title: incoming.video ? "Incoming Video Call" : "Incoming Voice Call",
-            body: `${incoming.callerName} is calling you...`,
-            dmId: incoming.conversationId || incoming.callId,
-            durationMs: 45000,
-          });
+        .on("broadcast", { event: "incoming_call" }, (msg: any) => {
+          this.triggerIncomingCall(msg);
         })
-        .on("broadcast", { event: "call_declined" }, () => {
+        .on("broadcast", { event: "call_accepted" }, (msg: any) => {
           this.dismissActiveCall();
+          const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+          this.acceptedListeners.forEach((fn) => fn(payload));
         })
-        .on("broadcast", { event: "call_ended" }, () => {
+        .on("broadcast", { event: "call_declined" }, (msg: any) => {
           this.dismissActiveCall();
+          const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+          this.endedListeners.forEach((fn) => fn(payload));
         })
-        .on("broadcast", { event: "call_cancelled" }, () => {
+        .on("broadcast", { event: "call_ended" }, (msg: any) => {
           this.dismissActiveCall();
+          const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+          this.endedListeners.forEach((fn) => fn(payload));
+        })
+        .on("broadcast", { event: "call_cancelled" }, (msg: any) => {
+          this.dismissActiveCall();
+          const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+          this.endedListeners.forEach((fn) => fn(payload));
         })
         .subscribe();
 
@@ -115,28 +146,28 @@ class GlobalCallSignaling {
           config: { broadcast: { self: false } },
         });
         authChannel
-          .on("broadcast", { event: "incoming_call" }, ({ payload }: { payload: any }) => {
-            if (!payload) return;
-            const incoming: IncomingCallPayload = {
-              conversationId: payload.conversationId || payload.callId,
-              callId: payload.callId || payload.conversationId,
-              callerId: payload.callerId,
-              callerName: payload.callerName || "AIIC Member",
-              callerAvatar: payload.callerAvatar || null,
-              video: Boolean(payload.video),
-              roomName: payload.roomName,
-              timestamp: payload.timestamp || Date.now(),
-            };
-            this.notify(incoming);
+          .on("broadcast", { event: "incoming_call" }, (msg: any) => {
+            this.triggerIncomingCall(msg);
           })
-          .on("broadcast", { event: "call_declined" }, () => {
+          .on("broadcast", { event: "call_accepted" }, (msg: any) => {
             this.dismissActiveCall();
+            const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+            this.acceptedListeners.forEach((fn) => fn(payload));
           })
-          .on("broadcast", { event: "call_ended" }, () => {
+          .on("broadcast", { event: "call_declined" }, (msg: any) => {
             this.dismissActiveCall();
+            const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+            this.endedListeners.forEach((fn) => fn(payload));
           })
-          .on("broadcast", { event: "call_cancelled" }, () => {
+          .on("broadcast", { event: "call_ended" }, (msg: any) => {
             this.dismissActiveCall();
+            const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+            this.endedListeners.forEach((fn) => fn(payload));
+          })
+          .on("broadcast", { event: "call_cancelled" }, (msg: any) => {
+            this.dismissActiveCall();
+            const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+            this.endedListeners.forEach((fn) => fn(payload));
           })
           .subscribe();
       }

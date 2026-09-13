@@ -253,7 +253,7 @@ export function IncidentChannelView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
   },
   header: {
     flexDirection: "row",
@@ -261,16 +261,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.12)",
+    borderBottomColor: "rgba(255, 255, 255, 0.08)",
     gap: 8,
   },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
   headerTitleWrap: {
     flex: 1,
@@ -321,7 +323,9 @@ const styles = StyleSheet.create({
   },
   matrixCard: {
     padding: 14,
-    backgroundColor: "rgba(22, 24, 33, 0.85)",
+    backgroundColor: "rgba(22, 24, 33, 0.65)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 16,
     marginBottom: 16,
   },
@@ -380,10 +384,10 @@ const styles = StyleSheet.create({
   newUpdateBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(28, 30, 42, 0.88)",
+    backgroundColor: "rgba(28, 30, 42, 0.70)",
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.10)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginBottom: 14,
@@ -407,7 +411,9 @@ const styles = StyleSheet.create({
   },
   timelineCard: {
     padding: 12,
-    backgroundColor: "rgba(22, 24, 33, 0.85)",
+    backgroundColor: "rgba(22, 24, 33, 0.60)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 14,
   },
   timelineHeader: {

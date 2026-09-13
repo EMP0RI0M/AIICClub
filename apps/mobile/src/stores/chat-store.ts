@@ -20,9 +20,12 @@ import {
 } from "../lib/api";
 import { offlineManager } from "../lib/offline-manager";
 import { notificationService } from "../lib/notifications";
+import { globalCallSignaling } from "../lib/call-signaling";
 import { NativeHaptics } from "../lib/haptics";
 import { soundService } from "../lib/sound-service";
 import { useAuthStore } from "./auth-store";
+import { useWorkspaceStore } from "./workspace-store";
+import { e2ee } from "../lib/e2ee";
 
 interface ChatState {
   messages: Record<string, ChatMessage[]>;
@@ -278,10 +281,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           event: "incoming_call",
           payload: {
             dmId,
+            callId: dmId,
+            conversationId: dmId,
             callerId: caller.id,
             callerName: caller.name,
             callerAvatar: caller.avatar,
-            isVideo: !!isVideo,
+            video: Boolean(isVideo),
+            isVideo: Boolean(isVideo),
             timestamp: new Date().toISOString(),
           },
         });
@@ -304,25 +310,43 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ isLoadingMessages: !cached });
     try {
       const res = await fetchDMMessages(dmId);
-      const formatted: ChatMessage[] = (res.messages || []).map((m: any) => ({
-        id: m.id,
-        author: {
-          id: m.author?.id || m.authorId,
-          name: m.author?.displayName || m.author?.username || "User",
-          avatar: m.author?.avatarUrl || null,
-        },
-        at: m.createdAt,
-        text: m.content,
-        replyTo: m.replyTo
-          ? {
-              id: m.replyTo.id,
-              authorId: m.replyTo.authorId || m.replyTo.author?.id,
-              authorName: m.replyTo.authorName || m.replyTo.author?.displayName || m.replyTo.author?.username || "User",
-              text: m.replyTo.content || m.replyTo.text || "",
-            }
-          : undefined,
-        reactions: m.reactions || [],
-      }));
+      const currentUser = useAuthStore.getState().user;
+      const currentUserId = currentUser?.id || "me";
+
+      const formatted: ChatMessage[] = await Promise.all(
+        (res.messages || []).map(async (m: any) => {
+          let text = m.content || "";
+          let isE2EE = false;
+          if (typeof text === "string" && text.startsWith("enc:v3:")) {
+            const dec = await e2ee.decrypt(text, currentUserId);
+            text = dec.plaintext;
+            isE2EE = dec.isE2EE;
+          }
+
+          return {
+            id: m.id,
+            author: {
+              id: m.author?.id || m.authorId,
+              name: m.author?.displayName || m.author?.username || "User",
+              avatar: m.author?.avatarUrl || null,
+            },
+            at: m.createdAt,
+            text,
+            isE2EE,
+            type: m.type || "default",
+            metadata: m.metadata || undefined,
+            replyTo: m.replyTo
+              ? {
+                  id: m.replyTo.id,
+                  authorId: m.replyTo.authorId || m.replyTo.author?.id,
+                  authorName: m.replyTo.authorName || m.replyTo.author?.displayName || m.replyTo.author?.username || "User",
+                  text: m.replyTo.content || m.replyTo.text || "",
+                }
+              : undefined,
+            reactions: m.reactions || [],
+          };
+        })
+      );
 
       await offlineManager.setCache(`dm_msgs_${dmId}`, formatted);
 
@@ -342,22 +366,50 @@ export const useChatStore = create<ChatState>((set, get) => ({
   sendDMMessageAction: async (dmId: string, content: string, replyToId?: string) => {
     NativeHaptics.medium();
 
+    const currentUser = useAuthStore.getState().user;
+    const currentUserId = currentUser?.id || "me";
+
+    // Resolve recipient user id from DM state
+    const dmSummary = useWorkspaceStore.getState().dms.find((d) => d.id === dmId);
+    const recipientId = dmSummary?.peerId || (dmSummary?.group && dmSummary.group.find((g) => g.id !== currentUserId)?.id);
+
+    let payloadToSend = content;
+    let isE2EE = false;
+    if (recipientId && recipientId !== currentUserId) {
+      try {
+        payloadToSend = await e2ee.encrypt(recipientId, content, currentUserId);
+        isE2EE = payloadToSend.startsWith("enc:v3:");
+      } catch (err) {
+        console.warn("[E2EE_ENCRYPT_WARN]", err);
+      }
+    }
+
+    const replyTarget = replyToId ? (get().dmMessages[dmId] || []).find((m) => m.id === replyToId) : null;
     const tempId = `temp_${Date.now()}`;
     const optimisticMsg: ChatMessage = {
       id: tempId,
       author: {
-        id: "me",
-        name: "Me",
-        avatar: null,
+        id: currentUserId,
+        name: currentUser?.displayName || currentUser?.username || "Me",
+        avatar: currentUser?.avatar || null,
       },
       at: new Date().toISOString(),
       text: content,
+      isE2EE,
+      replyTo: replyTarget
+        ? {
+            id: replyTarget.id,
+            authorId: replyTarget.author.id,
+            authorName: replyTarget.author.name,
+            text: replyTarget.text,
+          }
+        : undefined,
       reactions: [],
     };
     get().addDMMessage(dmId, optimisticMsg);
 
     try {
-      const res = await sendDMMessage(dmId, content, replyToId);
+      const res = await sendDMMessage(dmId, payloadToSend, replyToId);
       if (res?.message) {
         const m = res.message;
         const finalMsg: ChatMessage = {
@@ -368,13 +420,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
             avatar: m.author?.avatarUrl || null,
           },
           at: m.createdAt,
-          text: m.content,
+          text: content,
+          isE2EE,
           replyTo: m.replyTo
             ? {
                 id: m.replyTo.id,
                 authorId: m.replyTo.authorId || m.replyTo.author?.id,
                 authorName: m.replyTo.authorName || m.replyTo.author?.displayName || m.replyTo.author?.username || "User",
                 text: m.replyTo.content || m.replyTo.text || "",
+              }
+            : replyTarget
+            ? {
+                id: replyTarget.id,
+                authorId: replyTarget.author.id,
+                authorName: replyTarget.author.name,
+                text: replyTarget.text,
               }
             : undefined,
           reactions: [],
@@ -386,14 +446,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
           },
         }));
 
-        // Broadcast to live DM peer immediately
+        // Broadcast to live DM peer immediately with payloadToSend
         try {
           const chan = get().activeDMSubscription;
           if (chan) {
             chan.send({
               type: "broadcast",
               event: "new_message",
-              payload: { message: finalMsg },
+              payload: { message: { ...finalMsg, content: payloadToSend, text: payloadToSend } },
             });
           }
         } catch {}
@@ -403,12 +463,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       await offlineManager.queueMessage({
         type: "dm",
         targetId: dmId,
-        content,
+        content: payloadToSend,
         replyToId,
       });
       notificationService.show({
         title: "Offline",
-        body: "Direct message saved to outbox. Will send automatically once online.",
+        body: "Encrypted message saved to outbox. Will send automatically once online.",
         type: "info",
       });
     }
@@ -866,9 +926,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
 
       channel
-        .on("broadcast", { event: "new_message" }, ({ payload }: { payload: any }) => {
+        .on("broadcast", { event: "new_message" }, async ({ payload }: { payload: any }) => {
           const raw = payload?.message || payload;
           if (raw && (raw.id || raw.text || raw.content)) {
+            const currentUser = useAuthStore.getState().user;
+            const currentUserId = currentUser?.id || "me";
+            let text = raw.content ?? raw.text ?? "";
+            let isE2EE = Boolean(raw.isE2EE);
+
+            if (typeof text === "string" && text.startsWith("enc:v3:")) {
+              const dec = await e2ee.decrypt(text, currentUserId);
+              text = dec.plaintext;
+              isE2EE = dec.isE2EE;
+            }
+
             const formatted: ChatMessage = {
               id: raw.id,
               author: {
@@ -877,7 +948,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 avatar: raw.author?.avatarUrl || raw.author?.avatar || null,
               },
               at: raw.createdAt || raw.at || new Date().toISOString(),
-              text: raw.content ?? raw.text ?? "",
+              text,
+              isE2EE,
               reactions: raw.reactions || [],
             };
             get().addDMMessage(dmId, formatted);
@@ -901,16 +973,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }, 3000);
           }
         })
-        .on("broadcast", { event: "incoming_call" }, ({ payload }: { payload: any }) => {
-          if (payload?.callerName) {
-            notificationService.show({
-              type: "call",
-              title: payload.isVideo ? "Incoming Video Call" : "Incoming Voice Call",
-              body: `${payload.callerName} is calling you...`,
-              dmId: dmId,
-              durationMs: 30000,
+        .on("broadcast", { event: "incoming_call" }, (msg: any) => {
+          const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+          if (payload) {
+            globalCallSignaling.triggerIncomingCall({
+              ...payload,
+              conversationId: payload.conversationId || dmId,
+              callId: payload.callId || payload.conversationId || dmId,
             });
           }
+        })
+        .on("broadcast", { event: "call_accepted" }, () => {
+          globalCallSignaling.dismissActiveCall();
+        })
+        .on("broadcast", { event: "call_declined" }, () => {
+          globalCallSignaling.dismissActiveCall();
+        })
+        .on("broadcast", { event: "call_ended" }, () => {
+          globalCallSignaling.dismissActiveCall();
+        })
+        .on("broadcast", { event: "call_cancelled" }, () => {
+          globalCallSignaling.dismissActiveCall();
         })
         .on(
           "postgres_changes",
@@ -928,11 +1011,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
               const currentList = get().dmMessages[dmId] || [];
               if (currentList.some((m) => m.id === row.id)) return;
 
+              const currentUser = useAuthStore.getState().user;
+              const currentUserId = currentUser?.id || "me";
+              let text = row.content || "";
+              let isE2EE = false;
+              if (typeof text === "string" && text.startsWith("enc:v3:")) {
+                const dec = await e2ee.decrypt(text, currentUserId);
+                text = dec.plaintext;
+                isE2EE = dec.isE2EE;
+              }
+
               const { data: authorUser } = await supabase
                 .from("users")
                 .select("id, username, display_name, avatar_url")
                 .eq("id", row.author_id)
                 .maybeSingle();
+
+              const replyTarget = row.reply_to_id
+                ? currentList.find((m) => m.id === row.reply_to_id)
+                : null;
 
               const msg: ChatMessage = {
                 id: row.id,
@@ -942,7 +1039,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
                   avatar: authorUser?.avatar_url || null,
                 },
                 at: row.created_at,
-                text: row.content,
+                text,
+                isE2EE,
+                replyTo: replyTarget
+                  ? {
+                      id: replyTarget.id,
+                      authorId: replyTarget.author.id,
+                      authorName: replyTarget.author.name,
+                      text: replyTarget.text,
+                    }
+                  : undefined,
                 reactions: [],
               };
 
@@ -976,6 +1082,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 },
                 at: m.createdAt,
                 text: m.content,
+                type: m.type || "default",
+                metadata: m.metadata || undefined,
+                replyTo: m.replyTo
+                  ? {
+                      id: m.replyTo.id,
+                      authorId: m.replyTo.authorId || m.replyTo.author?.id,
+                      authorName: m.replyTo.authorName || m.replyTo.author?.displayName || m.replyTo.author?.username || "User",
+                      text: m.replyTo.content || m.replyTo.text || "",
+                    }
+                  : undefined,
                 reactions: m.reactions || [],
               }));
 

@@ -1057,10 +1057,10 @@ export function startDMCall(conversationId: string, video = false) {
     );
 }
 
-export function joinDMCall(conversationId: string) {
-    return api<{ token: string; url: string; roomName: string }>(
+export function joinDMCall(conversationId: string, video = false) {
+    return api<{ token: string; url: string; roomName: string; video?: boolean }>(
         `/dms/${conversationId}/call/join`,
-        { method: "POST" },
+        { method: "POST", body: JSON.stringify({ video }) },
     );
 }
 

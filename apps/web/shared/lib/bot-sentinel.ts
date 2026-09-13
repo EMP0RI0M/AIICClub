@@ -317,7 +317,7 @@ export async function processBotSentinel(options: {
                     .trim();
 
                 if (!botReply) {
-                    botReply = "I have reviewed the AIIC institutional archive and curriculum notes. Please specify if you would like me to cite Lecture 1 (Website Architecture), Lecture 2 (RAG), or the Prospectus.";
+                    botReply = "I am ready to assist you with Python code execution, mathematical proofs (LaTeX), PDF document generation, full-stack software development, or AIIC curriculum questions. Please let me know what you'd like to work on!";
                 }
 
                 const supabase = getSupabaseAdmin();

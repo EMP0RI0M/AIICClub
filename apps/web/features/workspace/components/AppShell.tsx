@@ -2009,7 +2009,7 @@ export function AppShell({
                         void (async () => {
                             try {
                                 const transport = isLive
-                                    ? await joinDMCall(conversationId)
+                                    ? await joinDMCall(conversationId, Boolean(video))
                                     : undefined;
                                 setCall({
                                     conversationId,

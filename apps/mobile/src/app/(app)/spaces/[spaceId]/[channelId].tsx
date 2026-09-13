@@ -14,6 +14,7 @@ import {
   Modal,
   Alert,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -921,6 +922,35 @@ function TextChannelScreen({
   const [channelInsight, setChannelInsight] = useState("");
   const [channelToolLoading, setChannelToolLoading] = useState(false);
   const [channelNotifications, setChannelNotifications] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
+  useEffect(() => {
+    const onShow = (e: any) => {
+      const height = e?.endCoordinates?.height || 0;
+      if (Platform.OS === "android") {
+        setKeyboardOffset(height);
+      }
+    };
+    const onHide = () => {
+      if (Platform.OS === "android") {
+        setKeyboardOffset(0);
+      }
+    };
+
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      onShow
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      onHide
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const openChannelTool = async (tool: "pins" | "search" | "mentions" | "insight") => {
     setChannelOptionsOpen(false);
@@ -995,11 +1025,7 @@ function TextChannelScreen({
   }, [channel.serverId]);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
-      style={styles.channelScreen}
-    >
+    <View style={styles.channelScreen}>
       {/* Ambient Color Glows for Liquid Glass Refraction */}
       <View style={styles.ambientGlowAmber} pointerEvents="none" />
       <View style={styles.ambientGlowTeal} pointerEvents="none" />
@@ -1271,7 +1297,16 @@ function TextChannelScreen({
           />
         )
       ) : (
-        <>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+          style={[
+            { flex: 1 },
+            Platform.OS === "android" && {
+              paddingBottom: keyboardOffset > 0 ? keyboardOffset + 14 : 0,
+            },
+          ]}
+        >
           {/* Message Feed with interactive reactions, replies and delete */}
           <NativeMessageList
             messages={messages}
@@ -1301,9 +1336,9 @@ function TextChannelScreen({
             onClose={() => setActiveThreadMessage(null)}
             onToggleReaction={onToggleReaction}
           />
-        </>
+        </KeyboardAvoidingView>
       )}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -1533,6 +1568,8 @@ function NativeMessageList({
         style={styles.messages}
         contentContainerStyle={styles.messageContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         scrollEventThrottle={16}
         onScroll={(event) => {
           const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -2808,7 +2845,7 @@ export default function AIICDiscordApp() {
 
   return (
     <WallpaperBackground>
-      <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      <SafeAreaView style={styles.safe} edges={selectedChannel ? ["top"] : ["top", "bottom"]}>
         <View style={styles.root}>
 
         {/* =================================================
@@ -4588,7 +4625,7 @@ const styles = StyleSheet.create({
   composerWrapper: {
     paddingHorizontal: 8,
     paddingVertical: 6,
-    paddingBottom: Platform.OS === "ios" ? 10 : 8,
+    paddingBottom: Platform.OS === "ios" ? 12 : 10,
     backgroundColor: "transparent",
   },
 

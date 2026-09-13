@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { colors, radius, useAppTheme } from "../../../theme/tokens";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui/Button";
 import { useWorkspaceStore } from "../../../stores/workspace-store";
+import { useChatStore } from "../../../stores/chat-store";
 import { useAuthStore } from "../../../stores/auth-store";
 import { useThemeStore } from "../../../stores/theme-store";
 import { WallpaperBackground } from "../../../components/theme/WallpaperBackground";
@@ -39,6 +40,11 @@ import {
   Check,
   X,
   Phone,
+  PhoneCall,
+  PhoneMissed,
+  PhoneIncoming,
+  PhoneOutgoing,
+  Video,
   UserPlus,
   Circle,
   UserX,
@@ -66,7 +72,9 @@ export default function DMsScreen() {
     isLoadingFriends,
   } = useWorkspaceStore();
 
-  const [topTab, setTopTab] = useState<"messages" | "friends">("messages");
+  const { dmMessages, loadDMMessagesAction } = useChatStore();
+
+  const [topTab, setTopTab] = useState<"messages" | "friends" | "calls">("messages");
   const [friendSubTab, setFriendSubTab] = useState<"online" | "all" | "pending" | "add">("online");
   const [search, setSearch] = useState("");
 
@@ -84,6 +92,73 @@ export default function DMsScreen() {
     loadDMs(user?.id);
     loadFriends();
   }, [user?.id]);
+
+  // Load message logs for each DM conversation to aggregate call history
+  useEffect(() => {
+    if (dms.length > 0) {
+      dms.forEach((dm) => {
+        if (!dmMessages[dm.id]) {
+          loadDMMessagesAction(dm.id);
+        }
+      });
+    }
+  }, [dms]);
+
+  const allCallLogs = useMemo(() => {
+    const logs: Array<{
+      id: string;
+      dmId: string;
+      name: string;
+      avatar?: string;
+      at: string;
+      type: "voice" | "video";
+      status: "ended" | "missed";
+      durationSec?: number;
+      isIncoming: boolean;
+    }> = [];
+
+    dms.forEach((dm) => {
+      const msgs = dmMessages[dm.id] || [];
+      msgs.forEach((m) => {
+        const isCall =
+          m.type === "call" ||
+          m.text.startsWith("Call ended") ||
+          m.text.startsWith("Missed call") ||
+          m.text.toLowerCase().includes("call ended") ||
+          m.text.toLowerCase().includes("missed call");
+
+        if (isCall) {
+          let durationSec: number | undefined;
+          let isVideo = false;
+          let isMissed = m.text.toLowerCase().includes("missed");
+          if (m.metadata) {
+            try {
+              const meta = typeof m.metadata === "string" ? JSON.parse(m.metadata) : m.metadata;
+              if (typeof meta?.duration === "number") durationSec = meta.duration;
+              if (meta?.video || meta?.isVideo) isVideo = true;
+              if (meta?.missed || meta?.status === "missed") isMissed = true;
+            } catch {}
+          }
+
+          const isMe = m.author.id === user?.id || m.author.id === "me";
+
+          logs.push({
+            id: m.id,
+            dmId: dm.id,
+            name: dm.name,
+            avatar: (dm as any).avatar || (dm as any).avatarUrl,
+            at: m.at,
+            type: isVideo ? "video" : "voice",
+            status: isMissed ? "missed" : "ended",
+            durationSec,
+            isIncoming: !isMe,
+          });
+        }
+      });
+    });
+
+    return logs.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  }, [dms, dmMessages, user?.id]);
 
   const filteredDMs = dms.filter((d: DMSummary) =>
     d.name.toLowerCase().includes(search.toLowerCase())
@@ -341,6 +416,29 @@ export default function DMsScreen() {
               {incomingRequests.length > 0 && (
                 <View style={[styles.pendingPillDot, { backgroundColor: themeAccent }]} />
               )}
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.mainTabPill,
+              topTab === "calls" && [
+                styles.mainTabPillActive,
+                { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+              ],
+            ]}
+            onPress={() => setTopTab("calls")}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+              <Phone size={13} color={topTab === "calls" ? themeAccent : colors.textMuted} />
+              <Text
+                style={[
+                  styles.mainTabPillText,
+                  topTab === "calls" && [styles.mainTabPillTextActive, { color: themeAccent }],
+                ]}
+              >
+                Calls ({allCallLogs.length})
+              </Text>
             </View>
           </TouchableOpacity>
         </BlurView>
@@ -855,6 +953,110 @@ export default function DMsScreen() {
           )}
         </View>
       )}
+
+      {/* ========================================================= */}
+      {/* CALLS TAB CONTENT */}
+      {/* ========================================================= */}
+      {topTab === "calls" && (
+        <View style={{ flex: 1 }}>
+          {allCallLogs.length === 0 ? (
+            <View style={styles.centerContainer}>
+              <View style={[styles.callEmptyIconWrap, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+                <PhoneCall size={32} color={themeAccent} />
+              </View>
+              <Text style={styles.emptyTitle}>No Call Logs Yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Voice and video calls started or received in Direct Messages will appear here.
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={allCallLogs}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.list}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.dmRowWrap}
+                  onPress={() => router.push(`/(app)/dms/${item.dmId}`)}
+                >
+                  <BlurView intensity={25} tint="dark" style={styles.dmRow}>
+                    <LinearGradient
+                      colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"]}
+                      style={StyleSheet.absoluteFillObject}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    />
+                    <Avatar name={item.name} size={44} url={item.avatar} />
+                    <View style={styles.dmInfo}>
+                      <View style={styles.dmTop}>
+                        <Text style={styles.dmName} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        <Text style={styles.dmTime}>
+                          {new Date(item.at).toLocaleDateString([], {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </Text>
+                      </View>
+
+                      <View style={styles.callRowSub}>
+                        {item.status === "missed" ? (
+                          <PhoneMissed size={13} color="#EF4444" style={{ marginRight: 4 }} />
+                        ) : item.isIncoming ? (
+                          <PhoneIncoming size={13} color={themeAccent} style={{ marginRight: 4 }} />
+                        ) : (
+                          <PhoneOutgoing size={13} color={colors.textMuted} style={{ marginRight: 4 }} />
+                        )}
+                        <Text
+                          style={[
+                            styles.callStatusText,
+                            item.status === "missed" && { color: "#EF4444" },
+                          ]}
+                        >
+                          {item.status === "missed"
+                            ? "Missed Call"
+                            : item.durationSec !== undefined
+                            ? item.durationSec >= 60
+                              ? `${item.type === "video" ? "Video Call" : "Voice Call"} • ${Math.floor(item.durationSec / 60)}m ${item.durationSec % 60}s`
+                              : `${item.type === "video" ? "Video Call" : "Voice Call"} • ${item.durationSec}s`
+                            : item.type === "video"
+                            ? "Video Call"
+                            : "Voice Call"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        router.push({
+                          pathname: `/(app)/voice/${item.dmId}`,
+                          params: {
+                            type: item.type,
+                            title: item.name,
+                          },
+                        } as any);
+                      }}
+                      style={[
+                        styles.callActionBtn,
+                        { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder },
+                      ]}
+                      hitSlop={6}
+                    >
+                      {item.type === "video" ? (
+                        <Video size={16} color={themeAccent} />
+                      ) : (
+                        <Phone size={16} color={themeAccent} />
+                      )}
+                    </TouchableOpacity>
+                  </BlurView>
+                </TouchableOpacity>
+              )}
+            />
+          )}
+        </View>
+      )}
       </SafeAreaView>
 
       {/* Theme & Wallpaper Customizer Studio */}
@@ -1075,6 +1277,33 @@ const styles = StyleSheet.create({
   dmSnippet: {
     color: "rgba(255, 255, 255, 0.55)",
     fontSize: 12,
+  },
+  callRowSub: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  callStatusText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontFamily: "monospace",
+  },
+  callActionBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  callEmptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
   },
   unreadBadge: {
     backgroundColor: colors.accent,

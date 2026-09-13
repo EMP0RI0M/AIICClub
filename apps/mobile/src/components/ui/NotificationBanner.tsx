@@ -39,18 +39,31 @@ export function NotificationBanner() {
 
   const handlePress = () => {
     if (notification.type === "call" && notification.dmId) {
-      router.push(`/voice/${notification.dmId}` as any);
+      router.push({
+        pathname: `/(app)/voice/${notification.dmId}`,
+        params: {
+          direction: "incoming",
+          title: notification.title,
+        },
+      } as any);
     } else if (notification.spaceId && notification.channelId) {
-      router.push(`/spaces/${notification.spaceId}/${notification.channelId}` as any);
+      router.push(`/(app)/spaces/${notification.spaceId}/${notification.channelId}` as any);
     } else if (notification.dmId) {
-      router.push(`/dms/${notification.dmId}` as any);
+      router.push(`/(app)/dms/${notification.dmId}` as any);
     }
     notificationService.dismiss();
   };
 
   const handleAcceptCall = () => {
     if (notification.dmId) {
-      router.push(`/voice/${notification.dmId}` as any);
+      router.push({
+        pathname: `/(app)/voice/${notification.dmId}`,
+        params: {
+          direction: "incoming",
+          accepted: "true",
+          title: notification.title,
+        },
+      } as any);
     }
     notificationService.dismiss();
   };

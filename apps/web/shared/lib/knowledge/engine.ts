@@ -12,6 +12,7 @@
 import { getSupabaseAdmin } from "@/shared/supabase/admin";
 import { generateNvidiaEmbedding, callNvidiaModel, NVIDIA_MODELS } from "@/shared/lib/bot-sentinel";
 import { runPythonCode } from "@/shared/lib/python-runtime";
+import { generateAIICDocumentPDF } from "@/shared/lib/pdf-engine";
 import crypto from "crypto";
 import zlib from "zlib";
 import type {
@@ -1751,30 +1752,47 @@ export async function runRecursiveLanguageModel(
   userQuery: string,
   options?: { channelContext?: string; authorName?: string }
 ): Promise<{ answer: string; thinking: string; citations: RAGSourceCitation[]; toolExecutions: RLMToolExecution[] }> {
-  const cleanTrimmedQuery = userQuery.trim().toLowerCase();
+  const cleanTrimmedQuery = userQuery.trim();
+  const lowerQuery = cleanTrimmedQuery.toLowerCase();
 
-  // Instant clean greeting handler (never leaks meta-instructions or reasoning traces)
-  if (/^(hi|hello|hey|greetings|good\s+(morning|afternoon|evening)|salaam|namaste)\b/i.test(cleanTrimmedQuery) && cleanTrimmedQuery.length < 25) {
-    const greetingText = `Hello${options?.authorName ? ` ${options.authorName}` : ""}! I’m **Corvus**, your AI Sentinel and Teaching Assistant for the **AI & Innovation Club (AIIC)** at Bal Bhawan School.\n\nHow can I assist you today? You can ask me about:\n- 🌐 **Lecture 1**: Website Basics & Architecture (HTML, CSS, JS, Backend, PostgreSQL, Localhost ` + "`127.0.0.1`" + `, Port 3000)\n- 🤖 **Lecture 2**: AI Applications & RAG (Open-Book Exam, Chunking, Vector Embeddings)\n- ⚡ **Lecture 3**: Autonomous AI Agents & Tool Calling\n- 🏛️ **AIIC Prospectus, Squads & Club Governance**`;
+  // Instant clean greeting handler
+  if (/^(hi|hello|hey|greetings|good\s+(morning|afternoon|evening)|salaam|namaste)\b/i.test(lowerQuery) && lowerQuery.length < 25) {
+    const greetingText = `Hello${options?.authorName ? ` ${options.authorName}` : ""}! I’m **Corvus**, your AI Sentinel and Autonomous Assistant. 🦅\n\nI'm equipped with a full suite of computational tools and knowledge:\n- 🐍 **Python Environment & REPL**: Run scientific code, algorithms, data analysis, and Matplotlib plotting.\n- 📄 **PDF Maker & Document Engine**: Generate structured PDF guides, notes, and study documents.\n- 📐 **LaTeX & Math Notation**: Render mathematical derivations, proofs, formulas ($...$ and $$...$$).\n- 🌐 **Full-Stack Development & AI**: Write, debug, and refactor code in any language.\n- 🏛️ **AIIC Institutional Archives & RAG**: Curated study notes, lectures, and club records.\n\nHow can I help you today?`;
     return {
       answer: greetingText,
-      thinking: "Greeting intent identified. Returned structured institutional greeting.",
+      thinking: "Greeting intent identified. Returned structured polymath assistant greeting.",
       citations: [],
       toolExecutions: [],
     };
   }
 
-  const citations = await retrieveKnowledgeContext({ query: userQuery, limit: 4 });
+  // Detect Institutional RAG query vs General / Coding / Math / Tool query
+  const isInstitutional =
+    lowerQuery.includes("lecture 1") ||
+    lowerQuery.includes("lecture 2") ||
+    lowerQuery.includes("lecture 3") ||
+    lowerQuery.includes("aiic") ||
+    lowerQuery.includes("bal bhawan") ||
+    lowerQuery.includes("prospectus") ||
+    lowerQuery.includes("masterclass") ||
+    lowerQuery.includes("three-tier architecture") ||
+    lowerQuery.includes("rag workflow") ||
+    lowerQuery.includes("open-book exam") ||
+    lowerQuery.includes("squad") ||
+    lowerQuery.includes("archive-") ||
+    lowerQuery.includes("archive id");
+
+  // Retrieve citations if institutional query
+  let citations: RAGSourceCitation[] = [];
+  if (isInstitutional) {
+    citations = await retrieveKnowledgeContext({ query: userQuery, limit: 4 });
+  }
+
   const toolExecutions: RLMToolExecution[] = [];
 
-  const isPythonRequest =
-    userQuery.toLowerCase().includes("python") ||
-    userQuery.toLowerCase().includes("calculate") ||
-    userQuery.toLowerCase().includes("run code") ||
-    userQuery.toLowerCase().includes("repl") ||
-    userQuery.toLowerCase().includes("simulation");
-
-  if (isPythonRequest && userQuery.includes("```python")) {
+  // 1. PYTHON EXECUTION TOOL (explicit code block or execution request)
+  const isPythonCodeExplicit = userQuery.includes("```python");
+  if (isPythonCodeExplicit) {
     const match = userQuery.match(/```python([\s\S]*?)```/);
     if (match && match[1]) {
       const codeToRun = match[1].trim();
@@ -1787,6 +1805,91 @@ export async function runRecursiveLanguageModel(
     }
   }
 
+  // 2. PDF GENERATION TOOL
+  const isPdfGenerationRequest =
+    (lowerQuery.includes("generate pdf") ||
+      lowerQuery.includes("make a pdf") ||
+      lowerQuery.includes("create a pdf") ||
+      lowerQuery.includes("export as pdf") ||
+      lowerQuery.includes("download as pdf") ||
+      lowerQuery.includes("pdf document on") ||
+      lowerQuery.includes("create pdf notes")) &&
+    !lowerQuery.includes("how to make a pdf in") &&
+    !lowerQuery.includes("how to generate a pdf in");
+
+  if (isPdfGenerationRequest) {
+    try {
+      const topicTitle = userQuery
+        .replace(/^(please\s+)?(generate|make|create|export|build)\s+(a\s+)?pdf\s+(on|about|for)?\s*/i, "")
+        .trim() || "Generated Reference Document";
+
+      const pdfResult = await generateAIICDocumentPDF({
+        title: topicTitle.slice(0, 60),
+        subtitle: `Curated Reference Document · ${new Date().toLocaleDateString()}`,
+        authorName: options?.authorName || "Member",
+        sections: [
+          {
+            heading: "1. Overview & Objective",
+            content: `This document outlines the core concepts, principles, and structured implementation guidelines for ${topicTitle}.`,
+            bulletPoints: [
+              "Designed for high-performance reference and academic study.",
+              "Verified by Corvus AI Sentinel & Knowledge Engine.",
+            ],
+          },
+          {
+            heading: "2. Key Technical Specifications",
+            content: `Key architectural principles and foundational methods applied to ${topicTitle}.`,
+            bulletPoints: [
+              "Standardized module integration and production best practices.",
+              "Complete end-to-end reliability and reproducibility.",
+            ],
+          },
+        ],
+        filename: `${topicTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_${Date.now()}.pdf`,
+      });
+
+      if (pdfResult) {
+        toolExecutions.push({
+          toolName: "pdf_generator",
+          args: { topic: topicTitle },
+          result: {
+            success: true,
+            url: pdfResult.url,
+            filename: pdfResult.filename,
+            size: pdfResult.size,
+          },
+        });
+      }
+    } catch (pdfErr) {
+      console.warn("[PDF_GENERATION_TOOL_WARN]", pdfErr);
+    }
+  }
+
+  // Formulate Adaptive System Prompt
+  let systemPrompt = "";
+  if (isInstitutional) {
+    systemPrompt = `You are Corvus, the official AI Sentinel and Teaching Assistant for the AI & Innovation Club (AIIC) at Bal Bhawan School.
+
+INSTITUTIONAL GROUND TRUTH INSTRUCTIONS:
+1. Ground your answer strictly in the verified AIIC lecture notes and archive passages provided below.
+2. ANSWER DIRECTLY AND ACCURATELY: Address the student's question clearly with well-structured explanations, headings, and code examples where helpful.
+3. If the user asks about Lecture 1, focus on Lecture 1 concepts (Website Basics, Frontend/Backend/Database, Localhost 127.0.0.1, Port 3000, SQL).
+4. If the user asks about Lecture 2, focus on Lecture 2 concepts (RAG, Vector Embeddings, Chunking, Open-Book Exam).
+5. If the user asks about Lecture 3, focus on Lecture 3 concepts (AI-Assisted Coding, Review Mode, Antigravity/Cursor).
+6. DO NOT output meta-reasoning traces or prompt-following commentary. Respond directly with the verified answer.
+7. Conclude with clean references to the verified Source IDs (e.g. [AIIC-2026-000005]).`;
+  } else {
+    systemPrompt = `You are Corvus, an elite AI Polymath, Assistant, and Computational Engineer for the AI & Innovation Club (AIIC) at Bal Bhawan School.
+
+CAPABILITIES & DIRECTIVES:
+1. GENERAL KNOWLEDGE & PROGRAMMING: You can answer ANY question across computer science, software engineering, web development, algorithms, artificial intelligence, mathematics, physics, science, and general knowledge.
+2. MATHEMATICS & LATEX: Use LaTeX notation for all mathematical formulas: inline math with $...$ (e.g., $E = mc^2$, $\\int_0^1 x^2 dx$) and block math with $$...$$ for standalone formulas and derivations.
+3. PYTHON & CODE: Provide idiomatic, clean, runnable code with comments and explanations. If Python execution output is provided in TOOL EXECUTION RESULTS, reference the results directly.
+4. TONE & STRUCTURE: Be direct, clear, highly capable, and well-structured using markdown headings, bullet points, and code blocks.
+5. DO NOT restrict yourself to institutional lecture notes when answering general or technical questions. Answer all questions thoroughly and intelligently.
+6. DO NOT output internal thought monologues, meta-reasoning commentary, or prompts. Deliver the direct answer.`;
+  }
+
   const contextPassages = citations
     .map((c, idx) => {
       const chunksText = (c.supportingChunks || []).map((sc) => sc.snippet).join("\n\n");
@@ -1794,32 +1897,22 @@ export async function runRecursiveLanguageModel(
     })
     .join("\n\n---\n\n");
 
-  const systemPrompt = `You are Corvus, the official AI Sentinel and Teaching Assistant for the AI & Innovation Club (AIIC) at Bal Bhawan School.
-
-INSTITUTIONAL GROUND TRUTH INSTRUCTIONS:
-1. Ground your answer strictly in the verified AIIC lecture notes and archive passages provided below.
-2. ANSWER DIRECTLY AND CONCISELY: Address only the exact concept or question asked by the student.
-3. If the user asks about Lecture 1 (Website Basics, Frontend/Backend/Database, Localhost 127.0.0.1, Port 3000, SQL), use ONLY Lecture 1 facts.
-4. If the user asks about Lecture 2 (RAG, Vector Embeddings, Chunking, Open-Book Exam), use ONLY Lecture 2 facts.
-5. If the user asks about Lecture 3 (AI-Assisted Coding, Review Mode, Antigravity/Cursor), use ONLY Lecture 3 facts.
-6. If the user asks about the Prospectus, cite the Bal Bhawan School AIIC constitution and mission.
-7. Provide clear, student-friendly, and well-structured explanations with headings, bullet points, and code/port examples where helpful.
-8. DO NOT output meta-reasoning traces, internal thought monologues, or prompt-following commentary. Respond directly with the verified answer.
-9. Conclude with clean references to the verified Source IDs (e.g. [AIIC-2026-000005]).`;
+  const userContent = [
+    isInstitutional && contextPassages ? `VERIFIED INSTITUTIONAL CONTEXT:\n${contextPassages}\n\n` : "",
+    toolExecutions.length > 0 ? `TOOL EXECUTION RESULTS:\n${JSON.stringify(toolExecutions, null, 2)}\n\n` : "",
+    `USER QUESTION: ${userQuery}`,
+  ].filter(Boolean).join("");
 
   const messages = [
     { role: "system", content: systemPrompt },
-    {
-      role: "user",
-      content: `VERIFIED INSTITUTIONAL CONTEXT:\n${contextPassages}\n\n${toolExecutions.length > 0 ? `TOOL EXECUTION RESULTS:\n${JSON.stringify(toolExecutions, null, 2)}\n\n` : ""}USER QUESTION: ${userQuery}`,
-    },
+    { role: "user", content: userContent },
   ];
 
   let rawModelResponse: string | null = null;
   try {
     rawModelResponse = await callNvidiaModel(NVIDIA_MODELS.BRAIN, messages, {
-      temperature: 0.2,
-      max_tokens: 1200,
+      temperature: isInstitutional ? 0.2 : 0.4,
+      max_tokens: 1500,
     });
   } catch (err) {
     console.warn("[RLM_MODEL_CALL_WARN]", err);
@@ -1828,8 +1921,8 @@ INSTITUTIONAL GROUND TRUTH INSTRUCTIONS:
   let thinking = "";
   let answer = rawModelResponse || "";
 
-  if (answer && answer.trim().length > 60) {
-    // Clean any leaked <think> tags, Reasoning Trace headers, or self-talk monologues
+  if (answer && answer.trim().length > 30) {
+    // Clean any leaked <think> tags or reasoning traces
     if (answer.includes("<think>") && answer.includes("</think>")) {
       const thinkMatch = answer.match(/<think>([\s\S]*?)<\/think>/);
       if (thinkMatch) {
@@ -1838,7 +1931,6 @@ INSTITUTIONAL GROUND TRUTH INSTRUCTIONS:
       answer = answer.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
     }
     
-    // Clean raw reasoning prefixes if present
     answer = answer
       .replace(/^Here's a thinking process:[\s\S]*?(?=\n\n(?:###|Hello|Hi|\*\*|\[|\d|The|This|[A-Z]))/i, "")
       .replace(/^Reasoning Trace[\s\S]*?(?=\n\n?Answer\b|\n\n?[A-Z])/i, "")
@@ -1847,17 +1939,36 @@ INSTITUTIONAL GROUND TRUTH INSTRUCTIONS:
       .trim();
 
     if (!thinking) {
-      thinking = `Query: "${userQuery}". Sourced from [${citations.map((c) => c.sourceId).join(", ")}].`;
+      thinking = isInstitutional
+        ? `Grounded response sourced from [${citations.map((c) => c.sourceId).join(", ")}].`
+        : `Answered technical/general query using Corvus Polymath Intelligence.`;
     }
   } else {
-    // High-fidelity fallback synthesis directly from authoritative grounded corpus
-    const synth = synthesizeAuthoritativeGroundedAnswer(userQuery, citations, toolExecutions);
-    thinking = synth.thinking;
-    answer = synth.answer.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    if (isInstitutional && citations.length > 0) {
+      const synth = synthesizeAuthoritativeGroundedAnswer(userQuery, citations, toolExecutions);
+      thinking = synth.thinking;
+      answer = synth.answer.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    } else if (toolExecutions.length > 0) {
+      const pyTool = toolExecutions.find((t) => t.toolName === "python_repl");
+      const pdfTool = toolExecutions.find((t) => t.toolName === "pdf_generator");
+      if (pyTool) {
+        answer = `### Python Execution Output\n\`\`\`\n${pyTool.result}\n\`\`\``;
+        thinking = "Executed Python code via REPL environment.";
+      } else if (pdfTool && pdfTool.result?.url) {
+        answer = `### 📄 Document Generated Successfully\nYour PDF **${pdfTool.result.filename}** is ready for download:\n[Download PDF Document](${pdfTool.result.url})`;
+        thinking = "Generated PDF document via PDF Engine.";
+      }
+    }
+  }
+
+  // If a PDF tool was executed, ensure the download link is embedded in the response if not already mentioned
+  const pdfTool = toolExecutions.find((t) => t.toolName === "pdf_generator" && t.result?.url);
+  if (pdfTool && pdfTool.result?.url && !answer.includes(pdfTool.result.url)) {
+    answer += `\n\n---\n### 📄 Generated PDF Document\n[📥 Download ${pdfTool.result.filename}](${pdfTool.result.url})`;
   }
 
   return {
-    answer,
+    answer: answer || "I am ready to assist with programming, Python execution, LaTeX mathematics, PDF generation, or AIIC curriculum questions. How may I help?",
     thinking,
     citations,
     toolExecutions,

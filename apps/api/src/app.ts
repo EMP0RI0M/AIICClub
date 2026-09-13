@@ -20,6 +20,7 @@ import channelPermissions from "./routes/channel-permissions.js";
 import workspace from "./routes/workspace.js";
 import waitlist from "./routes/waitlist.js";
 import threads from "./routes/threads.js";
+import e2ee from "./routes/e2ee.js";
 import { buildOpenApiSummary, renderApiDocs } from "./docs.js";
 import { isProduction } from "./env.js";
 
@@ -129,5 +130,6 @@ app.route("/", roles); // routes are /servers/:serverId/roles and /roles/:id
 app.route("/", channelPermissions); // routes are /channels/:channelId/permissions
 app.route("/", workspace); // routes are /servers/:id/modules, /channels/:id/* module state, settings
 app.route("/", threads); // routes are /channels/:id/threads, /threads/:id/messages
+app.route("/e2ee", e2ee);
 
 export default app;

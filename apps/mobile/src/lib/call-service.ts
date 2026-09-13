@@ -1,4 +1,5 @@
 import { Audio } from "expo-av";
+import * as ImagePicker from "expo-image-picker";
 import { getSupabaseClient } from "./supabase";
 import {
   api,
@@ -30,6 +31,13 @@ export interface CallParticipant {
   avatarUrl?: string | null;
 }
 
+export interface VideoState {
+  isVideo: boolean;
+  isCameraOn: boolean;
+  remoteCameraOn: boolean;
+  cameraFacing: "front" | "back";
+}
+
 export interface CallSessionConfig {
   callId: string;
   direction: "incoming" | "outgoing";
@@ -41,6 +49,7 @@ export interface CallSessionConfig {
 
 export type CallStateListener = (state: CallState, error?: string | null) => void;
 export type CallQualityListener = (quality: "excellent" | "good" | "weak" | "reconnecting") => void;
+export type VideoStateListener = (videoState: VideoState) => void;
 
 const NO_ANSWER_TIMEOUT_MS = 45000;
 
@@ -49,11 +58,16 @@ class CallService {
   private config: CallSessionConfig | null = null;
   private stateListeners: Set<CallStateListener> = new Set();
   private qualityListeners: Set<CallQualityListener> = new Set();
+  private videoListeners: Set<VideoStateListener> = new Set();
   private realtimeChannel: any = null;
   private peerConnection: any = null;
   private localStream: any = null;
   private remoteStream: any = null;
   private isMuted: boolean = false;
+  private isVideo: boolean = false;
+  private isCameraOn: boolean = true;
+  private remoteCameraOn: boolean = true;
+  private cameraFacing: "front" | "back" = "front";
   private audioRoute: AudioRoute = "speaker";
   private isCleanedUp: boolean = false;
   private quality: "excellent" | "good" | "weak" | "reconnecting" = "excellent";
@@ -80,6 +94,15 @@ class CallService {
     return this.audioRoute;
   }
 
+  getVideoState(): VideoState {
+    return {
+      isVideo: this.isVideo,
+      isCameraOn: this.isCameraOn,
+      remoteCameraOn: this.remoteCameraOn,
+      cameraFacing: this.cameraFacing,
+    };
+  }
+
   onStateChange(fn: CallStateListener): () => void {
     this.stateListeners.add(fn);
     fn(this.state);
@@ -90,6 +113,17 @@ class CallService {
     this.qualityListeners.add(fn);
     fn(this.quality);
     return () => this.qualityListeners.delete(fn);
+  }
+
+  onVideoStateChange(fn: VideoStateListener): () => void {
+    this.videoListeners.add(fn);
+    fn(this.getVideoState());
+    return () => this.videoListeners.delete(fn);
+  }
+
+  private notifyVideoState() {
+    const vs = this.getVideoState();
+    this.videoListeners.forEach((fn) => fn(vs));
   }
 
   private setState(next: CallState, err?: string | null) {
@@ -136,8 +170,13 @@ class CallService {
     this.config = config;
     this.isCleanedUp = false;
     this.isMuted = false;
+    this.isVideo = Boolean(config.isVideo);
+    this.isCameraOn = Boolean(config.isVideo);
+    this.remoteCameraOn = Boolean(config.isVideo);
+    this.cameraFacing = "front";
     this.connectedAt = null;
     this.clearNoAnswerTimer();
+    this.notifyVideoState();
 
     // 1. Initial State Transition
     if (config.direction === "outgoing") {
@@ -178,7 +217,7 @@ class CallService {
    */
   async acceptCall(): Promise<void> {
     if (!this.config || this.isCleanedUp) return;
-    console.log(`[CALL] id=${this.config.callId} signal=accepted`);
+    console.log(`[CALL] id=${this.config.callId} signal=accepted (video=${this.isVideo})`);
     this.clearNoAnswerTimer();
     this.setState("connecting");
 
@@ -189,6 +228,16 @@ class CallService {
         this.setState("failed", "Microphone access is required to make a call.");
         this.cleanup("failed");
         return;
+      }
+
+      // Request camera permissions if video call
+      if (this.isVideo) {
+        try {
+          const camPerm = await ImagePicker.requestCameraPermissionsAsync();
+          if (camPerm.status !== "granted") {
+            console.warn("[CallService] Camera permission not granted");
+          }
+        } catch {}
       }
 
       await this.configureAudio(this.audioRoute);
@@ -206,6 +255,7 @@ class CallService {
             callId,
             conversationId: callId,
             acceptedById: currentUserId,
+            video: this.isVideo,
             timestamp: Date.now(),
           },
         });
@@ -222,13 +272,14 @@ class CallService {
             callId,
             conversationId: callId,
             acceptedById: currentUserId,
+            video: this.isVideo,
             timestamp: Date.now(),
           },
         });
       } catch {}
 
       // Notify backend join endpoint
-      await apiJoinDMCall(callId).catch(() => null);
+      await apiJoinDMCall(callId, Boolean(this.isVideo)).catch(() => null);
 
       // Initialize WebRTC connection or mark connected upon signaling handshake completion
       this.establishWebRTCConnection();
@@ -285,6 +336,58 @@ class CallService {
   }
 
   /**
+   * Toggle camera on/off during a video call
+   */
+  toggleCamera(): boolean {
+    this.isCameraOn = !this.isCameraOn;
+    this.notifyVideoState();
+
+    if (this.realtimeChannel && this.config?.callId) {
+      try {
+        this.realtimeChannel.send({
+          type: "broadcast",
+          event: "camera_toggle",
+          payload: {
+            callId: this.config.callId,
+            conversationId: this.config.callId,
+            userId: this.config.currentUser?.id,
+            isCameraOn: this.isCameraOn,
+            cameraFacing: this.cameraFacing,
+            timestamp: Date.now(),
+          },
+        });
+      } catch {}
+    }
+    return this.isCameraOn;
+  }
+
+  /**
+   * Flip camera between front and back
+   */
+  flipCamera(): "front" | "back" {
+    this.cameraFacing = this.cameraFacing === "front" ? "back" : "front";
+    this.notifyVideoState();
+
+    if (this.realtimeChannel && this.config?.callId) {
+      try {
+        this.realtimeChannel.send({
+          type: "broadcast",
+          event: "camera_toggle",
+          payload: {
+            callId: this.config.callId,
+            conversationId: this.config.callId,
+            userId: this.config.currentUser?.id,
+            isCameraOn: this.isCameraOn,
+            cameraFacing: this.cameraFacing,
+            timestamp: Date.now(),
+          },
+        });
+      } catch {}
+    }
+    return this.cameraFacing;
+  }
+
+  /**
    * Switch between Speaker and Earpiece audio routing
    */
   async setAudioRoute(route: AudioRoute): Promise<void> {
@@ -305,56 +408,92 @@ class CallService {
     }
   }
 
+  private globalSignalingUnsubs: Array<() => void> = [];
+
   private setupSignaling(config: CallSessionConfig) {
     try {
+      // Clean up previous signaling bindings
+      this.globalSignalingUnsubs.forEach((unsub) => unsub());
+      this.globalSignalingUnsubs = [];
+
       const supabase = getSupabaseClient();
       this.realtimeChannel = supabase.channel(`dm:${config.callId}`, {
         config: { broadcast: { self: false } },
       });
 
+      const handleAcceptedPayload = (payload: any) => {
+        const eventCallId = payload?.callId || payload?.conversationId || payload?.dmId;
+        if (eventCallId && eventCallId !== config.callId) return;
+
+        console.log(`[CALL] id=${config.callId} signal=accepted received (video=${payload?.video})`);
+        this.clearNoAnswerTimer();
+        soundService.stopOutgoingRingback().catch(() => {});
+
+        if (typeof payload?.video === "boolean") {
+          this.isVideo = payload.video;
+          this.notifyVideoState();
+        }
+
+        if (this.state === "calling" || this.state === "ringing" || this.state === "connecting") {
+          this.setState("connecting");
+          this.establishWebRTCConnection();
+        }
+      };
+
+      const handleEndedPayload = (payload: any, reason = "ended") => {
+        const eventCallId = payload?.callId || payload?.conversationId || payload?.dmId;
+        if (!eventCallId || eventCallId !== config.callId) return;
+
+        const actionUser = payload?.endedBy || payload?.endedById || payload?.declinedBy || payload?.declinedById || payload?.userId;
+        if (actionUser && config.currentUser?.id && actionUser === config.currentUser.id) {
+          // Ignore own echo
+          return;
+        }
+
+        console.log(`[CALL] id=${config.callId} signal=${reason} received from ${actionUser}`);
+        this.clearNoAnswerTimer();
+        this.setState("ended", reason === "declined" ? "Call declined" : "Call ended");
+        this.cleanup("ended");
+      };
+
       this.realtimeChannel
         .on("broadcast", { event: "call_accepted" }, (msg: any) => {
-          const payload = msg?.payload || msg;
-          // Validate callId to prevent stale event cross-talk
-          if (payload?.callId && payload.callId !== config.callId) return;
+          const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+          handleAcceptedPayload(payload);
+        })
+        .on("broadcast", { event: "camera_toggle" }, (msg: any) => {
+          const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+          const eventCallId = payload?.callId || payload?.conversationId || payload?.dmId;
+          if (eventCallId && eventCallId !== config.callId) return;
 
-          console.log(`[CALL] id=${config.callId} signal=accepted received`);
-          this.clearNoAnswerTimer();
-          soundService.stopOutgoingRingback().catch(() => {});
-
-          if (this.state === "calling" || this.state === "ringing") {
-            this.setState("connecting");
-            this.establishWebRTCConnection();
+          console.log(`[CALL] id=${config.callId} signal=camera_toggle received`, payload);
+          if (typeof payload?.isCameraOn === "boolean") {
+            this.remoteCameraOn = payload.isCameraOn;
+            this.notifyVideoState();
           }
         })
         .on("broadcast", { event: "call_declined" }, (msg: any) => {
-          const payload = msg?.payload || msg;
-          if (payload?.callId && payload.callId !== config.callId) return;
-
-          console.log(`[CALL] id=${config.callId} signal=declined received`);
-          this.clearNoAnswerTimer();
-          this.setState("ended", "Call declined by user");
-          this.cleanup("ended");
+          const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+          handleEndedPayload(payload, "declined");
         })
         .on("broadcast", { event: "call_ended" }, (msg: any) => {
-          const payload = msg?.payload || msg;
-          if (payload?.callId && payload.callId !== config.callId) return;
-
-          console.log(`[CALL] id=${config.callId} signal=ended received`);
-          this.clearNoAnswerTimer();
-          this.setState("ended");
-          this.cleanup("ended");
+          const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+          handleEndedPayload(payload, "ended");
         })
         .on("broadcast", { event: "call_cancelled" }, (msg: any) => {
-          const payload = msg?.payload || msg;
-          if (payload?.callId && payload.callId !== config.callId) return;
-
-          console.log(`[CALL] id=${config.callId} signal=cancelled received`);
-          this.clearNoAnswerTimer();
-          this.setState("ended", "Call cancelled");
-          this.cleanup("ended");
+          const payload = msg?.payload?.data || msg?.payload || msg?.data || msg;
+          handleEndedPayload(payload, "cancelled");
         })
         .subscribe();
+
+      // Also listen on globalCallSignaling user-level channel for guaranteed delivery
+      const unsubUserAccepted = globalCallSignaling.onCallAccepted((payload) => {
+        handleAcceptedPayload(payload);
+      });
+      const unsubUserEnded = globalCallSignaling.onCallEnded((payload) => {
+        handleEndedPayload(payload, "ended");
+      });
+      this.globalSignalingUnsubs.push(unsubUserAccepted, unsubUserEnded);
     } catch (err) {
       console.warn("[CallService] Signaling setup error:", err);
     }
@@ -369,6 +508,16 @@ class CallService {
         this.setState("failed", "Microphone access is required to make a call.");
         this.cleanup("failed");
         return;
+      }
+
+      // Request camera permissions if video call
+      if (config.isVideo) {
+        try {
+          const camPerm = await ImagePicker.requestCameraPermissionsAsync();
+          if (camPerm.status !== "granted") {
+            console.warn("[CallService] Camera permission not granted");
+          }
+        } catch {}
       }
 
       await this.configureAudio(this.audioRoute);
@@ -456,6 +605,8 @@ class CallService {
     this.isCleanedUp = true;
     this.clearNoAnswerTimer();
     this.connectedAt = null;
+    this.globalSignalingUnsubs.forEach((unsub) => unsub());
+    this.globalSignalingUnsubs = [];
 
     // 1. Stop all sound loops immediately
     soundService.stopAllCallSounds().catch(() => {});

@@ -25,15 +25,9 @@ async function finalizeRoomIfEmpty(conversationId: string, endedBy: string) {
     });
     if (!room) return false;
 
-    await prisma.callParticipant.deleteMany({ where: { roomId: room.id, userId: endedBy } });
-
-    const remaining = room.participants.filter((p: any) => p.userId !== endedBy).length;
-    if (remaining > 0) {
-        return false;
-    }
-
-    // Deleting the room cascades to any remaining participant rows.
-    await prisma.callRoom.delete({ where: { id: room.id } });
+    // In a direct 1-on-1 DM call, when either party leaves or ends, the call room is ended
+    await prisma.callParticipant.deleteMany({ where: { roomId: room.id } }).catch(() => null);
+    await prisma.callRoom.delete({ where: { id: room.id } }).catch(() => null);
 
     const participants = await prisma.dMParticipant.findMany({
         where: { conversationId },
@@ -41,7 +35,7 @@ async function finalizeRoomIfEmpty(conversationId: string, endedBy: string) {
     });
     const participantUserIds = participants.map((p: any) => p.userId);
 
-    const duration = Math.floor((Date.now() - room.startedAt.getTime()) / 1000);
+    const duration = Math.max(0, Math.floor((Date.now() - room.startedAt.getTime()) / 1000));
 
     const dmMessage = await prisma.dMMessage.create({
         data: {
@@ -66,7 +60,12 @@ async function finalizeRoomIfEmpty(conversationId: string, endedBy: string) {
 
     await broadcastToUsers(participantUserIds, {
         type: "call_ended",
-        data: { conversationId, endedBy },
+        data: { conversationId, endedBy, duration },
+    });
+
+    await broadcastToDMConversation(conversationId, {
+        type: "call_ended",
+        data: { conversationId, endedBy, duration },
     });
 
     const messagePayload = {
@@ -136,6 +135,20 @@ calls.post("/dms/:conversationId/call/start", async (c) => {
         type: "incoming_call",
         data: {
             conversationId,
+            callId: conversationId,
+            roomName,
+            callerId: userId,
+            callerName: displayName,
+            callerAvatar: user?.avatarUrl || null,
+            video: Boolean(body.video),
+        },
+    });
+
+    await broadcastToDMConversation(conversationId, {
+        type: "incoming_call",
+        data: {
+            conversationId,
+            callId: conversationId,
             roomName,
             callerId: userId,
             callerName: displayName,
@@ -155,6 +168,7 @@ calls.post("/dms/:conversationId/call/join", async (c) => {
     const userId = c.get("userId");
     const username = c.get("username");
     const conversationId = c.req.param("conversationId");
+    const body: { video?: boolean } = await c.req.json<{ video?: boolean }>().catch(() => ({}));
 
     if (!(await assertConversationParticipant(conversationId, userId))) {
         return c.json({ error: "You are not a participant in this conversation." }, 403);
@@ -184,10 +198,37 @@ calls.post("/dms/:conversationId/call/join", async (c) => {
         canSubscribe: true,
     });
 
+    const participants = await prisma.dMParticipant.findMany({
+        where: { conversationId },
+        select: { userId: true },
+    });
+    const targetUserIds = participants.map((p: any) => p.userId).filter((id: any) => id !== userId);
+
+    const callAcceptedPayload = {
+        conversationId,
+        callId: conversationId,
+        roomName,
+        acceptedById: userId,
+        acceptedByName: displayName,
+        video: Boolean(body.video),
+        timestamp: Date.now(),
+    };
+
+    await broadcastToUsers(targetUserIds, {
+        type: "call_accepted",
+        data: callAcceptedPayload,
+    });
+
+    await broadcastToDMConversation(conversationId, {
+        type: "call_accepted",
+        data: callAcceptedPayload,
+    });
+
     return c.json({
         token,
         url: getLiveKitUrl(),
         roomName,
+        video: Boolean(body.video),
     });
 });
 
@@ -226,13 +267,22 @@ calls.post("/dms/:conversationId/call/decline", async (c) => {
 
     const targetUserIds = participants.map((p: any) => p.userId).filter((id: any) => id !== userId);
 
+    const declinePayload = {
+        conversationId,
+        callId: conversationId,
+        declinedBy: userId,
+        declinedByName: user?.displayName || user?.username || "Someone",
+        timestamp: Date.now(),
+    };
+
     await broadcastToUsers(targetUserIds, {
         type: "call_declined",
-        data: {
-            conversationId,
-            declinedBy: userId,
-            declinedByName: user?.displayName || user?.username || "Someone",
-        },
+        data: declinePayload,
+    });
+
+    await broadcastToDMConversation(conversationId, {
+        type: "call_declined",
+        data: declinePayload,
     });
 
     return c.json({ message: "Call declined." });
