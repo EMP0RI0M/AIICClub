@@ -148,6 +148,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   handleOAuthCallback: async (url: string) => {
     console.log("[AIIC OAuth] callback received:", url);
     try {
+      try {
+        WebBrowser.dismissAuthSession();
+      } catch {}
+
       const supabase = getSupabaseClient();
       const params = parseAuthUrlParams(url);
 

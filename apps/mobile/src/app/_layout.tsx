@@ -71,9 +71,11 @@ export default function RootLayout() {
     if (isRestoring) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    const onIndex = segments.length === 0 || segments[0] === undefined;
+    const onCallback = segments[0] === "auth";
 
-    if (isAuthenticated && inAuthGroup) {
-      // User is authenticated and on login screen
+    if (isAuthenticated && (inAuthGroup || onIndex || onCallback)) {
+      // User is authenticated, route immediately to active space/channels
       router.replace("/(app)/spaces/space-aiic-main/c-general");
     }
   }, [isAuthenticated, isRestoring, segments]);
