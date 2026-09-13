@@ -10,6 +10,7 @@ Notifications.setNotificationHandler({
     shouldPlaySound: true,
     shouldSetBadge: true,
     shouldShowBanner: true,
+    shouldShowList: true,
     priority: Notifications.AndroidNotificationPriority.HIGH,
   }),
 });
@@ -36,13 +37,13 @@ class NotificationService {
   /** Request native system notification permissions and retrieve Expo Push Token */
   async requestPermissions(): Promise<boolean> {
     try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== "granted") {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
+      const existing = await Notifications.getPermissionsAsync();
+      let granted = existing.granted || (existing as any).status === "granted";
+      if (!granted) {
+        const requested = await Notifications.requestPermissionsAsync();
+        granted = requested.granted || (requested as any).status === "granted";
       }
-      if (finalStatus !== "granted") {
+      if (!granted) {
         return false;
       }
 
