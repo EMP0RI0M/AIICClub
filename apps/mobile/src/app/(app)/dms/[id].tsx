@@ -53,6 +53,7 @@ import {
   MobileEmojiModal,
   MobileGiftPickerModal,
 } from "../../../components/chat/MobileMediaPickers";
+import { ExpressionSheet, type ExpressionTab } from "../../../components/chat/ExpressionSheet";
 import { useVoiceRecorder } from "../../../lib/voice-recorder";
 import { NativeHaptics } from "../../../lib/haptics";
 import { fetchUserProfile } from "../../../lib/api";
@@ -227,8 +228,8 @@ export default function DMDetailScreen() {
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
   const [messageActionOpen, setMessageActionOpen] = useState(false);
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
-  const [gifModalOpen, setGifModalOpen] = useState(false);
-  const [composerEmojiOpen, setComposerEmojiOpen] = useState(false);
+  const [expressionSheetOpen, setExpressionSheetOpen] = useState(false);
+  const [expressionTab, setExpressionTab] = useState<ExpressionTab>("emoji");
   const [reactModalOpen, setReactModalOpen] = useState(false);
   const [messageToReact, setMessageToReact] = useState<any | null>(null);
   const [giftModalOpen, setGiftModalOpen] = useState(false);
@@ -333,6 +334,36 @@ export default function DMDetailScreen() {
       setInputText("");
     } catch (err) {
       console.error("Failed to send GIF DM:", err);
+    }
+  };
+
+  const handleSelectSticker = async (stickerUrl: string, title?: string) => {
+    try {
+      const attPayload = `attachment:${JSON.stringify({
+        url: stickerUrl,
+        name: title || "Sticker",
+        type: "image/webp",
+        kind: "image",
+      })}`;
+      await sendDMMessageAction(convoId, inputText.trim() ? `${inputText.trim()}\n${attPayload}` : attPayload);
+      setInputText("");
+    } catch (err) {
+      console.error("Failed to send Sticker DM:", err);
+    }
+  };
+
+  const handleSelectMeme = async (memeUrl: string, title?: string) => {
+    try {
+      const attPayload = `attachment:${JSON.stringify({
+        url: memeUrl,
+        name: title || "Meme",
+        type: "image/jpeg",
+        kind: "image",
+      })}`;
+      await sendDMMessageAction(convoId, inputText.trim() ? `${inputText.trim()}\n${attPayload}` : attPayload);
+      setInputText("");
+    } catch (err) {
+      console.error("Failed to send Meme DM:", err);
     }
   };
 
@@ -773,7 +804,8 @@ export default function DMDetailScreen() {
                     style={styles.pillIconBtn}
                     onPress={() => {
                       NativeHaptics.light();
-                      setComposerEmojiOpen(true);
+                      setExpressionTab("emoji");
+                      setExpressionSheetOpen(true);
                     }}
                     hitSlop={8}
                   >
@@ -801,12 +833,13 @@ export default function DMDetailScreen() {
                     <Paperclip size={20} color="#A0A4B8" />
                   </TouchableOpacity>
 
-                  {/* GIF Button */}
+                  {/* GIF / Expression Button */}
                   <TouchableOpacity
                     style={styles.gifBadgeBtn}
                     onPress={() => {
                       NativeHaptics.light();
-                      setGifModalOpen(true);
+                      setExpressionTab("gifs");
+                      setExpressionSheetOpen(true);
                     }}
                     hitSlop={8}
                   >
@@ -1092,20 +1125,17 @@ export default function DMDetailScreen() {
         }}
       />
 
-      <MobileGifModal
-        visible={gifModalOpen}
-        onClose={() => setGifModalOpen(false)}
-        onSelectGif={handleSelectGif}
-      />
-
-      {/* Composer Emoji Picker Modal */}
-      <MobileEmojiModal
-        visible={composerEmojiOpen}
-        title="Insert Emoji"
-        onClose={() => setComposerEmojiOpen(false)}
+      {/* Unified Expression Bottom Sheet (GIFs, Stickers, Memes, Emojis) */}
+      <ExpressionSheet
+        visible={expressionSheetOpen}
+        initialTab={expressionTab}
+        onClose={() => setExpressionSheetOpen(false)}
         onSelectEmoji={(emoji) => {
           setInputText((prev) => prev + emoji);
         }}
+        onSelectGif={handleSelectGif}
+        onSelectSticker={handleSelectSticker}
+        onSelectMeme={handleSelectMeme}
       />
 
       {/* Message Reaction Emoji Picker Modal (with full catalog of thousands of emojis) */}

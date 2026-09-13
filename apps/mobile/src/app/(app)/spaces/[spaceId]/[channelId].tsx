@@ -55,6 +55,7 @@ import {
   MobileGifModal,
   MobileEmojiModal,
 } from "@/components/chat/MobileMediaPickers";
+import { ExpressionSheet, type ExpressionTab } from "@/components/chat/ExpressionSheet";
 import { useVoiceRecorder } from "../../../../lib/voice-recorder";
 import { colors, radius } from "../../../../theme/tokens";
 import {
@@ -1625,8 +1626,8 @@ function MessageComposer({
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
-  const [gifModalOpen, setGifModalOpen] = useState(false);
-  const [emojiModalOpen, setEmojiModalOpen] = useState(false);
+  const [expressionSheetOpen, setExpressionSheetOpen] = useState(false);
+  const [expressionTab, setExpressionTab] = useState<ExpressionTab>("emoji");
   const [stagedAttachment, setStagedAttachment] = useState<{
     url: string;
     name: string;
@@ -1674,6 +1675,38 @@ function MessageComposer({
       onCancelReply?.();
     } catch (e) {
       console.warn("Failed to send GIF:", e);
+    }
+  };
+
+  const handleSelectSticker = async (stickerUrl: string, title?: string) => {
+    try {
+      const attPayload = `attachment:${JSON.stringify({
+        url: stickerUrl,
+        name: title || "Sticker",
+        type: "image/webp",
+        kind: "image",
+      })}`;
+      await onSend(text.trim() ? `${text.trim()}\n${attPayload}` : attPayload, replyingTo?.id);
+      setText("");
+      onCancelReply?.();
+    } catch (e) {
+      console.warn("Failed to send Sticker:", e);
+    }
+  };
+
+  const handleSelectMeme = async (memeUrl: string, title?: string) => {
+    try {
+      const attPayload = `attachment:${JSON.stringify({
+        url: memeUrl,
+        name: title || "Meme",
+        type: "image/jpeg",
+        kind: "image",
+      })}`;
+      await onSend(text.trim() ? `${text.trim()}\n${attPayload}` : attPayload, replyingTo?.id);
+      setText("");
+      onCancelReply?.();
+    } catch (e) {
+      console.warn("Failed to send Meme:", e);
     }
   };
 
@@ -1775,7 +1808,8 @@ function MessageComposer({
               <Pressable
                 onPress={() => {
                   NativeHaptics.light();
-                  setEmojiModalOpen(true);
+                  setExpressionTab("emoji");
+                  setExpressionSheetOpen(true);
                 }}
                 style={styles.pillIconBtn}
                 hitSlop={8}
@@ -1804,11 +1838,12 @@ function MessageComposer({
                 <Paperclip size={20} color="#A0A4B8" />
               </Pressable>
 
-              {/* GIF badge button inside right of pill */}
+              {/* GIF / Expression badge button inside right of pill */}
               <Pressable
                 onPress={() => {
                   NativeHaptics.light();
-                  setGifModalOpen(true);
+                  setExpressionTab("gifs");
+                  setExpressionSheetOpen(true);
                 }}
                 style={styles.gifBadgeBtn}
                 hitSlop={8}
@@ -1877,18 +1912,17 @@ function MessageComposer({
         }}
       />
 
-      <MobileGifModal
-        visible={gifModalOpen}
-        onClose={() => setGifModalOpen(false)}
-        onSelectGif={handleSelectGif}
-      />
-
-      <MobileEmojiModal
-        visible={emojiModalOpen}
-        onClose={() => setEmojiModalOpen(false)}
+      {/* Unified Expression Bottom Sheet (GIFs, Stickers, Memes, Emojis) */}
+      <ExpressionSheet
+        visible={expressionSheetOpen}
+        initialTab={expressionTab}
+        onClose={() => setExpressionSheetOpen(false)}
         onSelectEmoji={(emoji) => {
           setText((prev) => prev + emoji);
         }}
+        onSelectGif={handleSelectGif}
+        onSelectSticker={handleSelectSticker}
+        onSelectMeme={handleSelectMeme}
       />
     </View>
   );

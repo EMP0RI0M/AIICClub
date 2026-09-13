@@ -300,13 +300,27 @@ export async function removeDMReaction(dmId: string, messageId: string, emoji: s
   });
 }
 
-export async function fetchGifs(query?: string, category?: string) {
+export async function fetchGifs(
+  query?: string,
+  category?: string,
+  type: "gifs" | "stickers" | "memes" = "gifs"
+) {
   const params = new URLSearchParams();
   if (query) params.set("q", query);
   if (category) params.set("category", category);
-  return api<{ gifs: Array<{ id: string; title: string; url: string; previewUrl?: string }> }>(
-    `/gifs?${params.toString()}`
-  );
+  if (type) params.set("type", type);
+  return api<{
+    gifs: Array<{ id: string; title: string; url: string; previewUrl?: string }>;
+    items?: Array<{ id: string; title: string; url: string; previewUrl?: string }>;
+  }>(`/gifs?${params.toString()}`);
+}
+
+export async function fetchExpressions(
+  type: "gifs" | "stickers" | "memes",
+  query?: string,
+  category?: string
+) {
+  return fetchGifs(query, category, type);
 }
 
 export async function fetchFriendsDashboard() {

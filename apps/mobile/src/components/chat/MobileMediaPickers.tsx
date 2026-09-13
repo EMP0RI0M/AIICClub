@@ -873,3 +873,5 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
 });
+
+export { ExpressionSheet, type ExpressionTab } from "./ExpressionSheet";
