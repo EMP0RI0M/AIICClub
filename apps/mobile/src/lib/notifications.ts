@@ -1,5 +1,18 @@
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 import { NativeHaptics } from "./haptics";
 import { soundService } from "./sound-service";
+
+// Configure notification behavior for foreground notifications
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    priority: Notifications.AndroidNotificationPriority.HIGH,
+  }),
+});
 
 export interface InAppNotification {
   id: string;
@@ -18,9 +31,50 @@ class NotificationService {
   private activeNotification: InAppNotification | null = null;
   private listeners: NotificationListener[] = [];
   private dismissTimer: any = null;
+  private pushToken: string | null = null;
 
-  /** Show an in-app banner notification with native haptic feedback */
-  show(notification: Omit<InAppNotification, "id">) {
+  /** Request native system notification permissions and retrieve Expo Push Token */
+  async requestPermissions(): Promise<boolean> {
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== "granted") {
+        return false;
+      }
+
+      if (Platform.OS === "android") {
+        await Notifications.setNotificationChannelAsync("default", {
+          name: "AIIC Notifications",
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: "#E8A33D",
+        });
+      }
+
+      try {
+        const tokenData = await Notifications.getExpoPushTokenAsync();
+        this.pushToken = tokenData.data;
+      } catch (e) {
+        // May fail in bare simulator or without Project ID
+      }
+      return true;
+    } catch (err) {
+      console.warn("[NotificationService] Permission request failed:", err);
+      return false;
+    }
+  }
+
+  /** Get registered push token */
+  getPushToken(): string | null {
+    return this.pushToken;
+  }
+
+  /** Show an in-app banner notification with native haptic feedback and optional system notification */
+  async show(notification: Omit<InAppNotification, "id">, options?: { sendSystemNotification?: boolean }) {
     if (this.dismissTimer) {
       clearTimeout(this.dismissTimer);
     }
@@ -42,6 +96,20 @@ class NotificationService {
       NativeHaptics.success();
     } else {
       NativeHaptics.light();
+    }
+
+    // Trigger native system banner if requested
+    if (options?.sendSystemNotification) {
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: notif.title,
+            body: notif.body,
+            data: { channelId: notif.channelId, spaceId: notif.spaceId, dmId: notif.dmId },
+          },
+          trigger: null,
+        });
+      } catch {}
     }
 
     this.dismissTimer = setTimeout(() => {

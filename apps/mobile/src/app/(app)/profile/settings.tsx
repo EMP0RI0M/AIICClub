@@ -32,6 +32,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useThemeStore, THEME_PRESETS } from "@/stores/theme-store";
 import { ThemeCustomizerModal } from "@/components/theme/ThemeCustomizerModal";
 import { fetchCurrentProfile, updateProfile } from "@/lib/api";
+import { notificationService } from "@/lib/notifications";
 
 export type SettingsTab =
   | "profile"
@@ -381,12 +382,20 @@ export default function UserSettingsScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.toggleTitle}>In-App & Push Notifications</Text>
                   <Text style={styles.toggleDesc}>
-                    Receive alerts when mentioned or when an incident response begins.
+                    Receive native push alerts and banners for incoming calls, mentions, and urgent incidents.
                   </Text>
                 </View>
                 <Switch
                   value={pushNotifs}
-                  onValueChange={setPushNotifs}
+                  onValueChange={async (val) => {
+                    setPushNotifs(val);
+                    if (val) {
+                      const granted = await notificationService.requestPermissions();
+                      if (!granted) {
+                        Alert.alert("Permission Required", "Please enable notification permissions in your device settings to receive real-time push alerts.");
+                      }
+                    }
+                  }}
                   thumbColor={pushNotifs ? colors.accent : colors.textMuted}
                   trackColor={{ false: "rgba(255,255,255,0.1)", true: "rgba(232,163,61,0.3)" }}
                 />
