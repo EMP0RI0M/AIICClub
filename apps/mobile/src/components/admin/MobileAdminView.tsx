@@ -11,7 +11,9 @@ import {
   Modal,
   FlatList,
 } from "react-native";
-import { colors, radius } from "../../theme/tokens";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import { colors, radius, useAppTheme } from "../../theme/tokens";
 import { NativeHaptics } from "../../lib/haptics";
 import { notificationService } from "../../lib/notifications";
 import {
@@ -94,6 +96,7 @@ const SYSTEM_ROLES = [
 ];
 
 export function MobileAdminView({ initialData }: { initialData?: any }) {
+  const theme = useAppTheme();
   const [activeTab, setActiveTab] = useState<AdminSectionId>("overview");
   const [loading, setLoading] = useState(false);
   const [overviewData, setOverviewData] = useState<any>(initialData || null);
@@ -388,57 +391,70 @@ export function MobileAdminView({ initialData }: { initialData?: any }) {
 
   return (
     <View style={styles.container}>
-      {/* Header Banner */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View style={styles.headerTitleWrap}>
-            <Shield size={20} color={colors.accent} />
-            <Text style={styles.headerTitle}>AIIC Governance</Text>
+      {/* Floating Liquid Glass Header Capsule */}
+      <View style={styles.headerCapsuleWrap}>
+        <BlurView intensity={32} tint="dark" style={styles.headerCapsule}>
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
+            style={StyleSheet.absoluteFillObject}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          />
+          <View style={styles.headerTop}>
+            <View style={styles.headerTitleWrap}>
+              <View style={[styles.headerIconOrb, { backgroundColor: theme.colors.accentSoft, borderColor: theme.colors.accentBorder }]}>
+                <Shield size={16} color={theme.colors.accent} />
+              </View>
+              <View>
+                <Text style={styles.headerTitle}>AIIC Governance</Text>
+                <Text style={[styles.headerSub, { color: theme.colors.accent }]}>EXECUTIVE PORTAL</Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => {
+                NativeHaptics.light();
+                if (activeTab === "overview") loadOverview();
+                else loadSectionData(activeTab);
+              }}
+              style={styles.refreshBtn}
+              hitSlop={8}
+            >
+              <RefreshCw size={14} color={colors.textSecondary} />
+            </Pressable>
           </View>
-          <Pressable
-            onPress={() => {
-              NativeHaptics.light();
-              if (activeTab === "overview") loadOverview();
-              else loadSectionData(activeTab);
-            }}
-            style={styles.refreshBtn}
-            hitSlop={8}
-          >
-            <RefreshCw size={14} color={colors.textSecondary} />
-          </Pressable>
-        </View>
 
-        {/* Horizontal Category Tab Selector */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabScroll}
-        >
-          {ADMIN_CATEGORIES.map((cat) => {
-            const Icon = cat.icon;
-            const isActive = activeTab === cat.id;
-            return (
-              <Pressable
-                key={cat.id}
-                onPress={() => {
-                  NativeHaptics.light();
-                  setActiveTab(cat.id);
-                }}
-                style={[styles.tabBtn, isActive && styles.tabBtnActive]}
-              >
-                <Icon
-                  size={14}
-                  color={isActive ? colors.accent : colors.textMuted}
-                />
-                <Text
-                  style={[styles.tabText, isActive && styles.tabTextActive]}
+          {/* Horizontal Category Tab Selector */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabScroll}
+          >
+            {ADMIN_CATEGORIES.map((cat) => {
+              const Icon = cat.icon;
+              const isActive = activeTab === cat.id;
+              return (
+                <Pressable
+                  key={cat.id}
+                  onPress={() => {
+                    NativeHaptics.light();
+                    setActiveTab(cat.id);
+                  }}
+                  style={[styles.tabBtn, isActive && styles.tabBtnActive]}
                 >
-                  {cat.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+                  <Icon
+                    size={13}
+                    color={isActive ? theme.colors.accent : colors.textMuted}
+                  />
+                  <Text
+                    style={[styles.tabText, isActive && [styles.tabTextActive, { color: theme.colors.accent }]]}
+                  >
+                    {cat.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </BlurView>
       </View>
 
       {/* Main Content Area */}
@@ -1112,29 +1128,56 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "transparent",
   },
-  header: {
-    backgroundColor: "rgba(18, 24, 34, 0.58)",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.08)",
-    paddingTop: 12,
+  headerCapsuleWrap: {
+    marginHorizontal: 14,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  headerCapsule: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    overflow: "hidden",
+    paddingTop: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   headerTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    paddingHorizontal: 14,
+    marginBottom: 10,
   },
   headerTitleWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
+  },
+  headerIconOrb: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
   },
   headerTitle: {
     fontFamily: "JetBrainsMono_700Bold",
-    fontSize: 16,
+    fontSize: 15,
     color: colors.textPrimary,
     fontWeight: "bold",
+  },
+  headerSub: {
+    fontSize: 9,
+    fontWeight: "800",
+    fontFamily: "monospace",
+    letterSpacing: 0.6,
+    marginTop: 1,
   },
   refreshBtn: {
     width: 32,
@@ -1145,16 +1188,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tabScroll: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingBottom: 10,
-    gap: 8,
+    gap: 6,
   },
   tabBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
     borderRadius: radius.md,
     backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
@@ -1165,7 +1208,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(212, 160, 23, 0.4)",
   },
   tabText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontFamily: "JetBrainsMono_700Bold",
     color: colors.textMuted,
   },
