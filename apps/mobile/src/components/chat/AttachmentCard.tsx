@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { colors, radius } from "../../theme/tokens";
-import { FileText, Download, ExternalLink, Play, Film, Music } from "lucide-react-native";
+import { FileText, Download, ExternalLink, Play, Pause, Film, Music } from "lucide-react-native";
+import { Audio } from "expo-av";
 import { ImageViewerModal } from "../ui/ImageViewerModal";
 import { NativeHaptics } from "../../lib/haptics";
 
@@ -25,6 +26,95 @@ export interface AttachmentItem {
 
 interface AttachmentCardProps {
   attachment: AttachmentItem;
+}
+
+export function AudioPlayerCard({ attachment }: { attachment: AttachmentItem }) {
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  React.useEffect(() => {
+    return () => {
+      if (sound) {
+        sound.unloadAsync().catch(() => {});
+      }
+    };
+  }, [sound]);
+
+  const togglePlay = async () => {
+    try {
+      NativeHaptics.selection();
+      if (sound) {
+        if (isPlaying) {
+          await sound.pauseAsync();
+          setIsPlaying(false);
+        } else {
+          await sound.playAsync();
+          setIsPlaying(true);
+        }
+      } else {
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: attachment.url },
+          { shouldPlay: true },
+          (status) => {
+            if (status.isLoaded) {
+              setPosition(status.positionMillis || 0);
+              setDuration(status.durationMillis || 0);
+              setIsPlaying(status.isPlaying);
+              if (status.didJustFinish) {
+                setIsPlaying(false);
+                newSound.setPositionAsync(0).catch(() => {});
+              }
+            }
+          }
+        );
+        setSound(newSound);
+        setIsPlaying(true);
+      }
+    } catch (e) {
+      console.warn("Failed to play audio:", e);
+      Linking.openURL(attachment.url).catch(() => {});
+    }
+  };
+
+  const formatMs = (ms: number) => {
+    const totalSecs = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (position / duration) * 100)) : 0;
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={togglePlay}
+      style={styles.audioPlayerCard}
+    >
+      <View style={styles.audioPlayBtn}>
+        {isPlaying ? (
+          <Pause size={14} color="#000" fill="#000" />
+        ) : (
+          <Play size={14} color="#000" fill="#000" style={{ marginLeft: 2 }} />
+        )}
+      </View>
+      <View style={styles.audioInfo}>
+        <View style={styles.audioProgressTrack}>
+          <View style={[styles.audioProgressBar, { width: `${progressPercent}%` }]} />
+        </View>
+        <View style={styles.audioMetaRow}>
+          <Text style={styles.audioDurationText}>
+            {duration > 0 ? formatMs(position) : attachment.duration || "Voice Note"}
+          </Text>
+          <Text style={styles.audioTotalText}>
+            {duration > 0 ? formatMs(duration) : attachment.name || "Audio"}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) => {
@@ -47,7 +137,7 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
   const isAudio =
     attachment.kind === "audio" ||
     attachment.mimeType?.startsWith("audio/") ||
-    Boolean(attachment.url?.match(/\.(mp3|wav|ogg|m4a)($|\?)/i));
+    Boolean(attachment.url?.match(/\.(mp3|wav|ogg|m4a|aac)($|\?)/i));
 
   const isImage =
     !isVideo &&
@@ -58,13 +148,12 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
       Boolean(attachment.url?.match(/\.(jpeg|jpg|gif|png|webp|bmp|avif)($|\?)/i)));
 
   const handleOpen = () => {
-    NativeHaptics.light();
-    if (isImage && !imageError) {
+    if (isImage) {
       setViewerOpen(true);
-    } else if (attachment.url) {
-      Linking.openURL(attachment.url).catch((err) =>
-        console.warn("Failed to open URL:", err)
-      );
+      return;
+    }
+    if (attachment.url) {
+      Linking.openURL(attachment.url).catch(() => {});
     }
   };
 
@@ -135,29 +224,7 @@ export const AttachmentCard: React.FC<AttachmentCardProps> = ({ attachment }) =>
   }
 
   if (isAudio) {
-    return (
-      <TouchableOpacity
-        activeOpacity={0.88}
-        onPress={handleOpen}
-        style={styles.docCard}
-      >
-        <View style={[styles.docIconWrap, { backgroundColor: "rgba(45, 212, 191, 0.15)" }]}>
-          <Music size={18} color={colors.accentTeal} />
-        </View>
-        <View style={styles.docInfo}>
-          <Text style={styles.docName} numberOfLines={1}>
-            {attachment.name || "Audio message"}
-          </Text>
-          <Text style={styles.docMeta}>
-            {attachment.duration ? `${attachment.duration} · ` : ""}
-            {formatFileSize(attachment.size)}
-          </Text>
-        </View>
-        <View style={styles.downloadBtn}>
-          <Play size={14} color={colors.accent} fill={colors.accent} />
-        </View>
-      </TouchableOpacity>
-    );
+    return <AudioPlayerCard attachment={attachment} />;
   }
 
   return (
@@ -422,5 +489,61 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(232, 163, 61, 0.12)",
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  // Audio / Voice Note Player Card
+  audioPlayerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(16, 20, 30, 0.92)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(232, 163, 61, 0.3)",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 6,
+    width: 230,
+    maxWidth: "100%",
+    gap: 10,
+  },
+  audioPlayBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  audioInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  audioProgressTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    overflow: "hidden",
+    width: "100%",
+  },
+  audioProgressBar: {
+    height: "100%",
+    backgroundColor: colors.accent,
+    borderRadius: 2,
+  },
+  audioMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  audioDurationText: {
+    fontSize: 10.5,
+    fontFamily: "monospace",
+    color: colors.accent,
+    fontWeight: "700",
+  },
+  audioTotalText: {
+    fontSize: 10,
+    fontFamily: "monospace",
+    color: colors.textMuted,
   },
 });

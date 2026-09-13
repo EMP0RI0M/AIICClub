@@ -53,6 +53,7 @@ import {
   MobileEmojiModal,
   MobileGiftPickerModal,
 } from "../../../components/chat/MobileMediaPickers";
+import { useVoiceRecorder } from "../../../lib/voice-recorder";
 import { NativeHaptics } from "../../../lib/haptics";
 import { fetchUserProfile } from "../../../lib/api";
 
@@ -213,6 +214,15 @@ export default function DMDetailScreen() {
   } = useChatStore();
 
   const [inputText, setInputText] = useState("");
+  const {
+    isRecording,
+    durationSec,
+    formattedDuration,
+    metering,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+  } = useVoiceRecorder();
   const [selectedUser, setSelectedUser] = useState<UserProfileData | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
   const [messageActionOpen, setMessageActionOpen] = useState(false);
@@ -726,55 +736,86 @@ export default function DMDetailScreen() {
                 colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
                 style={StyleSheet.absoluteFillObject}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
+                end={{ x: 1, y: 1 }}
               />
 
-              {/* Emoji button inside left of pill */}
-              <TouchableOpacity
-                style={styles.pillIconBtn}
-                onPress={() => {
-                  NativeHaptics.light();
-                  setComposerEmojiOpen(true);
-                }}
-                hitSlop={8}
-              >
-                <Smile size={21} color="#A0A4B8" />
-              </TouchableOpacity>
-
-              <TextInput
-                style={styles.composerInput}
-                placeholder={`Message ${conversation.name}...`}
-                placeholderTextColor="rgba(255, 255, 255, 0.45)"
-                value={inputText}
-                onChangeText={setInputText}
-                multiline
-              />
-
-              {/* Attachment Paperclip button */}
-              <TouchableOpacity
-                style={styles.pillIconBtn}
-                onPress={() => {
-                  NativeHaptics.light();
-                  setAttachSheetOpen(true);
-                }}
-                hitSlop={8}
-              >
-                <Paperclip size={20} color="#A0A4B8" />
-              </TouchableOpacity>
-
-              {/* GIF Button */}
-              <TouchableOpacity
-                style={styles.gifBadgeBtn}
-                onPress={() => {
-                  NativeHaptics.light();
-                  setGifModalOpen(true);
-                }}
-                hitSlop={8}
-              >
-                <View style={styles.gifBadge}>
-                  <Text style={styles.gifBadgeText}>GIF</Text>
+              {isRecording ? (
+                <View style={styles.recordingPillInner}>
+                  <View style={styles.recordingPulseDot} />
+                  <Text style={styles.recordingTimerText}>{formattedDuration}</Text>
+                  <View style={styles.waveformContainer}>
+                    {(metering.length > 0
+                      ? metering.slice(-12)
+                      : [0.3, 0.6, 0.9, 0.4, 0.7, 0.2, 0.8, 0.5]
+                    ).map((val, idx) => (
+                      <View
+                        key={idx}
+                        style={[
+                          styles.waveformBar,
+                          { height: Math.max(4, Math.min(22, val * 22)) },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                  <TouchableOpacity
+                    onPress={cancelRecording}
+                    style={styles.cancelRecordButton}
+                    hitSlop={8}
+                  >
+                    <Trash2 size={16} color="#FF5555" />
+                    <Text style={styles.cancelRecordText}>Cancel</Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              ) : (
+                <>
+                  {/* Emoji button inside left of pill */}
+                  <TouchableOpacity
+                    style={styles.pillIconBtn}
+                    onPress={() => {
+                      NativeHaptics.light();
+                      setComposerEmojiOpen(true);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Smile size={21} color="#A0A4B8" />
+                  </TouchableOpacity>
+
+                  <TextInput
+                    style={styles.composerInput}
+                    placeholder={`Message ${conversation.name}...`}
+                    placeholderTextColor="rgba(255, 255, 255, 0.45)"
+                    value={inputText}
+                    onChangeText={setInputText}
+                    multiline
+                  />
+
+                  {/* Attachment Paperclip button */}
+                  <TouchableOpacity
+                    style={styles.pillIconBtn}
+                    onPress={() => {
+                      NativeHaptics.light();
+                      setAttachSheetOpen(true);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Paperclip size={20} color="#A0A4B8" />
+                  </TouchableOpacity>
+
+                  {/* GIF Button */}
+                  <TouchableOpacity
+                    style={styles.gifBadgeBtn}
+                    onPress={() => {
+                      NativeHaptics.light();
+                      setGifModalOpen(true);
+                    }}
+                    hitSlop={8}
+                  >
+                    <View style={styles.gifBadge}>
+                      <Text style={styles.gifBadgeText}>GIF</Text>
+                    </View>
+                  </TouchableOpacity>
+                </>
+              )}
             </BlurView>
 
             {/* Detached Action Button */}
@@ -782,11 +823,41 @@ export default function DMDetailScreen() {
               style={[
                 styles.detachedActionButton,
                 (inputText.trim() || stagedAttachment) && styles.detachedActionButtonActive,
+                isRecording && styles.detachedActionButtonRecording,
               ]}
+              onPressIn={() => {
+                if (!inputText.trim() && !stagedAttachment) {
+                  startRecording();
+                }
+              }}
+              onPressOut={async () => {
+                if (isRecording) {
+                  const rec = await stopRecording();
+                  if (rec && rec.durationSec >= 1) {
+                    const attPayload = `attachment:${JSON.stringify({
+                      url: rec.uri,
+                      name: "Voice Note",
+                      type: "audio/m4a",
+                      kind: "audio",
+                      duration: rec.formattedDuration,
+                    })}`;
+                    const finalContent = inputText.trim() ? `${inputText.trim()}\n${attPayload}` : attPayload;
+                    const replyId = replyingTo?.id;
+                    setInputText("");
+                    setStagedAttachment(null);
+                    setReplyingTo(null);
+                    try {
+                      await sendDMMessageAction(convoId, finalContent, replyId);
+                    } catch (err) {
+                      console.error("Failed to send DM audio:", err);
+                    }
+                  }
+                }
+              }}
               onPress={() => {
                 if (inputText.trim() || stagedAttachment) {
                   handleSend();
-                } else {
+                } else if (!isRecording) {
                   NativeHaptics.selection();
                 }
               }}
@@ -795,7 +866,7 @@ export default function DMDetailScreen() {
               {inputText.trim() || stagedAttachment ? (
                 <Send size={18} color="#000" />
               ) : (
-                <Mic size={20} color={colors.accent} />
+                <Mic size={20} color={isRecording ? "#FFFFFF" : colors.accent} />
               )}
             </TouchableOpacity>
           </View>
@@ -1518,6 +1589,60 @@ const styles = StyleSheet.create({
   detachedActionButtonActive: {
     backgroundColor: colors.accent,
     borderColor: colors.accent,
+  },
+  detachedActionButtonRecording: {
+    backgroundColor: "#E53E3E",
+    borderColor: "#FF6B6B",
+    shadowColor: "#E53E3E",
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+  },
+  recordingPillInner: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    gap: 8,
+  },
+  recordingPulseDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FF4444",
+  },
+  recordingTimerText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    minWidth: 42,
+  },
+  waveformContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+    height: 24,
+  },
+  waveformBar: {
+    width: 3,
+    borderRadius: 1.5,
+    backgroundColor: colors.accent,
+  },
+  cancelRecordButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 68, 68, 0.15)",
+  },
+  cancelRecordText: {
+    color: "#FF5555",
+    fontSize: 12,
+    fontWeight: "600",
   },
   actionModalBackdrop: {
     flex: 1,
