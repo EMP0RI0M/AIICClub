@@ -31,7 +31,6 @@ import {
   Volume2,
   VolumeX,
   Radio,
-  Waveform,
 } from "lucide-react-native";
 import { Avatar } from "../ui/Avatar";
 import { Audio } from "expo-av";
