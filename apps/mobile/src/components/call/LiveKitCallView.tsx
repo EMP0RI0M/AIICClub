@@ -81,7 +81,6 @@ export const LiveKitCallView: React.FC<LiveKitCallViewProps> = ({
       }}
       audio={true}
       video={isVideo}
-      style={styles.roomContainer}
     >
       <LiveKitRoomInner
         callId={callId}
