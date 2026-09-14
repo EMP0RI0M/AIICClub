@@ -57,6 +57,11 @@ jobs:
                     config.build_settings["GCC_WARN_64_TO_32_BIT_CONVERSION"] = "NO"
                     config.build_settings["ENABLE_USER_SCRIPT_SANDBOXING"] = "NO"
                     config.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "15.1"
+                    config.build_settings["GCC_TREAT_WARNINGS_AS_ERRORS"] = "NO"
+                    config.build_settings["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "NO"
+                    config.build_settings["EXPANDED_CODE_SIGN_IDENTITY"] = ""
+                    config.build_settings["CODE_SIGNING_REQUIRED"] = "NO"
+                    config.build_settings["CODE_SIGNING_ALLOWED"] = "NO"
                   end
                 end
             }
@@ -85,6 +90,8 @@ jobs:
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=NO \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
             ONLY_ACTIVE_ARCH=NO
 
       - name: 📦 Package .xcarchive into .ipa

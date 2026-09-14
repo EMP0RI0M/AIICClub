@@ -121,7 +121,8 @@
           "icon": "./assets/icon.png",
           "color": "#E8A33D"
         }
-      ]
+      ],
+      "@livekit/react-native-expo-plugin"
     ],
     "experiments": {
       "typedRoutes": true
