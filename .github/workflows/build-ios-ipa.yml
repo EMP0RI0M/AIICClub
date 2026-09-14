@@ -44,6 +44,23 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: "https://tgbjgyhcfhqvwayvvwkl.supabase.co"
           EXPO_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnYmpneWhjZmhxdndheXZ2d2tsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MTcwNjIsImV4cCI6MjEwMjI5MzA2Mn0.Cjj6oY9s7FwTywXlw-9h4Um01cBvfllKQqapobmYXNY"
 
+      - name: 🔧 Patch Xcode Project Code Signing Configuration
+        run: |
+          cd apps/mobile/ios
+          ruby -e '
+            proj_path = "AIICClub.xcodeproj/project.pbxproj"
+            if File.exist?(proj_path)
+              content = File.read(proj_path)
+              content.gsub!(/CODE_SIGN_STYLE = [^;]+;/, "CODE_SIGN_STYLE = Manual;")
+              content.gsub!(/DEVELOPMENT_TEAM = [^;]+;/, "DEVELOPMENT_TEAM = \"\";")
+              content.gsub!(/CODE_SIGN_IDENTITY = "[^"]*";/, "CODE_SIGN_IDENTITY = \"\";")
+              content.gsub!(/CODE_SIGN_IDENTITY\[sdk=iphoneos\*\] = "[^"]*";/, "CODE_SIGN_IDENTITY[sdk=iphoneos*] = \"\";")
+              content.gsub!(/ENABLE_USER_SCRIPT_SANDBOXING = [^;]+;/, "ENABLE_USER_SCRIPT_SANDBOXING = NO;")
+              File.write(proj_path, content)
+              puts "Successfully patched AIICClub.xcodeproj project.pbxproj"
+            end
+          '
+
       - name: 📦 Configure Podfile & Install CocoaPods
         run: |
           cd apps/mobile/ios
@@ -87,18 +104,14 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
+            DEVELOPMENT_TEAM="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
             GCC_TREAT_WARNINGS_AS_ERRORS=NO \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
             ENABLE_USER_SCRIPT_SANDBOXING=NO \
-            ONLY_ACTIVE_ARCH=NO 2>&1 | tee xcodebuild.log || {
-              echo "❌ ================= XCODEBUILD FAILED: ERROR LOG SUMMARY ================"
-              grep -E -C 3 "error:|fatal error:|BUILD FAILED" xcodebuild.log | tail -n 100
-              echo "❌ ================= END ERROR LOG SUMMARY ================"
-              exit 1
-            }
+            ONLY_ACTIVE_ARCH=NO 2>&1 | tee xcodebuild.log
 
       - name: 📦 Package App Bundle into .ipa
         run: |
@@ -121,6 +134,18 @@ jobs:
             find build -maxdepth 4 -ls
             exit 1
           fi
+
+      - name: 🔍 Print Failure Diagnostics
+        if: failure()
+        run: |
+          echo "==================== BUILD FAILURE DETECTED ===================="
+          if [ -f apps/mobile/ios/xcodebuild.log ]; then
+            echo "--- Extracting Fatal Errors and Compilation Failures ---"
+            grep -E -C 4 "error:|fatal error:|BUILD FAILED|Signing for|Code signing" apps/mobile/ios/xcodebuild.log | tail -n 60 || true
+            echo "--- Last 50 lines of xcodebuild log ---"
+            tail -n 50 apps/mobile/ios/xcodebuild.log
+          fi
+          echo "================================================================"
 
       - name: 📤 Upload IPA Artifact
         uses: actions/upload-artifact@v4
