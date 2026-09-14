@@ -1,4 +1,4 @@
-import type { AIICArchiveRecord } from "../aiic-types";
+import type { AIICArchiveRecord } from "../archive-types";
 import { LECTURE_QUIZZES, type LectureQuiz, type QuizQuestion } from "./quiz-data";
 import { getSupabaseAdmin } from "@/shared/supabase/admin";
 

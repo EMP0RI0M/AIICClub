@@ -1511,7 +1511,7 @@ export function AppShell({
                 const resData = await res.json();
                 if (resData.conversation) {
                     const c = resData.conversation;
-                    const otherParticipants = (c.participants || []).filter((p: any) => p.id !== user?.id);
+                    const otherParticipants = (c.participants || []).filter((p: any) => p.id !== authUser?.id);
                     const convoSummary: DMSummary = {
                         id: c.id,
                         name: c.name || otherParticipants.map((p: any) => p.displayName || p.username).join(", ") || "Group",

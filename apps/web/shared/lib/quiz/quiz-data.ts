@@ -44,6 +44,25 @@ export interface LectureQuiz {
   questions: QuizQuestion[];
 }
 
+export interface QuizAttempt {
+  id: string;
+  userId: string;
+  lectureId: string;
+  lectureTitle: string;
+  score: number;
+  totalPossibleScore: number;
+  accuracyPercentage: number;
+  timeSpentSeconds: number;
+  maxStreak: number;
+  answers: {
+    questionId: string;
+    selectedOptionIndex: number;
+    isCorrect: boolean;
+    timeTakenSeconds: number;
+  }[];
+  createdAt: string;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   userId: string;

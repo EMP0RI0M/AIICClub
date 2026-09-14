@@ -30,6 +30,7 @@ import {
   Bot,
   Zap,
   Check,
+  Copy,
   Compass,
   ChevronDown,
   ChevronRight,
@@ -720,6 +721,12 @@ export function ArchiveExplorer({ initialRecords = [], stats }: ArchiveExplorerP
     } catch (err) {
       console.error("Failed to load archive records:", err);
     }
+  };
+
+  const handleSyncToAI = async () => {
+    try {
+      await fetch("/api/knowledge/sync", { method: "POST" });
+    } catch {}
   };
 
   useEffect(() => {

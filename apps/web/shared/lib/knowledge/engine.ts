@@ -2001,9 +2001,10 @@ export async function answerWithKnowledgeEngine(
       query,
       intent,
       retrievedCount: rawChunksRetrieved,
-      filteredCount: uniqueSourceCount,
-      rerankedCount: uniqueSourceCount,
-      latencyMs: 180,
+      uniqueSourceCount: uniqueSourceCount,
+      deduplicatedCount: uniqueSourceCount,
+      selectedChunksCount: uniqueSourceCount,
+      modelUsed: NVIDIA_MODELS.BRAIN,
     },
   };
 }
