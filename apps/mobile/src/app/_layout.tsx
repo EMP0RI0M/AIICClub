@@ -58,7 +58,7 @@ export default function RootLayout() {
           router.push(`/(app)/dms/${data.dmId}` as any);
         } else if (data.spaceId && data.channelId) {
           router.push(`/(app)/spaces/${data.spaceId}/${data.channelId}` as any);
-        } else if (data.url) {
+        } else if (typeof data.url === "string") {
           Linking.openURL(data.url);
         }
       } catch (err) {
