@@ -10,6 +10,8 @@ import { NotificationBanner } from "../components/ui/NotificationBanner";
 import { IncomingCallModal } from "../components/call/IncomingCallModal";
 import { globalCallSignaling } from "../lib/call-signaling";
 import { WallpaperBackground } from "../components/theme/WallpaperBackground";
+import { novuEngine } from "../lib/novu";
+import * as Notifications from "expo-notifications";
 
 export default function RootLayout() {
   const { user, isAuthenticated, isRestoring, restoreSession, handleOAuthCallback } = useAuthStore();
@@ -23,18 +25,51 @@ export default function RootLayout() {
     restoreSession();
   }, [restoreSession]);
 
-  // Global Realtime Call Signaling & Tier 3 E2EE Key Initialization
+  // Global Realtime Call Signaling, E2EE, and Novu Multi-Channel Identification
   useEffect(() => {
     if (user?.id) {
       globalCallSignaling.subscribe(user.id, (user as any).auth_user_id);
       import("../lib/e2ee")
         .then(({ e2ee }) => e2ee.initialize(user.id))
         .catch((err) => console.warn("[RootLayout] E2EE Init Error:", err));
+
+      // Identify subscriber on Novu Engine
+      novuEngine.identify({
+        subscriberId: user.id,
+        email: (user as any).email,
+        firstName: user.displayName || user.username || "Member",
+        avatar: user.avatar || undefined,
+      });
     }
     return () => {
       globalCallSignaling.unsubscribe();
+      novuEngine.disconnect();
     };
   }, [user?.id]);
+
+  // Native Background & Foreground Notification Response Listener (Deep Linking to DM/Channel)
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      try {
+        const data = response.notification?.request?.content?.data;
+        if (!data) return;
+
+        if (data.dmId) {
+          router.push(`/(app)/dms/${data.dmId}` as any);
+        } else if (data.spaceId && data.channelId) {
+          router.push(`/(app)/spaces/${data.spaceId}/${data.channelId}` as any);
+        } else if (data.url) {
+          Linking.openURL(data.url);
+        }
+      } catch (err) {
+        console.warn("[RootLayout] notification response routing error:", err);
+      }
+    });
+
+    return () => {
+      sub.remove();
+    };
+  }, [router]);
 
   // Global Native Deep Link Listener for OAuth callback & HTTPS App Links (/join, /invite)
   useEffect(() => {
