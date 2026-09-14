@@ -23,7 +23,12 @@
         "NSMicrophoneUsageDescription": "AIIC needs microphone access for voice channels, voice messages, and audio calls.",
         "NSCameraUsageDescription": "AIIC needs camera access for video calls, avatar photos, and media attachments.",
         "NSPhotoLibraryUsageDescription": "AIIC needs photo library access for sharing images and attachments in chats.",
-        "UIBackgroundModes": ["audio", "voip", "fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "audio",
+          "voip",
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -120,6 +125,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "50c1677b-a86a-4a50-b57a-99f1f37f3fea"
+      }
+    },
+    "owner": "emp0riums-team"
   }
 }

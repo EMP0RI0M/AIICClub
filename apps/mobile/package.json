@@ -57,6 +57,7 @@
     "@corvus/config": "workspace:*",
     "@expo/ngrok": "^4.1.0",
     "@types/react": "~19.1.10",
+    "eas-cli": "^24.3.0",
     "typescript": "^5.9.3"
   }
 }
