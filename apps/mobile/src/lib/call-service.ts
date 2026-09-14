@@ -38,6 +38,12 @@ export interface VideoState {
   cameraFacing: "front" | "back";
 }
 
+export interface LiveKitTransport {
+  token: string;
+  url: string;
+  roomName: string;
+}
+
 export interface CallSessionConfig {
   callId: string;
   direction: "incoming" | "outgoing";
@@ -50,6 +56,7 @@ export interface CallSessionConfig {
 export type CallStateListener = (state: CallState, error?: string | null) => void;
 export type CallQualityListener = (quality: "excellent" | "good" | "weak" | "reconnecting") => void;
 export type VideoStateListener = (videoState: VideoState) => void;
+export type TransportListener = (transport: LiveKitTransport | null) => void;
 
 const NO_ANSWER_TIMEOUT_MS = 45000;
 
@@ -59,10 +66,9 @@ class CallService {
   private stateListeners: Set<CallStateListener> = new Set();
   private qualityListeners: Set<CallQualityListener> = new Set();
   private videoListeners: Set<VideoStateListener> = new Set();
+  private transportListeners: Set<TransportListener> = new Set();
   private realtimeChannel: any = null;
-  private peerConnection: any = null;
-  private localStream: any = null;
-  private remoteStream: any = null;
+  private transport: LiveKitTransport | null = null;
   private isMuted: boolean = false;
   private isVideo: boolean = false;
   private isCameraOn: boolean = true;
@@ -76,6 +82,10 @@ class CallService {
 
   getState(): CallState {
     return this.state;
+  }
+
+  getTransport(): LiveKitTransport | null {
+    return this.transport;
   }
 
   getConnectedAt(): number | null {
@@ -121,9 +131,20 @@ class CallService {
     return () => this.videoListeners.delete(fn);
   }
 
+  onTransportChange(fn: TransportListener): () => void {
+    this.transportListeners.add(fn);
+    fn(this.transport);
+    return () => this.transportListeners.delete(fn);
+  }
+
   private notifyVideoState() {
     const vs = this.getVideoState();
     this.videoListeners.forEach((fn) => fn(vs));
+  }
+
+  private setTransport(transport: LiveKitTransport | null) {
+    this.transport = transport;
+    this.transportListeners.forEach((fn) => fn(transport));
   }
 
   private setState(next: CallState, err?: string | null) {
@@ -164,7 +185,7 @@ class CallService {
   }
 
   /**
-   * Start or join a call session with Supabase Realtime signaling and WebRTC
+   * Start or join a call session with Supabase Realtime signaling and LiveKit
    */
   async startCall(config: CallSessionConfig): Promise<void> {
     this.config = config;
@@ -175,6 +196,7 @@ class CallService {
     this.remoteCameraOn = Boolean(config.isVideo);
     this.cameraFacing = "front";
     this.connectedAt = null;
+    this.setTransport(null);
     this.clearNoAnswerTimer();
     this.notifyVideoState();
 
@@ -242,6 +264,9 @@ class CallService {
 
       await this.configureAudio(this.audioRoute);
 
+      // Stop ringtone before binding native LiveKit audio drivers
+      await soundService.stopAllCallSounds().catch(() => {});
+
       // Broadcast call_accepted event to remote peer on DM channel and caller's user channel
       const callId = this.config.callId;
       const callerId = this.config.participant.id;
@@ -278,11 +303,19 @@ class CallService {
         });
       } catch {}
 
-      // Notify backend join endpoint
-      await apiJoinDMCall(callId, Boolean(this.isVideo)).catch(() => null);
+      // Fetch LiveKit room credentials from backend join endpoint
+      const res = await apiJoinDMCall(callId, Boolean(this.isVideo)).catch(() => null);
+      if (res && res.token && res.url) {
+        this.setTransport({
+          token: res.token,
+          url: res.url,
+          roomName: res.roomName,
+        });
+      }
 
-      // Initialize WebRTC connection or mark connected upon signaling handshake completion
-      this.establishWebRTCConnection();
+      // Mark connected
+      this.setState("connected");
+      this.setQuality("excellent");
     } catch (err: any) {
       console.warn("[CallService] acceptCall error:", err);
       this.setState("failed", "Call connection failed. Please try again.");
@@ -324,14 +357,6 @@ class CallService {
    */
   toggleMute(): boolean {
     this.isMuted = !this.isMuted;
-    if (this.localStream) {
-      try {
-        const audioTracks = this.localStream.getAudioTracks?.() || [];
-        audioTracks.forEach((track: any) => {
-          track.enabled = !this.isMuted;
-        });
-      } catch {}
-    }
     return this.isMuted;
   }
 
@@ -421,13 +446,13 @@ class CallService {
         config: { broadcast: { self: false } },
       });
 
-      const handleAcceptedPayload = (payload: any) => {
+      const handleAcceptedPayload = async (payload: any) => {
         const eventCallId = payload?.callId || payload?.conversationId || payload?.dmId;
         if (eventCallId && eventCallId !== config.callId) return;
 
         console.log(`[CALL] id=${config.callId} signal=accepted received (video=${payload?.video})`);
         this.clearNoAnswerTimer();
-        soundService.stopOutgoingRingback().catch(() => {});
+        await soundService.stopAllCallSounds().catch(() => {});
 
         if (typeof payload?.video === "boolean") {
           this.isVideo = payload.video;
@@ -435,8 +460,8 @@ class CallService {
         }
 
         if (this.state === "calling" || this.state === "ringing" || this.state === "connecting") {
-          this.setState("connecting");
-          this.establishWebRTCConnection();
+          this.setState("connected");
+          this.setQuality("excellent");
         }
       };
 
@@ -522,8 +547,15 @@ class CallService {
 
       await this.configureAudio(this.audioRoute);
 
-      // 2. Call backend start endpoint
-      await apiStartDMCall(config.callId, Boolean(config.isVideo)).catch(() => null);
+      // 2. Call backend start endpoint to get LiveKit room credentials
+      const res = await apiStartDMCall(config.callId, Boolean(config.isVideo)).catch(() => null);
+      if (res && res.token && res.url) {
+        this.setTransport({
+          token: res.token,
+          url: res.url,
+          roomName: res.roomName,
+        });
+      }
 
       // 3. Broadcast direct incoming_call signal on the DM channel
       if (this.realtimeChannel) {
@@ -550,18 +582,6 @@ class CallService {
       this.setState("failed", "Unable to place call.");
       this.cleanup("failed");
     }
-  }
-
-  /**
-   * Establish connection and transition to connected once signaling + audio setup completes
-   */
-  private establishWebRTCConnection() {
-    if (this.isCleanedUp) return;
-
-    // Transition to connected only after explicit acceptance
-    console.log(`[CALL] id=${this.config?.callId} webrtc=connected`);
-    this.setState("connected");
-    this.setQuality("excellent");
   }
 
   /**
@@ -605,29 +625,14 @@ class CallService {
     this.isCleanedUp = true;
     this.clearNoAnswerTimer();
     this.connectedAt = null;
+    this.setTransport(null);
     this.globalSignalingUnsubs.forEach((unsub) => unsub());
     this.globalSignalingUnsubs = [];
 
     // 1. Stop all sound loops immediately
     soundService.stopAllCallSounds().catch(() => {});
 
-    // 2. Stop local media tracks
-    if (this.localStream) {
-      try {
-        this.localStream.getTracks?.().forEach((t: any) => t.stop?.());
-      } catch {}
-      this.localStream = null;
-    }
-
-    // 3. Close peer connection
-    if (this.peerConnection) {
-      try {
-        this.peerConnection.close?.();
-      } catch {}
-      this.peerConnection = null;
-    }
-
-    // 4. Unsubscribe Supabase channel
+    // 2. Unsubscribe Supabase channel
     if (this.realtimeChannel) {
       try {
         const supabase = getSupabaseClient();
@@ -636,7 +641,7 @@ class CallService {
       this.realtimeChannel = null;
     }
 
-    // 5. Reset Audio Mode safely
+    // 3. Reset Audio Mode safely
     Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,

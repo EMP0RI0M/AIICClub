@@ -18,6 +18,7 @@ import { useAuthStore } from "../../../stores/auth-store";
 import { useWorkspaceStore } from "../../../stores/workspace-store";
 import { resolveUserAvatar } from "../../../lib/avatar";
 import { CallScreen } from "../../../components/call/CallScreen";
+import { LiveKitCallView } from "../../../components/call/LiveKitCallView";
 import {
   Mic,
   MicOff,
@@ -165,6 +166,31 @@ export default function VoiceStageScreen() {
   // ─────────────────────────────────────────────────────────────
   // B. SPACE VOICE / LIVE STAGE ROOM
   // ─────────────────────────────────────────────────────────────
+  if (!isDirectCall && session?.token && session?.url) {
+    return (
+      <LiveKitCallView
+        url={session.url}
+        token={session.token}
+        callId={id}
+        participantName={session.channelName || "Live Audio Stage"}
+        currentUser={
+          user
+            ? {
+                id: user.id,
+                name: user.displayName || user.username || "You",
+                avatarUrl: resolveUserAvatar(user),
+              }
+            : null
+        }
+        isVideo={false}
+        onDisconnect={async () => {
+          await api(`/channels/${id}/voice/leave`, { method: "POST" }).catch(() => null);
+          router.back();
+        }}
+      />
+    );
+  }
+
   const participants = (session?.participants || []).map((p: any) => ({
     id: p.userId,
     name: p.displayName || p.username || "Member",

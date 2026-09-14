@@ -22,7 +22,9 @@ import {
   AudioRoute,
   CallParticipant,
   VideoState,
+  LiveKitTransport,
 } from "../../lib/call-service";
+import { LiveKitCallView } from "./LiveKitCallView";
 import {
   Mic,
   MicOff,
@@ -72,6 +74,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   const [callDuration, setCallDuration] = useState(0);
   const [quality, setQuality] = useState<"excellent" | "good" | "weak" | "reconnecting">("excellent");
   const [videoState, setVideoState] = useState<VideoState>(callService.getVideoState());
+  const [transport, setTransport] = useState<LiveKitTransport | null>(callService.getTransport());
 
   const isVideoMode = isVideo || videoState.isVideo;
 
@@ -181,6 +184,10 @@ export const CallScreen: React.FC<CallScreenProps> = ({
       setVideoState(nextVideo);
     });
 
+    const unsubTransport = callService.onTransportChange((nextTransport) => {
+      setTransport(nextTransport);
+    });
+
     // Start Call Session
     callService.startCall({
       callId,
@@ -201,6 +208,7 @@ export const CallScreen: React.FC<CallScreenProps> = ({
       unsubState();
       unsubQuality();
       unsubVideo();
+      unsubTransport();
       backHandler.remove();
       if (callService.getState() === "ended" || callService.getState() === "failed" || callService.getState() === "no_answer") {
         callService.cleanup();
@@ -289,6 +297,22 @@ export const CallScreen: React.FC<CallScreenProps> = ({
   const resolvedAvatarUrl = formatAvatarUrl(participant.avatarUrl);
   const userAvatarUrl = formatAvatarUrl(currentUser?.avatarUrl);
   const avatarSize = Math.min(130, width * 0.32);
+
+  // If call is connected and we have LiveKit transport credentials, render LiveKitCallView
+  if (callState === "connected" && transport && transport.token && transport.url) {
+    return (
+      <LiveKitCallView
+        url={transport.url}
+        token={transport.token}
+        callId={callId}
+        participantName={participant.name}
+        participantAvatar={resolvedAvatarUrl}
+        currentUser={currentUser}
+        isVideo={isVideoMode}
+        onDisconnect={handleEndCall}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
