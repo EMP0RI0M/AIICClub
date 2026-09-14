@@ -74,38 +74,45 @@ jobs:
           '
           pod install
 
-      - name: 🍎 Build iOS Release Archive (Unsigned / Ad-Hoc Simulator & Generic Device)
+      - name: 🍎 Build iOS Release App Bundle (Unsigned / Ad-Hoc)
         run: |
           cd apps/mobile/ios
           xcodebuild -workspace AIICClub.xcworkspace \
             -scheme AIICClub \
             -configuration Release \
             -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/AIICClub.xcarchive \
-            archive \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
             GCC_TREAT_WARNINGS_AS_ERRORS=NO \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
+            ENABLE_USER_SCRIPT_SANDBOXING=NO \
             ONLY_ACTIVE_ARCH=NO
 
-      - name: 📦 Package .xcarchive into .ipa
+      - name: 📦 Package App Bundle into .ipa
         run: |
           cd apps/mobile/ios
           mkdir -p Payload
-          # Copy app bundle to Payload folder for IPA creation
-          APP_DIR=$(find build/AIICClub.xcarchive/Products/Applications -name "*.app" -maxdepth 1 | head -n 1)
+          # Search for the built .app bundle in the derivedData output
+          APP_DIR=$(find build/Build/Products/Release-iphoneos -name "*.app" -maxdepth 1 | head -n 1)
+          if [ -z "$APP_DIR" ]; then
+            APP_DIR=$(find build -name "*.app" | head -n 1)
+          fi
+          
+          echo "Found app bundle: $APP_DIR"
           if [ -d "$APP_DIR" ]; then
             cp -r "$APP_DIR" Payload/
             zip -r AIICClub-release.ipa Payload
+            ls -lh AIICClub-release.ipa
             rm -rf Payload
           else
-            echo "App bundle not found in archive"
+            echo "❌ Error: App bundle not found in build directory"
+            find build -maxdepth 4 -ls
             exit 1
           fi
 
