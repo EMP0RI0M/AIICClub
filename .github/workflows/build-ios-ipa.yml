@@ -75,6 +75,7 @@ jobs:
           xcodebuild -workspace AIICClub.xcworkspace \
             -scheme AIICClub \
             -configuration Release \
+            -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath build/AIICClub.xcarchive \
             archive \
@@ -83,15 +84,23 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
-            COMPILER_INDEX_STORE_ENABLE=NO
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            ONLY_ACTIVE_ARCH=NO
 
       - name: 📦 Package .xcarchive into .ipa
         run: |
           cd apps/mobile/ios
           mkdir -p Payload
-          cp -r build/AIICClub.xcarchive/Products/Applications/AIICClub.app Payload/
-          zip -r AIICClub-release.ipa Payload
-          rm -rf Payload
+          # Copy app bundle to Payload folder for IPA creation
+          APP_DIR=$(find build/AIICClub.xcarchive/Products/Applications -name "*.app" -maxdepth 1 | head -n 1)
+          if [ -d "$APP_DIR" ]; then
+            cp -r "$APP_DIR" Payload/
+            zip -r AIICClub-release.ipa Payload
+            rm -rf Payload
+          else
+            echo "App bundle not found in archive"
+            exit 1
+          fi
 
       - name: 📤 Upload IPA Artifact
         uses: actions/upload-artifact@v4
