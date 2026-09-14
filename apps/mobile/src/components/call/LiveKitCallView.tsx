@@ -183,6 +183,30 @@ const LiveKitRoomInner: React.FC<LiveKitRoomInnerProps> = ({
     }
   };
 
+  // Handle Toggle Mic
+  const handleToggleMic = async (enabled: boolean) => {
+    NativeHaptics.selection();
+    try {
+      if (localParticipant) {
+        await localParticipant.setMicrophoneEnabled(enabled);
+      }
+    } catch (err) {
+      console.warn("[LiveKitCallView] setMicrophoneEnabled error:", err);
+    }
+  };
+
+  // Handle Toggle Camera
+  const handleToggleCamera = async (enabled: boolean) => {
+    NativeHaptics.selection();
+    try {
+      if (localParticipant) {
+        await localParticipant.setCameraEnabled(enabled);
+      }
+    } catch (err) {
+      console.warn("[LiveKitCallView] setCameraEnabled error:", err);
+    }
+  };
+
   // Handle Disconnect
   const handleDisconnect = () => {
     NativeHaptics.heavy();
@@ -296,9 +320,9 @@ const LiveKitRoomInner: React.FC<LiveKitRoomInnerProps> = ({
         {/* Bottom Floating Glass Controls */}
         <LiveKitRoomControls
           micEnabled={isMicrophoneEnabled}
-          setMicEnabled={(enabled) => localParticipant?.setMicrophoneEnabled(enabled)}
+          setMicEnabled={handleToggleMic}
           cameraEnabled={isCameraEnabled}
-          setCameraEnabled={(enabled) => localParticipant?.setCameraEnabled(enabled)}
+          setCameraEnabled={handleToggleCamera}
           switchCamera={handleSwitchCamera}
           isSpeakerOn={isSpeakerOn}
           onToggleSpeaker={handleToggleSpeaker}

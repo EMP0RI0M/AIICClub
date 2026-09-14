@@ -735,6 +735,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const currentUserId = useAuthStore.getState().user?.id;
       if (message.author.id && message.author.id !== currentUserId && !message.id.startsWith("optimistic_")) {
         soundService.playMessagePing(message.id, { type: "dm", id: dmId }).catch(() => {});
+        notificationService.show({
+          title: message.author.name || "Direct Message",
+          body: message.text || "Sent an attachment",
+          type: "info",
+          dmId,
+        }, { sendSystemNotification: true });
       }
       return {
         dmMessages: {
@@ -1357,6 +1363,51 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }, 2500);
 
       set({ activeThreadSubscription: channel, threadPollTimer: pollTimer });
+    } catch {}
+  },
+
+  sendTyping: (channelId: string, username: string) => {
+    try {
+      const channel = get().activeChannelSubscription;
+      if (channel) {
+        channel.send({
+          type: "broadcast",
+          event: "typing",
+          payload: { username },
+        });
+      }
+    } catch {}
+  },
+
+  sendDMTyping: (dmId: string, username: string) => {
+    try {
+      const channel = get().activeDMSubscription;
+      if (channel) {
+        channel.send({
+          type: "broadcast",
+          event: "typing",
+          payload: { username },
+        });
+      }
+    } catch {}
+  },
+
+  startDMCall: (dmId: string, caller: { id: string; name: string; avatar?: string | null }, isVideo?: boolean) => {
+    try {
+      const channel = get().activeDMSubscription;
+      if (channel) {
+        channel.send({
+          type: "broadcast",
+          event: "incoming_call",
+          payload: {
+            conversationId: dmId,
+            callId: dmId,
+            caller,
+            isVideo: Boolean(isVideo),
+            timestamp: Date.now(),
+          },
+        });
+      }
     } catch {}
   },
 
